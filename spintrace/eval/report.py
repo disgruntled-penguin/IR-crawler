@@ -16,8 +16,8 @@ from . import run as runner
 LEVELS = ["exact", "light", "synonym", "seo", "summary"]
 NEG_LEVELS = ["original", "hard_negative", "facts_only"]
 BASELINES = ["exact_hash", "minhash_jaccard", "shingle_containment", "tfidf_cosine", "bm25", "dense_cosine"]
-FEATURES = ["rare_cos", "shingle_containment", "align_coverage", "align_mean", "align_order", "quote_overlap",
-            "fact_overlap"]
+FEATURES = ["rare_cos", "shingle_containment", "align_coverage", "align_mean", "align_order", "back_coverage",
+            "ordered_coverage", "quote_overlap", "fact_overlap"]
 LABELS = {"spintrace": "SpinTrace", "exact_hash": "Exact hash", "minhash_jaccard": "MinHash Jaccard",
           "shingle_containment": "Shingle containment (all pairs)", "tfidf_cosine": "tf-idf cosine", "bm25": "BM25",
           "dense_cosine": "Dense cosine"}
