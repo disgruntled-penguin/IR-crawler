@@ -85,6 +85,21 @@ def ordered_coverage(p):
     return _lis(matched) / len(best) if len(best) else 0.0
 
 
+def aligned_word_overlap(p):
+    """Mean content-word Jaccard of aligned sentence pairs: a rewrite inherits its source's phrasing even when it
+    paraphrases; an article written independently from the same facts does not."""
+    best, arg, _ = p.alignment()
+    ss, _ = p.emb.doc(p.s["doc_id"], p.s["text"])
+    cs, _ = p.emb.doc(p.c["doc_id"], p.c["text"])
+    vals = []
+    for i in range(len(best)):
+        if best[i] >= ALIGN_THRESHOLD:
+            a = set(tx.content_terms(tx.tokens(ss[i])))
+            b = set(tx.content_terms(tx.tokens(cs[arg[i]])))
+            vals.append(len(a & b) / len(a | b) if a | b else 0.0)
+    return float(np.mean(vals)) if vals else 0.0
+
+
 def quote_overlap(p):
     qs = tx.quotes(p.s["text"])
     if not qs:
@@ -115,6 +130,7 @@ SIGNALS = {
     "align_order": align_order,
     "back_coverage": back_coverage,
     "ordered_coverage": ordered_coverage,
+    "aligned_word_overlap": aligned_word_overlap,
     "quote_overlap": quote_overlap,
     "fact_overlap": fact_overlap,
 }
