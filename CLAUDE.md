@@ -14,6 +14,13 @@ Build SpinTrace for the CSD358 IR hackathon, Track 4 (web crawling, freshness an
 
 **Target scale:** a vertical slice. Every stage works end to end on real data (several thousand crawled pages), and the detection stage is built deeply; breadth beyond that earns no marks.
 
+## First steps in every session
+
+1. **Check network access before building anything.** Fetch `https://www.bbc.com/robots.txt`, `https://en.wikinews.org` and `https://web.archive.org`, and report each result. An earlier session could reach only PyPI.
+2. **If any of them is blocked, stop and report it.** Log the blocked hosts in PROGRESS.md and say so plainly. Do not work around a block by substituting synthetic, bundled or cached data for crawled pages: the live crawl is a non-negotiable.
+3. **Build the crawler first** and start it as its own process (tmux or nohup), logging to a file, so it collects pages while everything else is built.
+4. **Show it is polite** before moving on: print log lines showing a robots.txt skip, the delay between requests to one host, and articles being saved.
+
 ## Non-negotiables
 
 These protect marks or come straight from the assignment; everything else is open.
