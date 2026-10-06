@@ -21,7 +21,20 @@ def english(text):
     return len(toks) > 50 and sum(t in tx.STOPWORDS for t in toks) / len(toks) > 0.3
 
 
+def download():
+    if WARC.exists():
+        return
+    import requests
+    WARC.parent.mkdir(parents=True, exist_ok=True)
+    with requests.get(WARC_URL, headers={"User-Agent": config.USER_AGENT}, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        with WARC.open("wb") as f:
+            for chunk in r.iter_content(1 << 20):
+                f.write(chunk)
+
+
 def load(max_docs=20000, con=None):
+    download()
     con = con or store.connect()
     have = {r[0] for r in con.execute("SELECT url FROM docs")}
     kept = seen = 0

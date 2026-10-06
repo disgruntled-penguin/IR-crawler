@@ -73,6 +73,10 @@ python -m spintrace crawl-report            # politeness and correctness statist
 ```
 
 `scripts/run_all.sh` runs build, eval, scan, search-eval, crawl-report and export in that order.
+
+Optional scale experiment (downloads one 1 GB CC-NEWS file): `python -m spintrace ccnews`, then
+`python -m spintrace build`, then `python -m spintrace scale`. The main index leaves CC-NEWS out unless
+`build --with-ccnews` is given, so the main results do not depend on it.
 `python -m spintrace judge live --judge 1` (then `--judge 2`, and the sheets `hardneg` and `search`) is the
 labelling loop for the two judges; `python -m spintrace eval --report-only` folds their labels into the results.
 
