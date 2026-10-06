@@ -40,6 +40,9 @@ def mine(con=None, limit=600, seed=358):
     for d_id in names:
         names[d_id] = {x for x in names[d_id] if len(by_name[x]) <= MAX_NAME_DF}
     meta = {d["doc_id"]: d for d in docs}
+    # Every dated document is a potential source, not just crawled originals.
+    earlier = [(r[0], r[1]) for r in con.execute("SELECT doc_id, published FROM docs WHERE published IS NOT NULL")
+               if r[0] in feats]
     pairs = []
     for a in docs:
         counts = defaultdict(int)
@@ -58,7 +61,7 @@ def mine(con=None, limit=600, seed=358):
                 continue
             if best is None or c > best[1]:
                 best = (b_id, c, cont)
-        if best:
+        if best and max_containment_earlier(a, feats, earlier) <= MAX_CONTAINMENT:
             pairs.append((a["doc_id"], *best))
     random.Random(seed).shuffle(pairs)
     pairs = pairs[:limit]
@@ -72,6 +75,16 @@ def mine(con=None, limit=600, seed=358):
             w.writerow([a, b, meta[a]["url"], meta[b]["url"], "; ".join(shared), f"{cont:.3f}", "independent(auto)",
                         "", ""])
     return len(pairs)
+
+
+def max_containment_earlier(a, feats, earlier):
+    """Largest share of a's shingles found in any single earlier document (wire copy shows up here)."""
+    sa = feats[a["doc_id"]]["shingles"]
+    best = 0.0
+    for d, t in earlier:
+        if t < a["published"] and d != a["doc_id"]:
+            best = max(best, dedup.containment(sa, feats[d]["shingles"]))
+    return best
 
 
 def load():

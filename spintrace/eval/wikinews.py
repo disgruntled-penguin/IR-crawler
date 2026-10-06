@@ -73,8 +73,12 @@ def iter_published():
             yield title, to_epoch(m.group(1)), text
 
 
-def build(n=400, min_words=150, max_words=900):
-    """Keep the n most recent published articles with a usable body."""
+DISTRACTORS = config.DATA / "wikinews_distractors.jsonl"
+
+
+def build(n=400, min_words=150, max_words=900, n_distractors=4000):
+    """Keep the n most recent published articles with a usable body as originals, the next n_distractors as
+    same-site distractors (older follow-ups of the same stories); distractors are local only, rebuilt from the dump."""
     download()
     rows = []
     for title, date, text in iter_published():
@@ -84,16 +88,26 @@ def build(n=400, min_words=150, max_words=900):
     rows.sort(reverse=True)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     kept = 0
-    with OUT.open("w") as out:
-        for date, title, text in rows:
-            body = wikitext_to_plain(text)
-            words = len(body.split())
-            if words < min_words or words > max_words:
-                continue
-            url = "https://en.wikinews.org/wiki/" + title.replace(" ", "_")
-            out.write(json.dumps({"title": title, "url": url, "published": date, "text": body,
-                                  "license": "CC BY 2.5, Wikinews contributors"}) + "\n")
-            kept += 1
-            if kept >= n:
-                break
-    return kept
+    out = OUT.open("w")
+    dis = DISTRACTORS.open("w")
+    for date, title, text in rows:
+        body = wikitext_to_plain(text)
+        words = len(body.split())
+        if words < min_words or words > max_words:
+            continue
+        url = "https://en.wikinews.org/wiki/" + title.replace(" ", "_")
+        line = json.dumps({"title": title, "url": url, "published": date, "text": body,
+                           "license": "CC BY 2.5, Wikinews contributors"}) + "\n"
+        (out if kept < n else dis).write(line)
+        kept += 1
+        if kept >= n + n_distractors:
+            break
+    out.close()
+    dis.close()
+    return min(kept, n), max(0, kept - n)
+
+
+def distractors():
+    if not DISTRACTORS.exists():
+        build()
+    return [json.loads(l) for l in DISTRACTORS.open()]

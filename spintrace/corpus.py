@@ -21,6 +21,12 @@ def ingest_eval(con=None):
             "published": o["published"], "date_source": "wikinews", "fetched_at": None,
         })
         n += 1
+    for o in wikinews.distractors():
+        store.save_doc(con, {
+            "doc_id": store.doc_id_for(o["url"]), "url": o["url"], "host": "en.wikinews.org", "site": "wikinews.org",
+            "kind": "original", "origin": "wikinews_distractor", "title": o["title"], "text": o["text"],
+            "published": o["published"], "date_source": "wikinews", "fetched_at": None,
+        })
     m = 0
     if rewrites.OUT.exists():
         for line in rewrites.OUT.open():
