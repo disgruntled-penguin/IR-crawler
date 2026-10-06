@@ -73,3 +73,32 @@ def load(con=None):
         out.append((row["pair_id"], "loaded" if len(ids) == 2 else "fetch_failed"))
     con.commit()
     return out
+
+
+def evaluate(ctx):
+    """For each loaded pair: rank of the original among SpinTrace's candidates, its score and the verdict."""
+    from ..detect import pipeline
+    rows = []
+    for r in csv.DictReader(PAIRS.open()):
+        farm = ctx.con.execute("SELECT doc_id FROM docs WHERE origin='newsguard' AND kind='suspect' AND "
+                               "json_extract(meta, '$.pair_id')=?", (r["pair_id"],)).fetchone()
+        orig = ctx.con.execute("SELECT doc_id FROM docs WHERE origin='newsguard' AND kind='original' AND "
+                               "json_extract(meta, '$.pair_id')=?", (r["pair_id"],)).fetchone()
+        if not farm or not orig or farm[0] not in ctx.idx.doc_num or orig[0] not in ctx.idx.doc_num:
+            rows.append({"pair_id": r["pair_id"], "status": "not loaded"})
+            continue
+        rep = pipeline.analyse(ctx, ctx.num(farm[0]))
+        o = ctx.num(orig[0])
+        ranks = [c["doc"] for c in rep["candidates"]]
+        v = next((x for x in rep["verified"] if x["doc"] == o), None)
+        rows.append({"pair_id": r["pair_id"], "status": "loaded", "index_docs": ctx.idx.N,
+                     "original_rank": ranks.index(o) + 1 if o in ranks else "not in top 20",
+                     "prob_original": round(v["prob"], 3) if v else "", "flagged": rep["flagged"],
+                     "traced_to_original": bool(rep["source"] and rep["source"]["doc"] == o)})
+    path = config.RESULTS / "newsguard_pairs.csv"
+    keys = list(dict.fromkeys(k for r in rows for k in r))
+    with path.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=keys)
+        w.writeheader()
+        w.writerows(rows)
+    return rows

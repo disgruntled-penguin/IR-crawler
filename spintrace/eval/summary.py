@@ -98,6 +98,13 @@ def build():
                              [[r["setting"], r["lambda"], _f(r["p@10"]), _f(r["ndcg@10"]), _f(r["original_first"]),
                                _f(r["original_share_top10"])] for r in se]))
 
+    ng = _rows("newsguard_pairs.csv")
+    if ng:
+        parts.append("**Does it work on real farms?** NewsGuard-documented pairs (Wayback snapshots) in the full index:\n\n"
+                     + table(["pair", "status", "rank of original", "p(original)", "flagged", "traced to original"],
+                             [[r["pair_id"], r["status"], r.get("original_rank", ""), r.get("prob_original", ""),
+                               r.get("flagged", ""), r.get("traced_to_original", "")] for r in ng]))
+
     if (R / "crawl_report.json").exists():
         c = json.loads((R / "crawl_report.json").read_text())
         keys = ["requests_page", "requests_robots", "docs_saved", "crawl_hours", "pages_per_minute", "hosts",

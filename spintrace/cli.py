@@ -222,7 +222,11 @@ def cmd_eval(args):
     for r in abl:
         print(f"  {r['variant']:<40} {r['macro_f1']:.3f}  FPR hard={r.get('fpr_hard_negative', float('nan')):.3f}"
               f"  FPR facts={r.get('fpr_facts_only', float('nan')):.3f}")
-    from .eval import summary
+    from .detect import pipeline
+    from .eval import realpairs, summary
+    print("\nNewsGuard-documented pairs:")
+    for r in realpairs.evaluate(pipeline.Context()):
+        print("  " + "  ".join(f"{k}={v}" for k, v in r.items()))
     summary.build()
     print(f"\ntables and charts written to {config.RESULTS} (summary.md)")
 
