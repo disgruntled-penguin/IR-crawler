@@ -190,10 +190,15 @@ def cmd_search(args):
     idx = index.load()
     con = store.connect()
     g = None if args.no_g else scan.originality(con)
+    scan.originality(con)
     for rank, (d, net, rel, gd) in enumerate(search(idx, args.query, g, lam=args.lam, k=args.k, origins=None), 1):
-        row = con.execute("SELECT title, url, published FROM docs WHERE doc_id=?", (idx.doc_ids[d],)).fetchone()
+        doc_id = idx.doc_ids[d]
+        row = con.execute("SELECT title, url, published FROM docs WHERE doc_id=?", (doc_id,)).fetchone()
+        src = con.execute("SELECT d.site FROM edges e JOIN docs d ON d.doc_id=e.source WHERE e.suspect=? "
+                          "ORDER BY e.prob DESC LIMIT 1", (doc_id,)).fetchone()
+        note = f"  [copy of {src[0]}]" if src else ""
         print(f"{rank:>2}. net={net:.3f} rel={rel:.3f} g={gd:.2f} {idx.meta['site'][d]:<20} {_when(row['published'])} "
-              f"{(row['title'] or row['url'])[:70]}")
+              f"{(row['title'] or row['url'])[:70]}{note}")
 
 
 def cmd_eval(args):
