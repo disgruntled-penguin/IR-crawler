@@ -1,6 +1,7 @@
 """Polite focused crawl loop: feeds and sitemaps -> frontier -> robots check -> fetch -> extract -> store."""
 import csv
 import logging
+import sqlite3
 import time
 from email.utils import parsedate_to_datetime
 
@@ -295,7 +296,15 @@ class Crawler:
                 break
             if time.time() - self.last_poll > config.FEED_REPOLL:
                 self.poll_feeds()
-            if not self.step():
+            try:
+                progressed = self.step()
+            except sqlite3.OperationalError as e:
+                # Another process (an evaluation run) holds the database; wait and carry on.
+                log.warning("DB_BUSY %s, retrying in 30s", e)
+                self.con.rollback()
+                time.sleep(30)
+                continue
+            if not progressed:
                 idle += 1
                 time.sleep(5)
                 if idle % 60 == 0:

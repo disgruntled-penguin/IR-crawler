@@ -66,8 +66,10 @@ def load(max_docs=20000, con=None):
             })
             have.add(url)
             kept += 1
-            if kept % 1000 == 0:
+            # Short write transactions, so the live crawler sharing the database is never locked out for long.
+            if kept % 50 == 0:
                 con.commit()
+            if kept % 1000 == 0:
                 print(f"ccnews kept {kept} of {seen} html records, {time.time() - t0:.0f}s", flush=True)
             if kept >= max_docs:
                 break

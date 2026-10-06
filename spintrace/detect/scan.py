@@ -37,8 +37,9 @@ def run(ctx, where="1=1", log_every=200):
             v = rep["source"]
             con.execute("INSERT OR REPLACE INTO edges VALUES (?,?,?,?,?,?)",
                         (doc_id, v["doc_id"], v["prob"], v["verdict"], v["why"], json.dumps(v["signals"])))
-        if (i + 1) % log_every == 0:
+        if (i + 1) % 20 == 0:
             con.commit()
+        if (i + 1) % log_every == 0:
             ctx.emb.save()
             print(f"scan {i + 1}/{len(ids)} flagged={flagged} {time.time() - t0:.0f}s", flush=True)
     con.commit()
