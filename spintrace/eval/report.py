@@ -246,6 +246,25 @@ def undated_provenance(test):
     return rows
 
 
+def dev_cv(dev, features, folds=5, seed=358):
+    """Grouped k-fold cross-validation inside the dev split, so feature choices never look at test."""
+    import random
+    groups = sorted({it["group"] for it in dev})
+    random.Random(seed).shuffle(groups)
+    fold_of = {g: i % folds for i, g in enumerate(groups)}
+    scores = {"macro_f1": [], "fpr_facts_only": [], "fpr_hard_negative": []}
+    for k in range(folds):
+        train = [it for it in dev if fold_of[it["group"]] != k]
+        held = [it for it in dev if fold_of[it["group"]] == k]
+        m = fit_model(train, features)
+        rows = detection_table(Method("spintrace", lambda it, m=m: spin_score(it, m), None), train, held)
+        scores["macro_f1"].append(macro_f1(rows))
+        for r in rows:
+            if r["level"] in ("fpr_facts_only", "fpr_hard_negative"):
+                scores[r["level"]].append(r["f1"])
+    return {k: float(np.mean(v)) if v else None for k, v in scores.items()}
+
+
 def query_budget(test):
     """Recall of the source with m highest-idf terms versus low-idf or random terms (index elimination)."""
     rows = []
