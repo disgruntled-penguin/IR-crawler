@@ -15,13 +15,14 @@ from . import run as runner
 
 LEVELS = ["exact", "light", "synonym", "seo", "summary"]
 NEG_LEVELS = ["original", "hard_negative"]
-BASELINES = ["exact_hash", "minhash_jaccard", "tfidf_cosine", "bm25", "dense_cosine"]
+BASELINES = ["exact_hash", "minhash_jaccard", "shingle_containment", "tfidf_cosine", "bm25", "dense_cosine"]
 FEATURES = ["rare_cos", "shingle_containment", "align_coverage", "align_mean", "align_order", "quote_overlap",
             "fact_overlap"]
 LABELS = {"spintrace": "SpinTrace", "exact_hash": "Exact hash", "minhash_jaccard": "MinHash Jaccard",
-          "tfidf_cosine": "tf-idf cosine", "bm25": "BM25", "dense_cosine": "Dense cosine"}
-COLORS = {"spintrace": "#2a78d6", "exact_hash": "#eb6834", "minhash_jaccard": "#1baf7a", "tfidf_cosine": "#eda100",
-          "bm25": "#e87ba4", "dense_cosine": "#4a3aa7"}
+          "shingle_containment": "Shingle containment (all pairs)", "tfidf_cosine": "tf-idf cosine", "bm25": "BM25",
+          "dense_cosine": "Dense cosine"}
+COLORS = {"spintrace": "#2a78d6", "exact_hash": "#eb6834", "minhash_jaccard": "#1baf7a", "shingle_containment": "#008300",
+          "tfidf_cosine": "#eda100", "bm25": "#e87ba4", "dense_cosine": "#4a3aa7"}
 OUT = config.RESULTS
 
 
@@ -191,6 +192,9 @@ def ablations(dev, test, full_model):
         feats = [x for x in FEATURES if x != f]
         m = fit_model(dev, feats)
         add(f"minus {f}", Method("spintrace", lambda it, m=m: spin_score(it, m), None))
+    ir_feats = ["rare_cos", "shingle_containment", "quote_overlap", "fact_overlap"]
+    m = fit_model(dev, ir_feats)
+    add("no embedding signals (IR signals only)", Method("x", lambda it, m=m: spin_score(it, m), None))
     dense_feats = [x for x in FEATURES if x != "rare_cos"]
     m = fit_model(dev, dense_feats, key="dense_verified")
     add("dense candidates instead of IR", Method("x", lambda it, m=m: spin_score(it, m, "dense_verified"), None))
@@ -207,6 +211,7 @@ def retrieval_variants(test):
     variants = {
         "rare terms + quote phrases": lambda it: [d for d, _ in it["spintrace"]["cands"]],
         "rare terms only (no quotes)": lambda it: it["no_quotes_cands"],
+        "no fact boost": lambda it: it.get("no_facts_cands"),
         "rare terms, Porter stemming": lambda it: it.get("stem_cands"),
         "dense retrieval": lambda it: [d for d, _ in it["baselines"]["dense_cosine"][0]],
         "full-document tf-idf": lambda it: [d for d, _ in it["baselines"]["tfidf_cosine"][0]],
@@ -224,6 +229,22 @@ def retrieval_variants(test):
     return rows
 
 
+def undated_provenance(test):
+    """With dates removed, how often does containment asymmetry name the right direction?"""
+    rows = []
+    for level in LEVELS + ["hard_negative"]:
+        group = [it for it in test if it["level"] == level and it.get("direction")]
+        if not group:
+            continue
+        margin = 0.2
+        derived = [f - b > margin for f, b in (it["direction"] for it in group)]
+        reverse = [b - f > margin for f, b in (it["direction"] for it in group)]
+        rows.append({"level": level, "n": len(group), "suspect_called_derived": float(np.mean(derived)),
+                     "direction_reversed": float(np.mean(reverse)),
+                     "uncertain": float(1 - np.mean(derived) - np.mean(reverse))})
+    return rows
+
+
 def efficiency(items):
     rows = []
     allowed = np.mean([it["allowed"] for it in items])
@@ -232,6 +253,9 @@ def efficiency(items):
                  "ms_retrieve": 1000 * np.mean([s["t_retrieve"] for s in sp]),
                  "docs_compared": float(np.mean([len(s["cands"]) for s in sp])),
                  "postings_touched": float(np.mean([s["touched"] for s in sp])), "earlier_docs": float(allowed)})
+    if all("touched_full" in it for it in items):
+        rows.append({"method": "full-document query (tf-idf/BM25)", "postings_touched":
+                     float(np.mean([it["touched_full"] for it in items])), "earlier_docs": float(allowed)})
     for b in BASELINES:
         rows.append({"method": b, "ms_per_suspect": 1000 * np.mean([it["baselines"][b][1] for it in items]),
                      "docs_compared": float(allowed) if b not in ("exact_hash", "minhash_jaccard") else None,
@@ -333,6 +357,7 @@ def main(raw=runner.RAW):
     abl = ablations(dev, test, model)
     ret = retrieval_variants(test)
     eff = efficiency(test)
+    write_csv(OUT / "undated_provenance.csv", undated_provenance(test))
     write_csv(OUT / "detection_by_level.csv", det)
     write_csv(OUT / "ranking.csv", rank)
     write_csv(OUT / "ablations.csv", abl)

@@ -73,6 +73,7 @@ class Baselines:
         idx = ctx.idx
         feats = ctx.feats
         self.sigs = [feats[d]["minhash"] for d in idx.doc_ids]
+        self.shingles = [feats[d]["shingles"] for d in idx.doc_ids]
         self.exact = defaultdict(list)
         for n, d in enumerate(idx.doc_ids):
             self.exact[feats[d]["exact"]].append(n)
@@ -92,6 +93,12 @@ class Baselines:
         cands = [m for m in self.lsh.query(self.sigs[n]) if mask[m]]
         r = sorted(((m, dedup.est_jaccard(self.sigs[n], self.sigs[m])) for m in cands), key=lambda x: -x[1])
         out["minhash_jaccard"] = (r[:TOP], time.perf_counter() - t)
+        # The best case for any shingle method: exact containment against every earlier document, no LSH.
+        t = time.perf_counter()
+        sh = self.shingles[n]
+        r = [(m, dedup.containment(sh, self.shingles[m])) for m in np.nonzero(mask)[0].tolist()] if sh else []
+        r = sorted((x for x in r if x[1] > 0), key=lambda x: -x[1])
+        out["shingle_containment"] = (r[:TOP], time.perf_counter() - t)
         t = time.perf_counter()
         terms = idx.doc_terms(n)
         out["tfidf_cosine"] = (ranked(idx.cosine_scores(idx.query_vector(terms)), mask), time.perf_counter() - t)
@@ -132,6 +139,7 @@ def run(stem_compare=True, log_every=250, sample=None, raw=RAW):
         mask = allowed_mask(idx, it)
         it["allowed"] = int(mask.sum())
         it["baselines"] = base.run(it, mask)
+        it["touched_full"] = int(sum(idx.df[t] for t in idx.doc_terms(n)))
         excl = np.zeros(idx.N, dtype=bool)
         excl[it["exclude"]] = True
         t = time.perf_counter()
@@ -143,10 +151,17 @@ def run(stem_compare=True, log_every=250, sample=None, raw=RAW):
                            "t_verify": time.perf_counter() - t, "touched": stats["postings_touched"]}
         nq, _ = candidates.retrieve(idx, n, text, k=TOP, exclude=excl, use_quotes=False)
         it["no_quotes_cands"] = [c["doc"] for c in nq]
+        nf, _ = candidates.retrieve(idx, n, text, k=TOP, exclude=excl, use_facts=False)
+        it["no_facts_cands"] = [c["doc"] for c in nf]
         dense_cands = [{"doc": d, "rare_cos": 0.0, "quote_frac": 0.0, "score": s} for d, s in it["baselines"]["dense_cosine"][0]]
         it["dense_verified"] = verify_candidates(ctx, it, dense_cands)
         if sidx is not None:
             it["stem_cands"] = stem_candidates(idx, sidx, it, text)
+        # Provenance without dates: which way does the coverage asymmetry point for the known pair?
+        other = it["source"] if it["label"] == 1 else it.get("same_event")
+        if other is not None:
+            pair = signals.Pair(ctx.doc(n), ctx.doc(other), ctx.feats, ctx.emb)
+            it["direction"] = pipeline.direction(pair)
         if (i + 1) % log_every == 0:
             ctx.emb.save()
             print(f"eval {i + 1}/{len(items)} {time.time() - t_all:.0f}s", flush=True)
