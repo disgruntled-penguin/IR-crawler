@@ -240,6 +240,14 @@ def cmd_search_eval(args):
     summary.build()
 
 
+def cmd_judge(args):
+    from .eval import judged
+    if args.metrics:
+        print(json.dumps(judged.metrics(), indent=2))
+    else:
+        judged.label(args.sheet, args.judge)
+
+
 def cmd_crawl_report(args):
     from .crawl import report
     rep = report.write()
@@ -317,6 +325,12 @@ def main(argv=None):
 
     c = sub.add_parser("search-eval", help="do originals outrank copies? P@10 and nDCG@10 with and without g(d)")
     c.set_defaults(fn=cmd_search_eval)
+
+    c = sub.add_parser("judge", help="label flagged live pairs, hard negatives or search results (team judges)")
+    c.add_argument("sheet", choices=["live", "hardneg", "search"])
+    c.add_argument("--judge", type=int, choices=[1, 2], default=1)
+    c.add_argument("--metrics", action="store_true", help="print precision and agreement from the labels so far")
+    c.set_defaults(fn=cmd_judge)
 
     c = sub.add_parser("crawl-report", help="politeness and correctness statistics of the crawl")
     c.set_defaults(fn=cmd_crawl_report)
