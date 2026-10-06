@@ -1,5 +1,5 @@
 pair_id,status,index_docs,original_rank,prob_original,flagged,traced_to_original
-gvs_waller,loaded,14615,1,0.999,True,True
-topgolf_wired_deals,loaded,14615,1,0.0,False,False
+gvs_waller,loaded,20860,1,0.999,True,True
+topgolf_wired_deals,loaded,20860,1,0.0,False,False
 walli_boredpanda_cat,not loaded,,,,,
 topgolf_people_cohen,not loaded,,,,,

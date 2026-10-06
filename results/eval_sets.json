@@ -1,6 +1,7 @@
 {
   "counts": {
     "dev": {
+      "translation": 55,
       "light": 210,
       "exact": 210,
       "facts_only": 110,
@@ -8,9 +9,10 @@
       "seo": 110,
       "summary": 110,
       "original": 210,
-      "hard_negative": 269
+      "hard_negative": 299
     },
     "test": {
+      "translation": 45,
       "synonym": 190,
       "summary": 90,
       "light": 190,
@@ -18,8 +20,8 @@
       "seo": 90,
       "facts_only": 90,
       "original": 190,
-      "hard_negative": 235
+      "hard_negative": 301
     }
   },
-  "index_docs": 14615
+  "index_docs": 20860
 }
