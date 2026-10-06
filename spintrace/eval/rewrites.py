@@ -13,10 +13,10 @@ import requests
 
 from .. import config
 
-LEVELS = ["exact", "light", "synonym", "seo", "summary"]
+LEVELS = ["exact", "light", "synonym", "seo", "summary", "translation"]
 # Hard negative: an article written from the original's facts and quotes only, never its text.
 NEGATIVE_LEVELS = ["facts_only"]
-LLM_LEVELS = {"seo", "summary", "facts_only"}
+LLM_LEVELS = {"seo", "summary", "facts_only", "translation"}
 OUT = config.ROOT / "evaldata" / "rewrites.jsonl"
 SRC = config.ROOT / "evaldata" / "wikinews.jsonl"
 OLLAMA = "http://localhost:11434/api/generate"
@@ -28,6 +28,9 @@ PROMPTS = {
             "or any notes.\n\nArticle:\n{text}"),
     "summary": ("Summarise the following news article as a short news brief of about 120 words. "
                 "Output only the brief, without a headline or any notes.\n\nArticle:\n{text}"),
+    "to_german": ("Translate the following news article into German. Output only the translation.\n\n{text}"),
+    "to_english": ("Translate the following German news article into English. Output only the translation."
+                   "\n\n{text}"),
     "facts_only": ("You are a reporter. Write an original news article of about 250 words reporting the facts "
                    "below. Use your own structure, angle and wording; do not invent new facts. Output only the "
                    "article, without a headline.\n\n{text}"),
@@ -105,7 +108,7 @@ def synonym_spin(text, rng, rate=0.5):
 def llm(level, text):
     r = requests.post(OLLAMA, json={
         "model": MODEL, "stream": False, "prompt": PROMPTS[level].format(text=text),
-        "options": {"temperature": 0.7, "seed": 7, "num_predict": 900},
+        "options": {"temperature": 0.7, "seed": 7, "num_predict": 1400 if level.startswith("to_") else 900},
     }, timeout=900)
     r.raise_for_status()
     out = r.json()["response"].strip()
@@ -140,6 +143,9 @@ def build(n_llm=200, levels=None):
                     text = synonym_spin(o["text"], rng)
                 elif level == "facts_only":
                     text = llm(level, fact_sheet(o))
+                elif level == "translation":
+                    # Round trip through German, the "translation spinning" some farms use.
+                    text = llm("to_english", llm("to_german", o["text"]))
                 else:
                     text = llm(level, o["text"])
                 # A farm publishes hours to days after the original; an independent outlet within hours.
