@@ -10,3 +10,4 @@ torch>=2.13.0
 matplotlib>=3.10.8
 mwparserfromhell>=0.7.2
 pytest>=9.1.1
+warcio>=1.8.1
