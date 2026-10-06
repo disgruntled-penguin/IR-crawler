@@ -1,0 +1,43 @@
+variant,level,n,recall@1,recall@5,recall@20
+rare terms + quote phrases,exact,190,1.0000,1.0000,1.0000
+rare terms + quote phrases,light,190,1.0000,1.0000,1.0000
+rare terms + quote phrases,synonym,190,1.0000,1.0000,1.0000
+rare terms + quote phrases,seo,90,0.9889,1.0000,1.0000
+rare terms + quote phrases,summary,90,0.9667,0.9889,1.0000
+rare terms + quote phrases,all,750,0.9947,0.9987,1.0000
+rare terms only (no quotes),exact,190,1.0000,1.0000,1.0000
+rare terms only (no quotes),light,190,1.0000,1.0000,1.0000
+rare terms only (no quotes),synonym,190,1.0000,1.0000,1.0000
+rare terms only (no quotes),seo,90,0.9889,1.0000,1.0000
+rare terms only (no quotes),summary,90,0.9667,0.9889,1.0000
+rare terms only (no quotes),all,750,0.9947,0.9987,1.0000
+no fact boost,exact,190,1.0000,1.0000,1.0000
+no fact boost,light,190,1.0000,1.0000,1.0000
+no fact boost,synonym,190,1.0000,1.0000,1.0000
+no fact boost,seo,90,0.9667,1.0000,1.0000
+no fact boost,summary,90,0.9667,0.9889,1.0000
+no fact boost,all,750,0.9920,0.9987,1.0000
+no date filter (dates untrusted),exact,190,1.0000,1.0000,1.0000
+no date filter (dates untrusted),light,190,1.0000,1.0000,1.0000
+no date filter (dates untrusted),synonym,190,1.0000,1.0000,1.0000
+no date filter (dates untrusted),seo,90,0.9778,1.0000,1.0000
+no date filter (dates untrusted),summary,90,0.9444,0.9889,1.0000
+no date filter (dates untrusted),all,750,0.9907,0.9987,1.0000
+"rare terms, Porter stemming",exact,190,1.0000,1.0000,1.0000
+"rare terms, Porter stemming",light,190,1.0000,1.0000,1.0000
+"rare terms, Porter stemming",synonym,190,1.0000,1.0000,1.0000
+"rare terms, Porter stemming",seo,90,0.9889,1.0000,1.0000
+"rare terms, Porter stemming",summary,90,0.9778,0.9889,1.0000
+"rare terms, Porter stemming",all,750,0.9960,0.9987,1.0000
+dense retrieval,exact,190,1.0000,1.0000,1.0000
+dense retrieval,light,190,1.0000,1.0000,1.0000
+dense retrieval,synonym,190,1.0000,1.0000,1.0000
+dense retrieval,seo,90,0.8333,1.0000,1.0000
+dense retrieval,summary,90,0.8333,1.0000,1.0000
+dense retrieval,all,750,0.9600,1.0000,1.0000
+full-document tf-idf,exact,190,1.0000,1.0000,1.0000
+full-document tf-idf,light,190,1.0000,1.0000,1.0000
+full-document tf-idf,synonym,190,1.0000,1.0000,1.0000
+full-document tf-idf,seo,90,0.9778,1.0000,1.0000
+full-document tf-idf,summary,90,0.9778,0.9889,1.0000
+full-document tf-idf,all,750,0.9947,0.9987,1.0000

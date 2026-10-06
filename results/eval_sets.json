@@ -1,0 +1,25 @@
+{
+  "counts": {
+    "dev": {
+      "light": 210,
+      "exact": 210,
+      "facts_only": 110,
+      "synonym": 210,
+      "seo": 110,
+      "summary": 110,
+      "original": 210,
+      "hard_negative": 269
+    },
+    "test": {
+      "synonym": 190,
+      "summary": 90,
+      "light": 190,
+      "exact": 190,
+      "seo": 90,
+      "facts_only": 90,
+      "original": 190,
+      "hard_negative": 235
+    }
+  },
+  "index_docs": 14615
+}

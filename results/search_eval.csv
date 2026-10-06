@@ -1,0 +1,3 @@
+setting,lambda,p@10,ndcg@10,original_first,original_share_top10,n_queries
+relevance only (no g),0.0000,0.5137,0.8466,0.1421,0.2004,190
+net score with g(d),0.1000,0.5084,0.8939,0.5368,0.2049,190

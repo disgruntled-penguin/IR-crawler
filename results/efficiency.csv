@@ -1,0 +1,9 @@
+method,ms_per_suspect,ms_retrieve,docs_compared,postings_touched,earlier_docs
+spintrace,14.8548,10.4142,19.9866,5800.1304,6216.4609
+full-document query (tf-idf/BM25),,,,489098.6498,6216.4609
+exact_hash,0.0129,,,,6216.4609
+minhash_jaccard,0.0832,,,,6216.4609
+shingle_containment,32.7129,,6216.4609,,6216.4609
+tfidf_cosine,6.2060,,6216.4609,,6216.4609
+bm25,4.8676,,6216.4609,,6216.4609
+dense_cosine,0.7849,,6216.4609,,6216.4609

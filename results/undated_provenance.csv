@@ -1,0 +1,8 @@
+level,n,suspect_called_derived,direction_reversed,uncertain
+exact,190,0.0000,0.0000,1.0000
+light,190,0.0789,0.0000,0.9211
+synonym,190,0.0000,0.0000,1.0000
+seo,90,0.1667,0.0333,0.8000
+summary,90,0.9556,0.0000,0.0444
+hard_negative,235,0.0596,0.0255,0.9149
+facts_only,90,0.2667,0.0000,0.7333

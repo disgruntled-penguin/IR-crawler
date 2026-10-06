@@ -1,0 +1,29 @@
+{
+  "features": [
+    "rare_cos",
+    "shingle_containment",
+    "align_coverage",
+    "align_mean",
+    "align_order",
+    "back_coverage",
+    "ordered_coverage",
+    "aligned_word_overlap",
+    "quote_overlap",
+    "fact_overlap"
+  ],
+  "weights": [
+    2.486561895076121,
+    -0.3799110469569227,
+    1.9415434462240493,
+    2.5248040615491867,
+    0.4237048050036291,
+    0.7761686285386887,
+    3.5372521736319174,
+    2.2138960826596072,
+    -0.008627732145642872,
+    7.763979197946316
+  ],
+  "bias": -11.645403883613442,
+  "threshold": 0.8105037546544619,
+  "source": "dev split"
+}
