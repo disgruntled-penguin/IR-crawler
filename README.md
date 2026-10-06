@@ -64,6 +64,7 @@ From a clean clone, in order:
 ```
 python -m spintrace recrawl                 # re-fetch the committed article URLs politely (slow: >= 5 s per host)
 # or run a fresh live crawl instead:  python -m spintrace crawl --hours 2
+python -m spintrace newsguard               # NewsGuard-documented farm pairs from the Wayback Machine
 python -m spintrace build --stem            # ingest Wikinews + rewrites, shingles/MinHash, both indexes
 python -m spintrace eval                    # all experiments; tables and charts in results/
 python -m spintrace scan --where "origin IN ('crawl','synthetic','newsguard')"   # copy graph and g(d)

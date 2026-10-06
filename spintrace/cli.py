@@ -59,6 +59,13 @@ def cmd_recrawl(args):
     Crawler(args.seeds, url_list=urls).run()
 
 
+def cmd_newsguard(args):
+    """Fetch both sides of each NewsGuard-documented pair from the Wayback Machine into the store."""
+    from .eval import realpairs
+    for pair_id, status in realpairs.load():
+        print(f"{pair_id}: {status}")
+
+
 def cmd_build(args):
     """Ingest evaluation documents, compute dedup features and build the index(es)."""
     from . import corpus, index, store
@@ -283,6 +290,9 @@ def main(argv=None):
     c.add_argument("--seeds", default=str(config.SEEDS / "seeds.csv"))
     c.add_argument("--limit", type=int)
     c.set_defaults(fn=cmd_recrawl)
+
+    c = sub.add_parser("newsguard", help="load the NewsGuard-documented farm pairs from the Wayback Machine")
+    c.set_defaults(fn=cmd_newsguard)
 
     c = sub.add_parser("build", help="ingest eval docs, compute shingles/MinHash, build the index")
     c.add_argument("--stem", action="store_true", help="also build a Porter-stemmed index")
