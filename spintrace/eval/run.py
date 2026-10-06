@@ -138,9 +138,9 @@ def run(stem_compare=True, log_every=250, sample=None, raw=RAW):
         cands, stats = candidates.retrieve(idx, n, text, k=TOP, exclude=excl)
         t_ret = time.perf_counter() - t
         t = time.perf_counter()
-        it["spintrace"] = {"cands": [(c["doc"], c["score"]) for c in cands], "verified": verify_candidates(ctx, it, cands),
-                           "t_retrieve": t_ret, "t_verify": time.perf_counter() - t,
-                           "touched": stats["postings_touched"]}
+        it["verified"] = verify_candidates(ctx, it, cands)
+        it["spintrace"] = {"cands": [(c["doc"], c["score"]) for c in cands], "t_retrieve": t_ret,
+                           "t_verify": time.perf_counter() - t, "touched": stats["postings_touched"]}
         nq, _ = candidates.retrieve(idx, n, text, k=TOP, exclude=excl, use_quotes=False)
         it["no_quotes_cands"] = [c["doc"] for c in nq]
         dense_cands = [{"doc": d, "rare_cos": 0.0, "quote_frac": 0.0, "score": s} for d, s in it["baselines"]["dense_cosine"][0]]
