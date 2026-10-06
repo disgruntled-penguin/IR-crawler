@@ -8,8 +8,8 @@ MODEL_PATH = config.RESULTS / "verifier.json"
 
 # Used only until `spintrace eval` has fit the model on the dev split.
 DEFAULT = {
-    "features": ["align_coverage", "align_order", "quote_overlap", "fact_overlap", "rare_cos", "shingle_containment"],
-    "weights": [5.0, 2.0, 1.0, 2.0, 2.0, 2.0], "bias": -6.0, "threshold": 0.5, "source": "default",
+    "features": ["align_coverage", "align_order", "ordered_coverage", "fact_overlap", "rare_cos", "shingle_containment"],
+    "weights": [4.0, 1.0, 3.0, 2.0, 2.0, 2.0], "bias": -6.5, "threshold": 0.5, "source": "default",
 }
 
 

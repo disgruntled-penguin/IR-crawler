@@ -71,6 +71,20 @@ def align_order(p):
     return _lis(matched) / len(matched)
 
 
+def back_coverage(p):
+    """Share of the candidate's sentences matched by the suspect; a rewrite covers most of its source."""
+    _, _, sims = p.alignment()
+    return float(np.mean(sims.max(axis=0) >= ALIGN_THRESHOLD))
+
+
+def ordered_coverage(p):
+    """Longest in-order chain of aligned sentences as a share of the whole suspect: copying keeps the source's
+    structure end to end, independent reports of one event share facts but not their sequence."""
+    best, arg, _ = p.alignment()
+    matched = arg[best >= ALIGN_THRESHOLD].tolist()
+    return _lis(matched) / len(best) if len(best) else 0.0
+
+
 def quote_overlap(p):
     qs = tx.quotes(p.s["text"])
     if not qs:
@@ -99,6 +113,8 @@ SIGNALS = {
     "align_coverage": align_coverage,
     "align_mean": align_mean,
     "align_order": align_order,
+    "back_coverage": back_coverage,
+    "ordered_coverage": ordered_coverage,
     "quote_overlap": quote_overlap,
     "fact_overlap": fact_overlap,
 }
