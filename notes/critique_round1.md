@@ -1,4 +1,4 @@
-# Critique round 1 (interim run, 2026-10-07 ~00:45)
+# Critique round 1 (interim run, 2026-10-06 ~23:55)
 
 Run: 4,954 docs (3.2k crawl, 400 Wikinews, 1.35k rewrites; LLM summaries not generated yet, SEO partial).
 Test: 190 per rule-based level, 65 SEO, 190 originals, 169 hard negatives.
