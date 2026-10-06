@@ -1,4 +1,5 @@
 """Crawler correctness and politeness report, computed from the crawl's own logs."""
+import datetime
 import json
 import urllib.robotparser
 from collections import Counter, defaultdict
@@ -60,11 +61,20 @@ def build(con=None):
     gaps = {}
     rows = con.execute("SELECT host, ts FROM fetch_log WHERE event IN ('fetch','robots_fetched') ORDER BY host, ts")
     prev = {}
+    violations_gap = []
     for host, ts in rows:
         if host in prev:
             g = ts - prev[host]
             gaps[host] = min(gaps.get(host, g), g)
+            if g < config.DEFAULT_DELAY - 0.01:
+                violations_gap.append((ts, host, round(g, 2)))
         prev[host] = ts
+    violations_gap.sort()
+    rep["delay_violations"] = len(violations_gap)
+    rep["last_delay_violation"] = (
+        datetime.datetime.fromtimestamp(violations_gap[-1][0]).isoformat(timespec="seconds")
+        if violations_gap else None)
+    rep["delay_violation_examples"] = violations_gap[-10:]
     rep["min_gap_seconds_overall"] = round(min(gaps.values()), 2) if gaps else None
     rep["min_gap_seconds_by_host"] = {h: round(g, 2) for h, g in sorted(gaps.items(), key=lambda x: x[1])}
     rep["configured_min_delay"] = config.DEFAULT_DELAY

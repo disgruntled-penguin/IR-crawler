@@ -134,6 +134,43 @@ def cmd_search(args):
               f"{(row['title'] or row['url'])[:70]}")
 
 
+def cmd_eval(args):
+    """Score every evaluation item, fit on dev, report test metrics and write tables and charts."""
+    from .eval import hardneg, report, run
+    if args.mine or not hardneg.OUT.exists():
+        print(f"hard negatives mined: {hardneg.mine()}")
+    if not args.report_only:
+        run.run(stem_compare=not args.no_stem, sample=args.sample)
+    det, rank, abl, ret, eff, counts, model = report.main()
+    print("eval sets:", json.dumps(counts))
+    print(f"verifier fit on dev: threshold={model['threshold']:.3f}")
+    print("\nDetection F1 on test, by rewrite level")
+    methods = list(dict.fromkeys(r["method"] for r in det))
+    levels = [l for l in report.LEVELS if any(r["level"] == l for r in det)]
+    print(f"{'method':<18}" + "".join(f"{l:>10}" for l in levels) + f"{'FPR hard':>10}")
+    for m in methods:
+        f1 = {r["level"]: r["f1"] for r in det if r["method"] == m}
+        print(f"{m:<18}" + "".join(f"{f1.get(l, float('nan')):>10.3f}" for l in levels)
+              + f"{f1.get('fpr_hard_negative', float('nan')):>10.3f}")
+    print("\nRanking of the true original (test positives, all levels)")
+    for r in rank:
+        if r["level"] == "all":
+            print(f"{r['method']:<18} P@1={r['recall@1']:.3f} MRR={r['mrr']:.3f} R@5={r['recall@5']:.3f} R@20={r['recall@20']:.3f}")
+    print("\nAblations (macro F1 over levels)")
+    for r in abl:
+        print(f"  {r['variant']:<38} {r['macro_f1']:.3f}  FPR hard={r.get('fpr_hard_negative', float('nan')):.3f}")
+    print(f"\ntables and charts written to {config.RESULTS}")
+
+
+def cmd_crawl_report(args):
+    from .crawl import report
+    rep = report.write()
+    for k, v in rep.items():
+        if k not in ("min_gap_seconds_by_host", "docs_by_site", "delay_violation_examples"):
+            print(f"{k}: {v}")
+    print(f"written to {config.RESULTS / 'crawl_report.json'}")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="spintrace")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -176,6 +213,16 @@ def main(argv=None):
     c.add_argument("--lam", type=float, default=0.3)
     c.add_argument("--no-g", action="store_true")
     c.set_defaults(fn=cmd_search)
+
+    c = sub.add_parser("eval", help="synthetic and hard-negative evaluation against baselines")
+    c.add_argument("--report-only", action="store_true", help="recompute metrics from the cached run")
+    c.add_argument("--mine", action="store_true", help="re-mine hard negatives from the current crawl")
+    c.add_argument("--no-stem", action="store_true")
+    c.add_argument("--sample", type=int)
+    c.set_defaults(fn=cmd_eval)
+
+    c = sub.add_parser("crawl-report", help="politeness and correctness statistics of the crawl")
+    c.set_defaults(fn=cmd_crawl_report)
 
     args = p.parse_args(argv)
     args.fn(args)
