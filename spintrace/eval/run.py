@@ -164,6 +164,8 @@ def run(stem_compare=True, log_every=250, sample=None, raw=RAW):
                 q = candidates.budget_query(idx, n, m, mode)
                 top = idx.cosine(idx.query_vector(q), allowed, k=TOP)
                 it["budget"][f"{mode}{m}"] = ([d for d, _ in top], int(sum(idx.df[t] for t in q)))
+        nd, _ = candidates.retrieve(idx, n, text, k=TOP, exclude=excl, require_dates=False)
+        it["no_date_filter_cands"] = [c["doc"] for c in nd]
         nf, _ = candidates.retrieve(idx, n, text, k=TOP, exclude=excl, use_facts=False)
         it["no_facts_cands"] = [c["doc"] for c in nf]
         dense_cands = [{"doc": d, "rare_cos": 0.0, "quote_frac": 0.0, "score": s} for d, s in it["baselines"]["dense_cosine"][0]]

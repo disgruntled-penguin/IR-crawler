@@ -212,6 +212,7 @@ def retrieval_variants(test):
         "rare terms + quote phrases": lambda it: [d for d, _ in it["spintrace"]["cands"]],
         "rare terms only (no quotes)": lambda it: it["no_quotes_cands"],
         "no fact boost": lambda it: it.get("no_facts_cands"),
+        "no date filter (dates untrusted)": lambda it: it.get("no_date_filter_cands"),
         "rare terms, Porter stemming": lambda it: it.get("stem_cands"),
         "dense retrieval": lambda it: [d for d, _ in it["baselines"]["dense_cosine"][0]],
         "full-document tf-idf": lambda it: [d for d, _ in it["baselines"]["tfidf_cosine"][0]],
