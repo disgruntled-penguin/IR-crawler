@@ -13,7 +13,7 @@ from .. import config
 from ..detect import pipeline, verify
 from . import run as runner
 
-LEVELS = ["exact", "light", "synonym", "seo", "summary"]
+LEVELS = ["exact", "light", "synonym", "seo", "summary", "translation"]
 NEG_LEVELS = ["original", "hard_negative", "facts_only"]
 BASELINES = ["exact_hash", "minhash_jaccard", "shingle_containment", "tfidf_cosine", "bm25", "dense_cosine"]
 # aligned_word_overlap was added in critique round 3 after grouped cross-validation on dev (never on test).

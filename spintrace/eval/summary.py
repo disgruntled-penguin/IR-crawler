@@ -35,7 +35,7 @@ def build():
 
     det = _rows("detection_by_level.csv")
     if det:
-        levels = [l for l in ["exact", "light", "synonym", "seo", "summary"] if any(r["level"] == l for r in det)]
+        levels = [l for l in ["exact", "light", "synonym", "seo", "summary", "translation"] if any(r["level"] == l for r in det)]
         methods = list(dict.fromkeys(r["method"] for r in det))
         rows = []
         for m in methods:
