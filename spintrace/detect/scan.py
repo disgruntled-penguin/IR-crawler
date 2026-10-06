@@ -1,8 +1,10 @@
 """Run detection over every document and store the copy graph; originality g(d) comes from it."""
+import csv
 import json
 import time
+from collections import Counter, defaultdict
 
-from .. import store
+from .. import config, store
 from . import pipeline
 
 SCHEMA = """
@@ -59,3 +61,50 @@ def root(con, doc_id, limit=10):
             break
         chain.append(r[0])
     return chain
+
+
+FLAGGED = config.ROOT / "evaldata" / "live_flagged.csv"
+
+
+def export_flagged(con):
+    """Flagged live pairs for both judges to label (derived / not_derived); URLs and scores only."""
+    rows = con.execute("""SELECT e.suspect, e.source, e.prob, e.verdict, e.why, e.signals, s.url AS surl, o.url AS ourl,
+                          s.site AS ssite, o.site AS osite FROM edges e JOIN docs s ON s.doc_id=e.suspect
+                          JOIN docs o ON o.doc_id=e.source WHERE s.origin='crawl' ORDER BY e.prob DESC""").fetchall()
+    old = {}
+    if FLAGGED.exists():
+        old = {(r["suspect"], r["source"]): r for r in csv.DictReader(FLAGGED.open())}
+    with FLAGGED.open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["suspect", "source", "suspect_url", "source_url", "prob", "verdict", "why", "align_coverage",
+                    "shingle_containment", "judge1", "judge2"])
+        for r in rows:
+            sig = json.loads(r["signals"])
+            prev = old.get((r["suspect"], r["source"]), {})
+            w.writerow([r["suspect"], r["source"], r["surl"], r["ourl"], f"{r['prob']:.3f}", r["verdict"], r["why"],
+                        f"{sig.get('align_coverage', 0):.2f}", f"{sig.get('shingle_containment', 0):.2f}",
+                        prev.get("judge1", ""), prev.get("judge2", "")])
+    return len(rows)
+
+
+def domain_report(con):
+    """Per-site integrity: share of a site's crawled articles flagged as derived, and whom they derive from."""
+    total = Counter(r[0] for r in con.execute("SELECT site FROM docs WHERE origin='crawl'"))
+    flagged = Counter()
+    sources = defaultdict(Counter)
+    for ssite, osite in con.execute("""SELECT s.site, o.site FROM edges e JOIN docs s ON s.doc_id=e.suspect
+                                       JOIN docs o ON o.doc_id=e.source WHERE s.origin='crawl'"""):
+        flagged[ssite] += 1
+        sources[ssite][osite] += 1
+    rows = []
+    for site, n in total.most_common():
+        rows.append({"site": site, "articles": n, "flagged_derived": flagged[site],
+                     "derived_share": round(flagged[site] / n, 4),
+                     "top_sources": "; ".join(f"{k} ({v})" for k, v in sources[site].most_common(3))})
+    rows.sort(key=lambda r: -r["derived_share"])
+    path = config.RESULTS / "domain_integrity.csv"
+    with path.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    return rows

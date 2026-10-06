@@ -151,6 +151,9 @@ def cmd_scan(args):
     ctx = pipeline.Context()
     n, flagged = scan.run(ctx, args.where)
     print(f"scanned {n} docs, flagged {flagged}")
+    print(f"live pairs for judging: {scan.export_flagged(ctx.con)} -> {scan.FLAGGED}")
+    for r in scan.domain_report(ctx.con)[:15]:
+        print(f"  {r['site']:<26} {r['flagged_derived']:>4}/{r['articles']:<5} {r['derived_share']:.3f}  {r['top_sources']}")
 
 
 def cmd_search(args):
