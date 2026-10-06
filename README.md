@@ -98,6 +98,7 @@ python -m spintrace demo --seed 7                    # seeded random test cases,
 | Synthetic rewrites (`evaldata/rewrites.jsonl`) | labelled evaluation set | Generated from the Wikinews originals; LLM levels (SEO rewrite, summary, facts-only article) by Meta Llama 3.2 3B via Ollama |
 | NewsGuard August 2023 report | documented real farm rewrites (`evaldata/newsguard_pairs.csv`) | Farm copies and originals fetched from the Internet Archive Wayback Machine |
 | all-MiniLM-L6-v2 (sentence-transformers) | sentence embeddings for verification and the dense baseline | Apache 2.0 |
+| [Common Crawl CC-NEWS](https://commoncrawl.org/blog/news-dataset-available), one WARC file of 6 Oct 2026 | 3,645 English articles for the scale experiment only (`python -m spintrace ccnews`, `scale`) | Common Crawl terms of use; not committed |
 
 ## How IR is used, and where
 
@@ -286,6 +287,19 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 | relevance only (no g) | 0.0000 | 0.514 | 0.847 | 0.142 | 0.200 |
 | net score with g(d) | 0.1000 | 0.508 | 0.894 | 0.537 | 0.205 |
 
+**Scale** (same test items, index grown to 19397 documents with 3645 CC-NEWS articles from the same days; verifier and threshold not refit):
+
+| level | Recall@1 | Recall@20 | full-doc tf-idf Recall@1 | F1 / FPR | postings touched | postings, full-doc query |
+| --- | --- | --- | --- | --- | --- | --- |
+| exact | 1.000 | 1.000 | 1.000 | 0.960 | 7661 | 632368 |
+| light | 1.000 | 1.000 | 1.000 | 0.960 | 8415 | 611404 |
+| synonym | 1.000 | 1.000 | 1.000 | 0.960 | 5422 | 636730 |
+| seo | 0.989 | 1.000 | 0.978 | 0.789 | 7791 | 581503 |
+| summary | 0.967 | 1.000 | 0.978 | 0.902 | 16634 | 312729 |
+| fpr_original | - | - | - | 0.000 | - | - |
+| fpr_hard_negative | - | - | - | 0.009 | - | - |
+| fpr_facts_only | - | - | - | 0.156 | - | - |
+
 **Does it work on real farms?** NewsGuard-documented pairs (Wayback snapshots) in the full index:
 
 | pair | status | rank of original | p(original) | flagged | traced to original |
@@ -363,7 +377,9 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
   the index-elimination experiment. Dense retrieval is the one that slips: with same-story distractors in the
   index it ranks the true source first for only 0.83 of SEO and summary rewrites.
 - **Synthetic rewrites come from one 3B model.** Stronger LLMs paraphrase more and would be harder.
-- **Scale.** One crawler process, ~9k crawled articles, one night.
+- **Scale.** One crawler process, ~9k crawled articles, one night. Growing the index by a third with CC-NEWS
+  articles from the same days left retrieval and detection within a point of the main results, but that is a
+  small step, not a web-scale test.
 
 ## What works and what is planned
 
@@ -389,7 +405,7 @@ Planned (course project):
 3. Cross-lingual derivatives, such as English originals rewritten into Hindi.
 4. Learned weights for more signals, trained on judged live pairs instead of synthetic rewrites.
 5. A measurement study of how fast farms copy and how long copies outrank originals.
-6. A larger index (one CC-NEWS file) and external benchmarks (PAN, METER).
+6. A much larger index (many CC-NEWS files, with streaming index construction) and external benchmarks (PAN, METER).
 
 ## Timeline
 
