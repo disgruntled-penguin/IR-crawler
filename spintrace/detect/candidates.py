@@ -45,6 +45,18 @@ def rare_term_query(idx, n, m=QUERY_TERMS, facts=None):
     return {t: w for _, t, w in scored[:m]}
 
 
+def budget_query(idx, n, m, mode, seed=0):
+    """Query of m body terms chosen by mode: 'rare' (highest idf), 'common' (lowest idf) or 'random'."""
+    terms = [(t, tf) for t, tf in idx.doc_terms(n).items()
+             if idx.df[t] >= MIN_DF and idx.terms[t] not in tx.STOPWORDS]
+    if mode == "random":
+        rng = np.random.RandomState(seed + n)
+        pick = rng.permutation(len(terms))[:m]
+        return {terms[i][0]: terms[i][1] for i in pick}
+    terms.sort(key=lambda x: idx.idf[x[0]], reverse=(mode == "rare"))
+    return dict(terms[:m])
+
+
 def earlier_mask(idx, n, require_dates=True):
     """Parametric filter: other sites, published before the suspect. Undated documents stay in, flagged later."""
     pub = idx.meta["published"]
