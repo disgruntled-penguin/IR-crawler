@@ -126,7 +126,8 @@ parses robots.txt rules (fetching, caching and delay policy are ours); `nltk` pr
 stemmer and WordNet (used only to make synonym-spun test rewrites); `sentence-transformers` maps
 sentences to vectors so paraphrased sentences are close, used for verification and the dense
 baseline; `scikit-learn` fits the logistic combination of signals and supplies the stopword list;
-`numpy` holds postings arrays; `matplotlib` draws the charts.
+`numpy` holds postings arrays; `matplotlib` draws the charts; `mwparserfromhell` strips wikitext markup from the
+Wikinews dump (deciding what the document is for originals); `warcio` reads records from the CC-NEWS WARC file.
 
 Written ourselves: the frontier and politeness logic, URL normalisation, tokenisation, the
 positional zoned index, tf-idf and BM25, phrase queries, shingling, MinHash, LSH, candidate
