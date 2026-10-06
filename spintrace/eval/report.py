@@ -358,8 +358,9 @@ def charts(det_rows, pr_data, rank_rows, abl_rows):
     deltas = [r["macro_f1"] - full for r in rows]
     ax.barh([r["variant"] for r in rows], deltas, color="#2a78d6", height=0.6)
     for i, d in enumerate(deltas):
-        ax.annotate(f"{d:+.3f}", (d, i), xytext=(-4 if d < 0 else 4, 0), textcoords="offset points",
-                    ha="right" if d < 0 else "left", va="center", fontsize=8, color="#52514e")
+        ax.annotate(f"{d:+.3f}", (max(d, 0), i), xytext=(4, 0), textcoords="offset points",
+                    ha="left", va="center", fontsize=8, color="#52514e")
+    ax.set_xlim(min(deltas + [0]) * 1.05, max(max(deltas + [0]) * 1.5, 0.03))
     ax.axvline(0, color="#b5b4ae", linewidth=1)
     ax.invert_yaxis()
     _style(ax, f"Ablations: change in macro F1 (full = {full:.3f})", "change in macro F1 over levels", "")
