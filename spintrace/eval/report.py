@@ -371,6 +371,36 @@ def charts(det_rows, pr_data, rank_rows, abl_rows):
     plt.close(fig)
 
 
+def budget_chart(rows):
+    """Recall@1 against postings touched: rare-term queries of growing size versus common and random terms."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    allr = {r["query"]: r for r in rows if r["level"] == "all"}
+    if not allr:
+        return
+    fig, ax = plt.subplots(figsize=(7.5, 4.6), dpi=150)
+    rare = [allr[k] for k in ("rare3", "rare5", "rare10", "rare30") if k in allr]
+    ax.plot([r["postings_touched"] for r in rare], [r["recall@1"] for r in rare], marker="o", markersize=8,
+            linewidth=2, color="#2a78d6", label="m highest-idf terms")
+    for r in rare:
+        ax.annotate(f"m={r['query'][4:]}", (r["postings_touched"], r["recall@1"]), xytext=(6, -12),
+                    textcoords="offset points", fontsize=8, color="#52514e")
+    for key, color, label in (("common10", "#eb6834", "10 lowest-idf terms"), ("random10", "#1baf7a", "10 random terms")):
+        if key in allr:
+            r = allr[key]
+            ax.plot([r["postings_touched"]], [r["recall@1"]], marker="o", markersize=9, linestyle="none", color=color,
+                    label=label)
+    ax.set_xscale("log")
+    ax.set_ylim(0, 1.03)
+    _style(ax, "Index elimination: the rarest terms find the source", "postings touched per query (log)",
+           "Recall@1 of the true source")
+    ax.legend(frameon=False, fontsize=8, loc="lower right")
+    fig.tight_layout()
+    fig.savefig(OUT / "index_elimination.png")
+    plt.close(fig)
+
+
 def main(raw=runner.RAW):
     from sklearn.metrics import precision_recall_curve
     data = load(raw)
@@ -391,7 +421,9 @@ def main(raw=runner.RAW):
     ret = retrieval_variants(test)
     eff = efficiency(test)
     write_csv(OUT / "undated_provenance.csv", undated_provenance(test))
-    write_csv(OUT / "query_budget.csv", query_budget(test))
+    qb = query_budget(test)
+    write_csv(OUT / "query_budget.csv", qb)
+    budget_chart(qb)
     write_csv(OUT / "detection_by_level.csv", det)
     write_csv(OUT / "ranking.csv", rank)
     write_csv(OUT / "ablations.csv", abl)
