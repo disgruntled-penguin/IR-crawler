@@ -259,7 +259,8 @@ def cmd_crawl_report(args):
     for k, v in rep.items():
         if k not in ("min_gap_seconds_by_host", "docs_by_site", "delay_violation_examples"):
             print(f"{k}: {v}")
-    print(f"written to {config.RESULTS / 'crawl_report.json'}")
+    print(f"written to {config.RESULTS / 'crawl_report.json'}\n")
+    print("\n".join(report.examples()))
     from .eval import summary
     summary.build()
 

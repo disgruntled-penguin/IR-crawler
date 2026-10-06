@@ -107,6 +107,22 @@ def build(con=None):
     return rep
 
 
+def examples(con=None, host="www.theguardian.com"):
+    """Log lines that show politeness at work: a robots.txt skip, one host's consecutive requests, saved articles."""
+    con = con or store.connect()
+    fmt = lambda r: f"{datetime.datetime.fromtimestamp(r[0]).isoformat(timespec='seconds')} {r[1].upper():<12} {r[2]} {r[3] or ''} {r[4][:90]}"
+    out = ["robots.txt skip:"]
+    out += [fmt(r) for r in con.execute("SELECT ts, event, host, detail, url FROM fetch_log WHERE event='robots_skip' "
+                                       "ORDER BY ts DESC LIMIT 2")]
+    out.append(f"consecutive requests to {host} (gap since the previous request):")
+    out += [fmt(r) for r in con.execute("SELECT ts, event, host, detail, url FROM fetch_log WHERE host=? AND event IN "
+                                       "('fetch','robots_fetched') ORDER BY ts DESC LIMIT 5", (host,))][::-1]
+    out.append("articles saved:")
+    out += [fmt(r) for r in con.execute("SELECT ts, event, host, substr(detail, 1, 40), url FROM fetch_log "
+                                       "WHERE event='saved' ORDER BY ts DESC LIMIT 3")]
+    return out
+
+
 def write(con=None):
     rep = build(con)
     config.RESULTS.mkdir(exist_ok=True)
