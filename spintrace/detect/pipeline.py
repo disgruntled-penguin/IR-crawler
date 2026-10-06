@@ -13,9 +13,9 @@ TIE_MARGIN = 0.05
 class Context:
     """Everything a detection run needs, loaded once."""
 
-    def __init__(self, stemming=False, con=None):
+    def __init__(self, stemming=False, con=None, idx=None):
         self.con = con or store.connect()
-        self.idx = index.load(stemming)
+        self.idx = idx or index.load(stemming)
         self.feats = corpus.load_features()
         self.emb = embed.get()
         rows = {r["doc_id"]: r for r in store.iter_docs(self.con)}

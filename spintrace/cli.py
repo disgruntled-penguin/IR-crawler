@@ -66,6 +66,20 @@ def cmd_newsguard(args):
         print(f"{pair_id}: {status}")
 
 
+def cmd_ccnews(args):
+    from .eval import ccnews
+    kept, seen = ccnews.load(args.max)
+    print(f"stored {kept} English articles from {seen} HTML records in {ccnews.WARC.name}")
+
+
+def cmd_scale(args):
+    """Re-run the test items against an index that also holds the CC-NEWS documents (no refitting)."""
+    from .eval import scale
+    for r in scale.run():
+        print("  ".join(f"{k}={v:.3f}" if isinstance(v, float) else f"{k}={v}" for k, v in r.items()))
+    print(f"written to {scale.OUT}")
+
+
 def cmd_build(args):
     """Ingest evaluation documents, compute dedup features and build the index(es)."""
     from . import corpus, index, store
@@ -74,8 +88,12 @@ def cmd_build(args):
         print("ingested wikinews=%d synthetic=%d" % corpus.ingest_eval(con))
     feats, secs = corpus.build_features(con)
     print(f"features for {len(feats)} docs in {secs:.1f}s")
+    only = set(feats)
+    if not args.with_ccnews:
+        # CC-NEWS documents are for the scale experiment only (`python -m spintrace scale`).
+        only -= {r[0] for r in con.execute("SELECT doc_id FROM docs WHERE origin='ccnews'")}
     for stem in ([False, True] if args.stem else [False]):
-        idx = index.build_from_store(stemming=stem, con=con, only=set(feats))
+        idx = index.build_from_store(stemming=stem, con=con, only=only)
         print(f"index stemming={stem}: {idx.N} docs, {len(idx.terms)} terms, built in {idx.build_seconds:.1f}s")
 
 
@@ -294,9 +312,17 @@ def main(argv=None):
     c = sub.add_parser("newsguard", help="load the NewsGuard-documented farm pairs from the Wayback Machine")
     c.set_defaults(fn=cmd_newsguard)
 
+    c = sub.add_parser("ccnews", help="store English articles from the downloaded CC-NEWS file (scale experiment)")
+    c.add_argument("--max", type=int, default=20000)
+    c.set_defaults(fn=cmd_ccnews)
+
+    c = sub.add_parser("scale", help="test items against an index that also holds CC-NEWS (no refitting)")
+    c.set_defaults(fn=cmd_scale)
+
     c = sub.add_parser("build", help="ingest eval docs, compute shingles/MinHash, build the index")
     c.add_argument("--stem", action="store_true", help="also build a Porter-stemmed index")
     c.add_argument("--no-eval", action="store_true", help="index crawled pages only")
+    c.add_argument("--with-ccnews", action="store_true", help="also index the CC-NEWS documents")
     c.set_defaults(fn=cmd_build)
 
     c = sub.add_parser("postings", help="print the postings of a term")
