@@ -48,4 +48,4 @@ Status as of the overnight run. "Team" marks the items that are human tasks.
 | Ablations, dev-only tuning, where SpinTrace loses, no hand-picked demos | Done |
 | Hard negatives (same event, other outlet) | Done: crawl-mined and facts-only synthetic |
 | Stemming comparison, dense baseline, per-domain integrity report | Done |
-| Only-if-ahead: CC-NEWS scale, round-trip translation | CC-NEWS done; translation level generating |
+| Only-if-ahead: CC-NEWS scale, round-trip translation | Both done |

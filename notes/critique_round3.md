@@ -56,3 +56,24 @@ Test: 190 per rule-based level, 90 SEO, 90 summary, 190 originals, 235 crawl har
 Nothing in this round needs a design change: the remaining issues are limitations stated in the README
 (same-story precision, wire attribution, list-format pages, undated same-length rewrites). Third round, so the
 loop stops here per the brief.
+
+## Addendum: final rerun with the translation level (04:30)
+
+The round-trip translation level (100 originals, English -> German -> English) was added after this round and
+every experiment rerun on a larger crawl (main index 20,860 docs). Nothing was retuned by hand; the verifier and
+thresholds were refit on dev as before.
+
+| test F1 | exact | SEO | summary | translation | FPR hard | FPR facts-only |
+| --- | --- | --- | --- | --- | --- | --- |
+| SpinTrace | 0.960 | 0.782 | 0.902 | 0.816 | 0.007 | 0.156 |
+| tf-idf cosine | 0.922 | 0.723 | 0.659 | 0.695 | 0.063 | 0.144 |
+| BM25 | 0.927 | 0.636 | 0.852 | 0.739 | 0.043 | 0.189 |
+| Shingle containment | 0.850 | 0.573 | 0.681 | 0.555 | 0.090 | 0.433 |
+| MinHash | 0.992 | 0.021 | 0.000 | 0.000 | 0.000 | 0.033 |
+| Dense cosine | 0.671 | 0.436 | 0.332 | 0.314 | 0.502 | 0.311 |
+
+Two statements in the builder's answers above no longer hold exactly and are corrected here:
+- "Every other method is worse on the same negatives": tf-idf now flags 14.4% of facts-only articles against
+  SpinTrace's 15.6%, while missing far more rewrites (SEO F1 0.723, summary 0.659).
+- aligned_word_overlap, chosen on dev, is slightly negative on test in this run (macro F1 0.900 without it, 0.896
+  with it). It stays in: removing it now would be tuning on test.
