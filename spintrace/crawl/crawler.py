@@ -12,6 +12,8 @@ from .robots import RobotsCache
 from .urlnorm import host_of, normalise, site_of, skip_reason, trap_reason
 
 log = logging.getLogger("spintrace.crawl")
+# Rate limiting, server errors and outright refusals all count towards backoff and the per-host stop.
+BLOCKING = {401, 403, 405, 429, 451, 503}
 
 
 def load_seeds(path):
@@ -227,7 +229,7 @@ class Crawler:
         if resp is None:
             delay = self.host_error(host, url, "network")
             store.mark_url(self.con, url, "error", None, "network")
-        elif resp.status_code in (429, 503) or resp.status_code >= 500:
+        elif resp.status_code in BLOCKING or resp.status_code >= 500:
             delay = self.host_error(host, url, resp.status_code, resp)
             store.mark_url(self.con, url, "error", resp.status_code)
         else:

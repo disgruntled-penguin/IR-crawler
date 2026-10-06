@@ -22,7 +22,8 @@ class RobotsCache:
             r = self.session.get(url, timeout=config.REQUEST_TIMEOUT)
             status = r.status_code
             body = r.text if status < 400 else None
-            if status in (401, 403):
+            if status in (401, 403) or status >= 500:
+                # Forbidden or a server error: treat the whole host as disallowed until the next check.
                 rp.disallow_all = True
             elif status >= 400:
                 rp.allow_all = True

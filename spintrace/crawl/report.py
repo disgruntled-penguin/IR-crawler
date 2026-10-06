@@ -12,7 +12,7 @@ def _parsers(con):
     out = defaultdict(list)
     for host, ts, status, body in con.execute("SELECT host, fetched_at, status, body FROM robots ORDER BY fetched_at"):
         rp = urllib.robotparser.RobotFileParser()
-        if body == "__unreachable__" or status in (401, 403):
+        if body == "__unreachable__" or status in (401, 403) or (status is not None and status >= 500):
             rp.disallow_all = True
         elif status is None or status >= 400 or body is None:
             rp.allow_all = True
