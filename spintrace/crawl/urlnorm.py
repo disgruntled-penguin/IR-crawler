@@ -15,7 +15,7 @@ SKIP_PATH = re.compile(
     r"horoscope|horoscopes|obituaries|jobs|careers|advertis\w*|contact|about|privacy|terms|institutions|quick-read)(/|$)",
     re.I,
 )
-SKIP_SLUG = re.compile(r"(terms-of-(use|service)|privacy-policy|cookie-policy|subscriber-agreement|code-of-ethics)", re.I)
+SKIP_SLUG = re.compile(r"(terms-of-(use|service)|privacy-policy|cookie-policy|subscriber-agreement|code-of-ethics|articleshowprint|printarticle)", re.I)
 SKIP_EXT = re.compile(r"\.(jpg|jpeg|png|gif|webp|svg|mp4|mp3|pdf|zip|css|js|json|ico|woff2?|xml|rss)$", re.I)
 SKIP_QUERY = re.compile(r"(replytocom|comment|share=|print=|page=\d{2,}|sort=|filter=)", re.I)
 

@@ -13,18 +13,36 @@ MIN_DF = 2
 TOP_K = 20
 QUOTE_WINDOW = 6
 QUOTE_WEIGHT = 0.5
+FACT_BOOST = 2.0
 
 
-def rare_term_query(idx, n, m=QUERY_TERMS):
-    """Top m body terms of doc n by tf-idf, skipping stopwords and terms only this doc contains."""
+def fact_terms(idx, text):
+    """Index terms that come from the suspect's names and numbers, the parts a rewrite keeps."""
+    names, nums = tx.facts(text)
+    out = set()
+    for f in names | nums:
+        for t in idx.tokens(f):
+            tid = idx.vocab.get(t)
+            if tid is not None and t not in tx.STOPWORDS:
+                out.add(tid)
+    return out
+
+
+def rare_term_query(idx, n, m=QUERY_TERMS, facts=None):
+    """Top m body terms of doc n by tf-idf (fact terms boosted), skipping stopwords and terms only this doc has.
+
+    Returns {term id: query weight multiplier * tf} so the boost carries into the ltc query vector.
+    """
     terms = idx.doc_terms(n)
+    facts = facts or set()
     scored = []
     for t, tf in terms.items():
         if idx.df[t] < MIN_DF or idx.terms[t] in tx.STOPWORDS:
             continue
-        scored.append(((1 + np.log10(tf)) * idx.idf[t], t, tf))
+        boost = FACT_BOOST if t in facts else 1.0
+        scored.append(((1 + np.log10(tf)) * idx.idf[t] * boost, t, tf * boost))
     scored.sort(reverse=True)
-    return {t: tf for _, t, tf in scored[:m]}
+    return {t: w for _, t, w in scored[:m]}
 
 
 def earlier_mask(idx, n, require_dates=True):
@@ -54,12 +72,13 @@ def quote_hits(idx, text, allowed):
     return {d: c / len(qs) for d, c in hits.items()}, len(qs)
 
 
-def retrieve(idx, n, text, k=TOP_K, m=QUERY_TERMS, use_quotes=True, require_dates=True, exclude=None):
+def retrieve(idx, n, text, k=TOP_K, m=QUERY_TERMS, use_quotes=True, require_dates=True, exclude=None,
+             use_facts=True):
     """Return (candidates, stats). Each candidate: dict(doc, rare_cos, quote_frac, score)."""
     allowed = earlier_mask(idx, n, require_dates)
     if exclude is not None:
         allowed &= ~exclude
-    q = rare_term_query(idx, n, m)
+    q = rare_term_query(idx, n, m, fact_terms(idx, text) if use_facts else None)
     qvec = idx.query_vector(q)
     cos = dict(idx.cosine(qvec, allowed, k=k))
     qh, n_quotes = quote_hits(idx, text, allowed) if use_quotes else ({}, 0)

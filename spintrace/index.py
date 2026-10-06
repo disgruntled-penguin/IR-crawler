@@ -137,7 +137,7 @@ class Index:
 
     def query_vector(self, term_counts):
         """ltc query weights over term ids: log tf times idf, cosine normalised."""
-        w = {t: (1 + math.log10(c)) * self.idf[t] for t, c in term_counts.items() if self.idf[t] > 0}
+        w = {t: (1 + math.log10(c)) * self.idf[t] for t, c in term_counts.items() if self.idf[t] > 0 and c > 0}
         norm = math.sqrt(sum(v * v for v in w.values())) or 1.0
         return {t: v / norm for t, v in w.items()}
 
