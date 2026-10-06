@@ -151,6 +151,13 @@ def run(stem_compare=True, log_every=250, sample=None, raw=RAW):
                            "t_verify": time.perf_counter() - t, "touched": stats["postings_touched"]}
         nq, _ = candidates.retrieve(idx, n, text, k=TOP, exclude=excl, use_quotes=False)
         it["no_quotes_cands"] = [c["doc"] for c in nq]
+        if it["label"] == 1:
+            allowed = mask
+            it["budget"] = {}
+            for mode, m in [("rare", 3), ("rare", 5), ("rare", 10), ("rare", 30), ("common", 10), ("random", 10)]:
+                q = candidates.budget_query(idx, n, m, mode)
+                top = idx.cosine(idx.query_vector(q), allowed, k=TOP)
+                it["budget"][f"{mode}{m}"] = ([d for d, _ in top], int(sum(idx.df[t] for t in q)))
         nf, _ = candidates.retrieve(idx, n, text, k=TOP, exclude=excl, use_facts=False)
         it["no_facts_cands"] = [c["doc"] for c in nf]
         dense_cands = [{"doc": d, "rare_cos": 0.0, "quote_frac": 0.0, "score": s} for d, s in it["baselines"]["dense_cosine"][0]]

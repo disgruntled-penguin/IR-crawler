@@ -245,6 +245,25 @@ def undated_provenance(test):
     return rows
 
 
+def query_budget(test):
+    """Recall of the source with m highest-idf terms versus low-idf or random terms (index elimination)."""
+    rows = []
+    pos = [it for it in test if it["label"] == 1 and it.get("budget")]
+    if not pos:
+        return rows
+    for key in pos[0]["budget"]:
+        for level in LEVELS + ["all"]:
+            group = [it for it in pos if level == "all" or it["level"] == level]
+            if not group:
+                continue
+            lists = [it["budget"][key][0] for it in group]
+            rows.append({"query": key, "level": level, "n": len(group),
+                         "recall@1": float(np.mean([bool(l) and l[0] == it["source"] for it, l in zip(group, lists)])),
+                         "recall@20": float(np.mean([it["source"] in l for it, l in zip(group, lists)])),
+                         "postings_touched": float(np.mean([it["budget"][key][1] for it in group]))})
+    return rows
+
+
 def efficiency(items):
     rows = []
     allowed = np.mean([it["allowed"] for it in items])
@@ -276,19 +295,31 @@ def _style(ax, title, xlabel, ylabel):
     ax.tick_params(colors="#52514e")
 
 
+def _end_labels(ax, ends, x, gap=0.05):
+    """Direct labels at the line ends, nudged apart so converging lines stay readable."""
+    ends = sorted([e for e in ends if not np.isnan(e[0])], key=lambda e: e[0])
+    pos = []
+    for y, _ in ends:
+        pos.append(max(y, pos[-1] + gap) if pos else y)
+    for (y, label), p in zip(ends, pos):
+        ax.annotate(label, (x, y), xytext=(10, (p - y) * 260), textcoords="offset points", va="center",
+                    fontsize=8, color="#52514e")
+
+
 def charts(det_rows, pr_data, rank_rows, abl_rows):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(8, 4.8), dpi=150)
+    fig, ax = plt.subplots(figsize=(8.5, 4.8), dpi=150)
     levels = [l for l in LEVELS if any(r["level"] == l for r in det_rows)]
+    ends = []
     for m in ["spintrace"] + BASELINES:
         ys = [next((r["f1"] for r in det_rows if r["method"] == m and r["level"] == l), np.nan) for l in levels]
         ax.plot(levels, ys, marker="o", markersize=8, linewidth=2.5 if m == "spintrace" else 2, color=COLORS[m],
                 label=LABELS[m])
-        ax.annotate(LABELS[m], (len(levels) - 1, ys[-1]), xytext=(8, 0), textcoords="offset points",
-                    va="center", fontsize=8, color="#52514e")
+        ends.append([ys[-1], LABELS[m]])
+    _end_labels(ax, ends, len(levels) - 1)
     ax.set_ylim(-0.02, 1.02)
     ax.set_xlim(-0.2, len(levels) - 0.4)
     _style(ax, "Detection F1 by rewrite intensity (test split)", "rewrite level, easiest to hardest", "F1")
@@ -358,6 +389,7 @@ def main(raw=runner.RAW):
     ret = retrieval_variants(test)
     eff = efficiency(test)
     write_csv(OUT / "undated_provenance.csv", undated_provenance(test))
+    write_csv(OUT / "query_budget.csv", query_budget(test))
     write_csv(OUT / "detection_by_level.csv", det)
     write_csv(OUT / "ranking.csv", rank)
     write_csv(OUT / "ablations.csv", abl)
