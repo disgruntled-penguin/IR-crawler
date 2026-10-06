@@ -73,6 +73,8 @@ _feats = None
 def load_features():
     global _feats
     if _feats is None:
+        if not FEATURES.exists():
+            raise SystemExit(f"no features at {FEATURES}; run `python -m spintrace build` first")
         with FEATURES.open("rb") as f:
             _feats = pickle.load(f)
     return _feats

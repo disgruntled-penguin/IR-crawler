@@ -211,5 +211,8 @@ _cache = {}
 
 def load(stemming=False):
     if stemming not in _cache:
-        _cache[stemming] = Index.load(index_path(stemming))
+        path = index_path(stemming)
+        if not path.exists():
+            raise SystemExit(f"no index at {path}; run `python -m spintrace build{' --stem' if stemming else ''}` first")
+        _cache[stemming] = Index.load(path)
     return _cache[stemming]
