@@ -66,14 +66,17 @@ def mine(con=None, limit=600, seed=358):
     random.Random(seed).shuffle(pairs)
     pairs = pairs[:limit]
     OUT.parent.mkdir(exist_ok=True)
+    # Keep any labels the judges have already entered.
+    old = {(r["suspect"], r["earlier"]): r for r in csv.DictReader(OUT.open())} if OUT.exists() else {}
     with OUT.open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["suspect", "earlier", "suspect_url", "earlier_url", "shared_names", "containment", "label",
                     "judge1", "judge2"])
         for a, b, c, cont in pairs:
             shared = sorted(names[a] & names[b])[:6]
+            prev = old.get((a, b), {})
             w.writerow([a, b, meta[a]["url"], meta[b]["url"], "; ".join(shared), f"{cont:.3f}", "independent(auto)",
-                        "", ""])
+                        prev.get("judge1", ""), prev.get("judge2", "")])
     return len(pairs)
 
 
