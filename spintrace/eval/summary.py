@@ -98,6 +98,16 @@ def build():
                              [[r["setting"], r["lambda"], _f(r["p@10"]), _f(r["ndcg@10"]), _f(r["original_first"]),
                                _f(r["original_share_top10"])] for r in se]))
 
+    sc = _rows("scale.csv")
+    if sc:
+        parts.append(f"**Scale** (same test items, index grown to {sc[0]['index_docs']} documents with "
+                     f"{sc[0]['ccnews_docs']} CC-NEWS articles from the same days; verifier and threshold not refit):\n\n"
+                     + table(["level", "Recall@1", "Recall@20", "full-doc tf-idf Recall@1", "F1 / FPR",
+                              "postings touched", "postings, full-doc query"],
+                             [[r["level"], _f(r.get("recall@1")), _f(r.get("recall@20")),
+                               _f(r.get("full_doc_tfidf_recall@1")), _f(r["f1"]), _f(r.get("postings_touched"), 0),
+                               _f(r.get("postings_full_doc"), 0)] for r in sc]))
+
     ng = _rows("newsguard_pairs.csv")
     if ng:
         parts.append("**Does it work on real farms?** NewsGuard-documented pairs (Wayback snapshots) in the full index:\n\n"
