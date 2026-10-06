@@ -1,6 +1,6 @@
 # Progress
 
-Updated 2026-10-07 02:20 IST. Unattended run until 16:00; the live crawl keeps running in the background.
+Updated 2026-10-07 02:55 IST. Unattended run until 16:00; the live crawl keeps running in the background.
 
 ## State
 
@@ -23,12 +23,22 @@ results block; charts in `results/`.
 - NewsGuard pairs: NYT -> GlobalVillageSpace retrieved first of 14.6k, verified, traced; Wired -> TopGolf.kr retrieved first, not verified.
 - Crawl: ~8.9k articles, 12.3k page requests, 0 disallowed URLs fetched; 9 delay violations, all before the 23:45 fix.
 
+## After the final run
+
+- Scale: one CC-NEWS file (3,645 English articles from 6 Oct) grows the index to 19.4k docs; with nothing refit,
+  F1 stays within 0.004 of the main results and the query still touches ~1.2% of a full-document query's postings
+  (`results/scale.csv`).
+- Round-trip translation (English -> German -> English, llama3.2:3b) is generating for 100 originals as a sixth
+  rewrite level; the evaluation will be rerun with it.
+
 ## Overnight bugs found and fixed
 
 1. 23:45 frontier rescheduling race (9 requests under 5 s, min 0.29 s). Fixed plus a hard per-host guard; regression test.
 2. 01:12 frontier starvation (most hosts idle behind three prolific ones). Front queues now partitioned by host; regression test.
 3. Hard-negative labels: the first miner let wire copies in as "independent"; now requires no reuse of any earlier text.
 4. Wikinews category tags leaked into originals; cleaned, rule-based rewrites regenerated.
+5. 02:21-02:50 the crawler died with "database is locked" while the CC-NEWS loader held long write transactions.
+   The crawler now waits and retries; bulk writers commit every 20-50 rows; a monitor watches for a dead or stalled crawl.
 
 ## For the team (from 10:00)
 
