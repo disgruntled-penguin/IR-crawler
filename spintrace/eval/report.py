@@ -16,8 +16,9 @@ from . import run as runner
 LEVELS = ["exact", "light", "synonym", "seo", "summary"]
 NEG_LEVELS = ["original", "hard_negative", "facts_only"]
 BASELINES = ["exact_hash", "minhash_jaccard", "shingle_containment", "tfidf_cosine", "bm25", "dense_cosine"]
+# aligned_word_overlap was added in critique round 3 after grouped cross-validation on dev (never on test).
 FEATURES = ["rare_cos", "shingle_containment", "align_coverage", "align_mean", "align_order", "back_coverage",
-            "ordered_coverage", "quote_overlap", "fact_overlap"]
+            "ordered_coverage", "aligned_word_overlap", "quote_overlap", "fact_overlap"]
 LABELS = {"spintrace": "SpinTrace", "exact_hash": "Exact hash", "minhash_jaccard": "MinHash Jaccard",
           "shingle_containment": "Shingle containment (all pairs)", "tfidf_cosine": "tf-idf cosine", "bm25": "BM25",
           "dense_cosine": "Dense cosine"}
