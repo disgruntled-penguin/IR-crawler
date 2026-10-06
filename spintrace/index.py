@@ -141,18 +141,24 @@ class Index:
         norm = math.sqrt(sum(v * v for v in w.values())) or 1.0
         return {t: v / norm for t, v in w.items()}
 
-    def cosine(self, qvec, allowed=None, k=10):
-        """Term-at-a-time lnc.ltc cosine with accumulators; heap-based top k."""
+    def cosine_scores(self, qvec):
+        """Term-at-a-time lnc.ltc cosine: one accumulator per document, touched only via postings."""
         acc = np.zeros(self.N, dtype=np.float64)
         for t, wq in qvec.items():
             p = self.post["body"].get(t)
             if p is None:
                 continue
             acc[p.docs] += wq * (1 + np.log10(p.tfs))
-        acc /= self.norms
-        return self._top(acc, allowed, k)
+        return acc / self.norms
+
+    def cosine(self, qvec, allowed=None, k=10):
+        """Top k by lnc.ltc cosine, selected with a heap."""
+        return self._top(self.cosine_scores(qvec), allowed, k)
 
     def bm25(self, term_counts, allowed=None, k=10):
+        return self._top(self.bm25_scores(term_counts), allowed, k)
+
+    def bm25_scores(self, term_counts):
         acc = np.zeros(self.N, dtype=np.float64)
         L = self.lengths["body"].astype(np.float64)
         for t, qtf in term_counts.items():
@@ -162,7 +168,7 @@ class Index:
             idf = math.log(1 + (self.N - len(p.docs) + 0.5) / (len(p.docs) + 0.5))
             tf = p.tfs.astype(np.float64)
             acc[p.docs] += idf * tf * (BM25_K1 + 1) / (tf + BM25_K1 * (1 - BM25_B + BM25_B * L[p.docs] / self.avg_len))
-        return self._top(acc, allowed, k)
+        return acc
 
     def _top(self, acc, allowed, k):
         if allowed is not None:

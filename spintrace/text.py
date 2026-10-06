@@ -82,7 +82,8 @@ def facts(text):
         words = span.split()
         while words and words[0].lower() in STOPWORDS:
             words = words[1:]
-        if words and " ".join(words).lower() not in STOPWORDS:
-            names.add(fold(" ".join(words)))
+        name = re.sub(r"'s\b", "", fold(" ".join(words)))
+        if words and name not in STOPWORDS:
+            names.add(name)
     nums = {n.replace(",", "") for n in NUMBER.findall(t) if len(n.replace(",", "")) >= 2}
     return names, nums
