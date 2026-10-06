@@ -4,7 +4,7 @@ import json
 import time
 from collections import Counter, defaultdict
 
-from .. import config, store
+from .. import config
 from . import pipeline
 
 SCHEMA = """

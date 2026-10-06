@@ -1,5 +1,3 @@
-import numpy as np
-
 from spintrace.detect import candidates
 from spintrace.index import Index
 

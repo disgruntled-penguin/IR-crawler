@@ -53,7 +53,6 @@ def wikitext_to_plain(text):
 
 
 def iter_published():
-    ns = "{http://www.mediawiki.org/xml/export-0.11/}"
     with bz2.open(DUMP, "rb") as f:
         for _, el in ET.iterparse(f):
             if not el.tag.endswith("page"):

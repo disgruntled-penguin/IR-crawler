@@ -8,7 +8,7 @@ import heapq
 import math
 import pickle
 import time
-from collections import Counter, defaultdict
+from collections import defaultdict
 
 import numpy as np
 
