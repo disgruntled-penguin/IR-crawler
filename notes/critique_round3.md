@@ -1,4 +1,4 @@
-# Critique round 3 (final run, 2026-10-07 ~02:30)
+# Critique round 3 (final run, 2026-10-07 ~02:15)
 
 Index 14,615 docs (crawl ~8.3k, 400 Wikinews originals, 4,000 distractors, 1,800 rewrites, 200 facts-only).
 Test: 190 per rule-based level, 90 SEO, 90 summary, 190 originals, 235 crawl hard negatives, 90 facts-only.
