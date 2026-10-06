@@ -197,6 +197,13 @@ def cmd_eval(args):
     print(f"\ntables and charts written to {config.RESULTS}")
 
 
+def cmd_search_eval(args):
+    from .eval import search_eval
+    for r in search_eval.main():
+        print("  ".join(f"{k}={v:.3f}" if isinstance(v, float) else f"{k}={v}" for k, v in r.items()))
+    print(f"live queries for judging: {search_eval.JUDGE}")
+
+
 def cmd_crawl_report(args):
     from .crawl import report
     rep = report.write()
@@ -264,6 +271,9 @@ def main(argv=None):
     c.add_argument("--no-stem", action="store_true")
     c.add_argument("--sample", type=int)
     c.set_defaults(fn=cmd_eval)
+
+    c = sub.add_parser("search-eval", help="do originals outrank copies? P@10 and nDCG@10 with and without g(d)")
+    c.set_defaults(fn=cmd_search_eval)
 
     c = sub.add_parser("crawl-report", help="politeness and correctness statistics of the crawl")
     c.set_defaults(fn=cmd_crawl_report)

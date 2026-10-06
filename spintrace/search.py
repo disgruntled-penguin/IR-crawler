@@ -7,8 +7,9 @@ ZONE_WEIGHTS = {"title": 0.3, "body": 0.7}
 LAMBDA = 0.3
 
 
-def relevance(idx, query, k=200):
+def relevance(idx, query, k=200, zones=None):
     """Zone-weighted lnc.ltc cosine over title and body, scaled so the best hit scores 1."""
+    zones = zones or ZONE_WEIGHTS
     toks = idx.tokens(query)
     counts = {}
     for t in tx.content_terms(toks) or toks:
@@ -19,7 +20,7 @@ def relevance(idx, query, k=200):
         return {}
     qvec = idx.query_vector(counts)
     acc = np.zeros(idx.N)
-    for zone, wz in ZONE_WEIGHTS.items():
+    for zone, wz in zones.items():
         z = np.zeros(idx.N)
         for t, wq in qvec.items():
             p = idx.post[zone].get(t)
@@ -35,9 +36,9 @@ def relevance(idx, query, k=200):
     return {int(d): float(acc[d] / best) for d in top if acc[d] > 0}
 
 
-def search(idx, query, g=None, lam=LAMBDA, k=10, origins=None):
+def search(idx, query, g=None, lam=LAMBDA, k=10, origins=None, zones=None):
     """Top k (doc, net, relevance, g) tuples; g maps doc_id to originality (missing means 1)."""
-    rel = relevance(idx, query)
+    rel = relevance(idx, query, zones=zones)
     out = []
     for d, r in rel.items():
         if origins and idx.meta["origin"][d] not in origins:
