@@ -105,6 +105,14 @@ def build():
                              [[r["pair_id"], r["status"], r.get("original_rank", ""), r.get("prob_original", ""),
                                r.get("flagged", ""), r.get("traced_to_original", "")] for r in ng]))
 
+    from . import judged
+    jm = judged.metrics()
+    if jm:
+        parts.append("**Human judgments** (two team members; filled in `evaldata/*.csv`):\n\n" + table(
+            ["sheet", "rows", "judged by both", "agreement", "Cohen's kappa", "share derived (agreed)"],
+            [[k, v["rows"], v["judged_by_both"], _f(v["agreement"]), _f(v["kappa"]), _f(v["share_derived_where_agreed"])]
+             for k, v in jm.items()]))
+
     if (R / "crawl_report.json").exists():
         c = json.loads((R / "crawl_report.json").read_text())
         keys = ["requests_page", "requests_robots", "docs_saved", "crawl_hours", "pages_per_minute", "hosts",
