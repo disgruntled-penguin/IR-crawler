@@ -48,6 +48,8 @@ class Crawler:
         self.feeds = {}
         self.page_seeds = []
         self.trapped = set()
+        # Hosts that seeds, feeds or sitemaps point at; links are followed only within these.
+        self.article_hosts = set()
         self.site_kind = {}
         self.last_request = {}
         self.errors = {}
@@ -104,6 +106,10 @@ class Crawler:
             self.site_kind[site] = self.site_kind.get(kind_site, "original")
         if site not in self.site_kind:
             return False
+        if source == "link" and host not in self.article_hosts:
+            return False
+        if source != "link":
+            self.article_hosts.add(host)
         if url not in self.feeds:
             if skip_reason(url):
                 return False
@@ -120,11 +126,14 @@ class Crawler:
         return False
 
     def restore(self):
+        for row in self.con.execute("SELECT DISTINCT host FROM urls WHERE source IN ('seed','feed','sitemap')"):
+            self.article_hosts.add(row["host"])
         n = 0
         for row in self.con.execute("SELECT url, host, priority FROM urls WHERE status='queued'"):
-            self.frontier.add(row["url"], row["host"], row["priority"])
-            n += 1
-        log.info("RESTORE queued=%d", n)
+            if row["host"] in self.article_hosts:
+                self.frontier.add(row["url"], row["host"], row["priority"])
+                n += 1
+        log.info("RESTORE queued=%d hosts=%d", n, len(self.article_hosts))
 
     def poll_feeds(self):
         """Re-add feeds, sitemaps and seed pages so new articles are discovered while the crawl runs (freshness)."""
