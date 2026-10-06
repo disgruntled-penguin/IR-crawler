@@ -33,9 +33,8 @@ def normalise(url, base=None):
     if parts.port and parts.port not in (80, 443):
         host = f"{host}:{parts.port}"
     path = re.sub(r"/{2,}", "/", parts.path or "/")
+    # Trailing slashes are kept: many sites 301 between the two forms, and stripping one loops.
     path = re.sub(r"/index\.html?$", "/", path)
-    if len(path) > 1 and path.endswith("/"):
-        path = path[:-1]
     query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if not TRACKING_PARAMS.match(k)]
     query.sort()
     return urlunsplit(("https" if parts.scheme in ("http", "https") else parts.scheme, host, path, urlencode(query), ""))

@@ -10,6 +10,8 @@ import re
 import time
 from collections import deque
 
+from .. import config
+
 N_PRIORITIES = 3
 FRONT_BIAS = [8, 3, 1]
 BACK_QUEUE_CAP = 50
@@ -33,6 +35,8 @@ class Frontier:
         self.scheduled = set()
         self.next_time = {}
         self.disabled = set()
+        # After a restart, no host is contacted until one full delay has passed.
+        self.not_before = time.time() + config.DEFAULT_DELAY
 
     def __len__(self):
         return sum(len(q) for q in self.front) + sum(len(q) for q in self.back.values())
@@ -43,7 +47,7 @@ class Frontier:
 
     def _schedule(self, host):
         if host not in self.scheduled and self.back.get(host):
-            heapq.heappush(self.heap, (self.next_time.get(host, 0.0), host))
+            heapq.heappush(self.heap, (self.next_time.get(host, self.not_before), host))
             self.scheduled.add(host)
 
     def _refill(self, budget=500):
