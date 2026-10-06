@@ -343,6 +343,10 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 
 ## Known weaknesses
 
+- **Where SpinTrace loses.** On exact copies and light edits, exact hashing and MinHash are better (F1 0.99-1.00
+  against 0.962) and far cheaper: SpinTrace's threshold is tuned for paraphrases, so the same-story negatives it
+  still flags cost it precision on every level. In a crawler the two should run together: the textbook check first,
+  SpinTrace for what it lets through. BM25 comes within 0.05 F1 on summaries.
 - **Same story versus copied is the hard boundary.** Articles written from an original's facts and quotes alone
   are still flagged 15.6% of the time (test), and SEO-rewrite recall is 0.77 at the dev-tuned threshold. Before
   the facts-only negatives were added, a spot check of 8 live flags found about 3 real derivatives; after, an
