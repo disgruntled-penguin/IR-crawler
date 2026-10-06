@@ -7,6 +7,7 @@ from .. import corpus, embed, index, store
 from . import candidates, signals, verify
 
 VERIFY_TOP = 5
+TIE_MARGIN = 0.05
 
 
 class Context:
@@ -74,6 +75,12 @@ def analyse(ctx, n, k_verify=VERIFY_TOP, model=None, use_quotes=True, signal_nam
                          "retrieval": c["score"], "signals": sig, "prob": prob, "verdict": verdict, "why": why})
     verified.sort(key=lambda v: -v["prob"])
     best = verified[0] if verified else None
+    if best:
+        # Copies of one original verify almost equally well; the earliest of them is the likelier origin.
+        close = [v for v in verified if v["prob"] >= best["prob"] - TIE_MARGIN and v["verdict"] != "uncertain"
+                 and v["prob"] >= model["threshold"]]
+        if close:
+            best = min(close, key=lambda v: date_of(ctx.doc(v["doc"])) or float("inf"))
     flagged = bool(best and best["prob"] >= model["threshold"] and best["verdict"] != "uncertain")
     return {"doc": n, "doc_id": s["doc_id"], "url": s["url"], "stats": stats, "candidates": cands,
             "verified": verified, "flagged": flagged, "source": best if flagged else None}
