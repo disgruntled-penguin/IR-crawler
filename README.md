@@ -37,8 +37,8 @@ few candidates IR returns.
  [3 detect] suspect -> 30 rarest terms (lnc.ltc cosine, term-at-a-time, heap top-20)
         |             + quote windows as phrase queries on the positional index
         |             + parametric filter: other sites, published earlier
-        |          -> verify top 5: sentence alignment coverage and order, quotes, names/numbers,
-        |             shingle containment -> logistic score (fit on dev)
+        |          -> verify top 5: sentence alignment coverage, order and word overlap, back coverage,
+        |             quotes, names/numbers, shingle containment -> logistic score (fit on dev)
         |          -> provenance: earlier date, or containment asymmetry when undated
         v
  [4 use] copy graph -> originality g(d) -> search: net = relevance + lambda * g(d)
@@ -66,9 +66,14 @@ python -m spintrace recrawl                 # re-fetch the committed article URL
 # or run a fresh live crawl instead:  python -m spintrace crawl --hours 2
 python -m spintrace build --stem            # ingest Wikinews + rewrites, shingles/MinHash, both indexes
 python -m spintrace eval                    # all experiments; tables and charts in results/
-python -m spintrace scan                    # detection over the crawl, stores the copy graph
-python -m spintrace crawl-report            # politeness and correctness statistics
+python -m spintrace scan --where "origin IN ('crawl','synthetic','newsguard')"   # copy graph and g(d)
+python -m spintrace search-eval             # originals versus copies in search, with and without g(d)
+python -m spintrace crawl-report            # politeness and correctness statistics, with example log lines
 ```
+
+`scripts/run_all.sh` runs build, eval, scan, search-eval, crawl-report and export in that order.
+`python -m spintrace judge live --judge 1` (then `--judge 2`, and the sheets `hardneg` and `search`) is the
+labelling loop for the two judges; `python -m spintrace eval --report-only` folds their labels into the results.
 
 Inspecting intermediate output (for the demo):
 
@@ -78,17 +83,18 @@ python -m spintrace pair <doc_id|url> <doc_id|url>   # shingle overlap, Jaccard,
 python -m spintrace suspect <doc_id|url>             # query terms, candidates, signals, sentence alignment, verdict
 python -m spintrace search "nobel prize physics"     # ranked results with relevance, g(d) and net score
 python -m spintrace search "nobel prize physics" --no-g
+python -m spintrace demo --seed 7                    # seeded random test cases, including a miss and a false alarm
 ```
 
-`pytest` runs the unit tests (frontier politeness, text pipeline, index, MinHash).
+`pytest` runs the unit tests (frontier politeness and starvation, text pipeline, index, MinHash, candidate retrieval).
 
 ## Data and credits
 
 | Source | Use | Licence and notes |
 | --- | --- | --- |
-| Live crawl of 35 news sites (`seeds/seeds.csv`) | the index, live detection, hard negatives, search | Only URLs and features are committed (`evaldata/crawl_urls.csv`, `crawl_minhash.npz`); texts stay local. Each seed's robots.txt was checked before use |
+| Live crawl from 36 seeds (`seeds/seeds.csv`) | the index, live detection, hard negatives, search | Only URLs and features are committed (`evaldata/crawl_urls.csv`, `crawl_minhash.npz`); texts stay local. Each seed's robots.txt was checked before use |
 | [English Wikinews](https://en.wikinews.org) dump, Oct 2026 | 400 originals for synthetic rewrites | CC BY 2.5, Wikinews contributors. Read from the official Wikimedia dump because Wikinews robots.txt disallows `/w/` (its API) |
-| Synthetic rewrites (`evaldata/rewrites.jsonl`) | labelled evaluation set | Generated from the Wikinews originals; LLM levels by Meta Llama 3.2 3B via Ollama |
+| Synthetic rewrites (`evaldata/rewrites.jsonl`) | labelled evaluation set | Generated from the Wikinews originals; LLM levels (SEO rewrite, summary, facts-only article) by Meta Llama 3.2 3B via Ollama |
 | NewsGuard August 2023 report | documented real farm rewrites (`evaldata/newsguard_pairs.csv`) | Farm copies and originals fetched from the Internet Archive Wayback Machine |
 | all-MiniLM-L6-v2 (sentence-transformers) | sentence embeddings for verification and the dense baseline | Apache 2.0 |
 
@@ -96,7 +102,7 @@ python -m spintrace search "nobel prize physics" --no-g
 
 | Concept | Where | Why SpinTrace needs it |
 | --- | --- | --- |
-| Crawl loop, URL frontier (Mercator front and back queues), politeness, robots.txt | `crawl/frontier.py`, `crawl/crawler.py`, `crawl/robots.py` | Collecting news and farm pages responsibly. Front queues by priority (feed entries > article-shaped links > other); one back queue per host; a heap of next-allowed times; `priority()` is the one replaceable policy function |
+| Crawl loop, URL frontier (Mercator front and back queues), politeness, robots.txt | `crawl/frontier.py`, `crawl/crawler.py`, `crawl/robots.py` | Collecting news and farm pages responsibly. Front queues by priority (feed entries > article-shaped links > other), partitioned by host; a heap of next-allowed times picks the host; `priority()` is the one replaceable policy function |
 | URL normalisation, spider-trap guards | `crawl/urlnorm.py` | Lowercased host, no fragment, tracking parameters dropped, sorted query; guards on length, depth, repeated segments, parameter count and calendar loops |
 | Content-seen check: exact hash, shingles, Jaccard, MinHash, LSH | `dedup.py` | The textbook duplicate check SpinTrace extends, and the main baseline |
 | Tokenisation and normalisation | `text.py` | One pipeline for index, shingles and queries: NFKC, case and accent folding, numbers kept as values (`1,394` = `1394`), stopwords kept in postings so phrase queries work |
@@ -125,8 +131,8 @@ retrieval, the signals, provenance, the copy graph, search and the evaluation.
 | Choice | Value | Reason |
 | --- | --- | --- |
 | Politeness delay | max(Crawl-delay, 5 s) per host | The brief asks for "a few seconds"; 5 s keeps ~30 hosts busy at ~1 page/s overall from one process |
-| Backoff | delay x2 per consecutive error (cap 64x, 10 min), stop host after 5 | Standard exponential backoff; 429/503 mean the host wants us to slow down |
-| Frontier | 3 front queues (feed/sitemap entries, article-shaped links, other), bias 8:3:1; one back queue per host, capped at 50 | Mercator design; the bias keeps fresh feed entries first without starving discovery |
+| Backoff | delay x2 per consecutive error (cap 64x, 10 min), stop host after 5; errors are 5xx, 429 and refusals (401, 403, 405, 451) | 429/503 ask us to slow down; a host refusing every request should be left alone |
+| Frontier | 3 priority levels (feed/sitemap entries, article-shaped links, other) kept per host, drawn with bias 8:3:1; a heap orders hosts by next allowed time | Mercator's front and back queues, with the front queues partitioned by host so no host waits behind another's backlog (a starvation bug in the first version); links are followed only on hosts the seeds and feeds point at |
 | Trap guards | URL <= 300 chars, depth <= 8, a segment repeated <= 2 times, <= 3 query params, 1,500 pages per host | Calendar and faceted-navigation loops show up as long, deep or parameter-heavy URLs |
 | What a document is | trafilatura main text, >= 120 words, plus article metadata, a publish date or a feed date | Drops section fronts, galleries and stubs; keeps short wire items |
 | Tokens | NFKC, case and accent folding, numbers as values, stopwords kept in postings | Rewrites keep names and numbers but not formatting; phrase queries need every position |
@@ -142,16 +148,16 @@ retrieval, the signals, provenance, the copy graph, search and the evaluation.
 | g(d) | 1 - p(strongest source edge) | Originals keep g = 1; confirmed copies drop towards 0 |
 | Net score | relevance + lambda g(d), lambda from {0, 0.1, ..., 0.8} chosen on dev queries | Lets relevance dominate and g break near-ties between an original and its copies |
 | Splits | by original story (sha1 parity), dev about 50% / test about 50% | A story and all its rewrites fall on one side, so nothing leaks between dev and test |
-| Evaluation sizes | 400 Wikinews originals, 4,000 distractors, 200 LLM-rewritten; ~150 crawl hard negatives per split | Stable metrics at hackathon cost: a 1-point F1 change is a handful of items |
+| Evaluation sizes | 400 Wikinews originals, 4,000 distractors, 200 LLM-rewritten and 200 facts-only; ~250 crawl hard negatives per split | Stable metrics at hackathon cost: a 1-point F1 change is a handful of items |
 
 ## Ethics
 
 Enforced in code (`crawl/`):
 
-- robots.txt fetched per host and obeyed, including Crawl-delay; an unreachable robots.txt means the host is not crawled.
+- robots.txt fetched per host and obeyed, including Crawl-delay; an unreachable, forbidden or failing (5xx) robots.txt means the host is not crawled until the next check. Every robots.txt fetched is stored, and `crawl-report` re-checks every fetched URL against it.
 - At least 5 s between requests to one host (the robots.txt request counts), enforced twice: by the frontier's per-host heap and by a hard guard before every request.
 - User agent `SpinTraceBot/0.1 (CSD358 IR course project; contact: ...)`.
-- Exponential backoff on 429, 503 and other 5xx (Retry-After honoured); a host is stopped after 5 consecutive errors.
+- Exponential backoff on 429, 5xx and refusals (401, 403, 405, 451), with Retry-After honoured; a host is stopped after 5 consecutive errors.
 - Redirects are not followed automatically, so a redirect target goes back through robots.txt and the delay.
 - Comments, author and profile pages, accounts, search and media are never fetched; trafilatura drops comment sections from article text; author names are not stored.
 - Crawled full texts are never committed: only URLs, dates, hashes and MinHash signatures, plus `recrawl`.
@@ -162,7 +168,7 @@ Charts: `results/detection_f1_by_level.png`, `pr_curve.png`, `p_at_1_by_level.pn
 `ablations.png`, `pipeline.png`. Every table below is regenerated from `results/*.csv` by the commands above.
 
 <!-- results:start -->
-Generated by `python -m spintrace eval` and friends; every number below is on the test split.
+Generated by `python -m spintrace eval` and friends; every evaluation number below is on the test split.
 
 Index: 14615 documents. Evaluation items (dev / test):
 
@@ -347,16 +353,18 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 - **Undated provenance mostly abstains** for same-length rewrites; it works for summaries.
 - **Dates are trusted.** A farm that backdates its pages escapes the earlier-only filter; the "no date filter"
   retrieval variant measures what dropping the filter costs.
-- **Ranking is easy on this corpus.** Whole-document tf-idf, BM25 and dense retrieval also rank the original first;
-  the IR evidence is in cost and in the index-elimination experiment, not in P@1.
+- **Ranking is easy for sparse methods on this corpus.** Whole-document tf-idf and BM25 also rank the original
+  first (P@1 about 0.99); the IR evidence is in cost (about 1% of the postings a full-document query touches) and in
+  the index-elimination experiment. Dense retrieval is the one that slips: with same-story distractors in the
+  index it ranks the true source first for only 0.83 of SEO and summary rewrites.
 - **Synthetic rewrites come from one 3B model.** Stronger LLMs paraphrase more and would be harder.
-- **Scale.** One crawler process, ~6k crawled articles, one night.
+- **Scale.** One crawler process, ~9k crawled articles, one night.
 
 ## What works and what is planned
 
 Works, end to end on live data:
 
-- Polite focused crawl from 35 seeds (RSS, Atom, news sitemaps, two homepages), re-polling feeds every 45 minutes, with a robots.txt audit and per-host gap report (`crawl-report`).
+- Polite focused crawl from 36 seeds (RSS and Atom feeds and three homepages), re-polling feeds every 45 minutes, with a robots.txt audit and per-host gap report (`crawl-report`).
 - Content-seen check over the crawl: exact hash, shingles, MinHash, LSH.
 - Positional zoned index (title, body, quote), tf-idf and BM25, phrase queries, optional Porter stemming.
 - Candidate retrieval from rare (fact-boosted) terms and quote phrases with an earlier-only filter; verification by sentence alignment, order, quotes, names/numbers and shingle containment; provenance by date or, when undated, by coverage asymmetry; copy graph and originality g(d); search with net score.
@@ -404,6 +412,6 @@ The team used Claude Code (Anthropic, model Claude Opus 5.5) as a coding agent t
 
 - Generated with Claude Code from the team's plan (PLAN.md, CLAUDE.md): the package code under `spintrace/`, the tests, the CLI, the evaluation harness and charts, this README, PROGRESS.md and the critique notes in `notes/`.
 - The team wrote the plan, the brief and the seed strategy, chose the track and claim, reviewed the code and results, and judges the live pairs, hard negatives and search results.
-- Synthetic SEO rewrites and summaries were generated by Meta Llama 3.2 3B run locally through Ollama (`spintrace/eval/rewrites.py`); they are evaluation data only.
+- Synthetic SEO rewrites, summaries and facts-only articles were generated by Meta Llama 3.2 3B run locally through Ollama (`spintrace/eval/rewrites.py`); they are evaluation data only.
 - all-MiniLM-L6-v2 (a pretrained sentence-embedding model) is used for verification signals and the dense baseline.
 - No AI system labelled evaluation data: synthetic labels come from construction, hard negatives from a rule-based miner, and live pairs are for human judges.
