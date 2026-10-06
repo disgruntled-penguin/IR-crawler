@@ -33,6 +33,7 @@ class Frontier:
         self.back = {}
         self.heap = []
         self.scheduled = set()
+        self.in_flight = set()
         self.next_time = {}
         self.disabled = set()
         # After a restart, no host is contacted until one full delay has passed.
@@ -46,7 +47,8 @@ class Frontier:
             self.front[min(prio, N_PRIORITIES - 1)].append((url, host))
 
     def _schedule(self, host):
-        if host not in self.scheduled and self.back.get(host):
+        # A host being fetched is rescheduled only by done()/release(), once its next time is known.
+        if host not in self.scheduled and host not in self.in_flight and self.back.get(host):
             heapq.heappush(self.heap, (self.next_time.get(host, self.not_before), host))
             self.scheduled.add(host)
 
@@ -83,7 +85,11 @@ class Frontier:
             q = self.back.get(host)
             if host in self.disabled or not q:
                 continue
+            if t < self.next_time.get(host, t):
+                self._schedule(host)
+                continue
             url = q.popleft()
+            self.in_flight.add(host)
             if not q:
                 self._refill(budget=100)
             return t, host, url
@@ -92,10 +98,12 @@ class Frontier:
     def done(self, host, delay):
         """A request was sent to host: it may not be contacted again for delay seconds."""
         self.next_time[host] = time.time() + delay
+        self.in_flight.discard(host)
         self._schedule(host)
 
     def release(self, host):
         """No request was sent (URL skipped before fetching): keep the host's slot unchanged."""
+        self.in_flight.discard(host)
         self._schedule(host)
 
     def disable(self, host):

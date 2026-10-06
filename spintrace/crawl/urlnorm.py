@@ -12,7 +12,7 @@ SKIP_PATH = re.compile(
     r"subscribe|subscription|newsletter|newsletters|cart|checkout|search|tag|tags|topic|topics|"
     r"video|videos|live|gallery|galleries|podcast|podcasts|audio|sounds|iplayer|weather|"
     r"wp-admin|wp-login|feed|amp|print|share|cdn-cgi|programmes|sport/av|crossword|puzzles|"
-    r"horoscope|horoscopes|obituaries|jobs|careers|advertis\w*|contact|about|privacy|terms)(/|$)",
+    r"horoscope|horoscopes|obituaries|jobs|careers|advertis\w*|contact|about|privacy|terms|institutions|quick-read)(/|$)",
     re.I,
 )
 SKIP_EXT = re.compile(r"\.(jpg|jpeg|png|gif|webp|svg|mp4|mp3|pdf|zip|css|js|json|ico|woff2?|xml|rss)$", re.I)

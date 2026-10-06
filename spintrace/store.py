@@ -46,6 +46,12 @@ CREATE TABLE IF NOT EXISTS fetch_log (
     detail TEXT
 );
 CREATE INDEX IF NOT EXISTS fetch_log_host ON fetch_log(host, ts);
+CREATE TABLE IF NOT EXISTS robots (
+    host TEXT NOT NULL,
+    fetched_at REAL NOT NULL,
+    status INTEGER,
+    body TEXT
+);
 CREATE TABLE IF NOT EXISTS hosts (
     host TEXT PRIMARY KEY,
     state TEXT NOT NULL,

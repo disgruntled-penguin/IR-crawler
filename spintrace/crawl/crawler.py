@@ -38,7 +38,8 @@ class Crawler:
         self.con = store.connect()
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": config.USER_AGENT, "Accept-Language": "en"})
-        self.robots = RobotsCache(self.session, self._log_request)
+        self.robots = RobotsCache(self.session, self._log_request, self.con)
+        self.robots.before_request = lambda host: self.wait_for(host) if host in self.robots.cache else None
         self.frontier = fr.Frontier()
         self.seeds = load_seeds(seeds_path)
         self.max_pages = max_pages
@@ -68,6 +69,17 @@ class Crawler:
         gap_s = f"{gap:.2f}s" if gap is not None else "first"
         store.log_event(self.con, host, url, event, status, f"gap={gap_s} {detail or ''}".strip(), ts=now)
         log.info("%s host=%s status=%s gap=%s %s %s", event.upper(), host, status, gap_s, url, detail or "")
+
+    def wait_for(self, host):
+        """Hard politeness guard, independent of the frontier: never contact a host before its delay is over."""
+        last = self.last_request.get(host)
+        if last is not None:
+            entry = self.robots.cache.get(host)
+            delay = max(config.DEFAULT_DELAY, float(entry[2] or 0)) if entry else config.DEFAULT_DELAY
+            gap = delay - (time.time() - last)
+            if gap > 0:
+                log.info("GUARD host=%s waiting %.2fs", host, gap)
+                time.sleep(gap)
 
     def _event(self, host, url, event, detail=None):
         store.log_event(self.con, host, url, event, None, detail)
@@ -130,6 +142,7 @@ class Crawler:
 
     def fetch(self, url, host):
         """One GET without automatic redirects, so a redirect target goes back through robots and politeness."""
+        self.wait_for(host)
         try:
             resp = self.session.get(url, timeout=config.REQUEST_TIMEOUT, allow_redirects=False, stream=True)
             body = resp.raw.read(config.MAX_BYTES, decode_content=True)
