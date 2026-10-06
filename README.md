@@ -336,9 +336,10 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 
 ## Known weaknesses
 
-- **Same story versus copied is the hard boundary.** On live data, independent reports of one event and
-  shared agency copy look alike: the round-1 spot check of 8 live flags found about 3 real derivatives. The
-  facts-only negatives are the synthetic answer; the judged live precision is the real one.
+- **Same story versus copied is the hard boundary.** Articles written from an original's facts and quotes alone
+  are still flagged 15.6% of the time (test), and SEO-rewrite recall is 0.77 at the dev-tuned threshold. Before
+  the facts-only negatives were added, a spot check of 8 live flags found about 3 real derivatives; after, an
+  unofficial spot check of 10 found about 9 (mostly shared agency copy). The judged live precision is the real number.
 - **Shared wire copy is attributed to an outlet.** When two outlets print the same AP or PTI story, SpinTrace
   names the earlier outlet as the source; the agency itself is not crawled.
 - **Verification is trained on prose.** The NewsGuard TopGolf.kr page (AI title suggestions plus a reshaped
@@ -364,7 +365,7 @@ Works, end to end on live data:
 
 Partial:
 
-- Real farm pairs: one NewsGuard-documented pair (Wired -> TopGolf.kr) loads from the Wayback Machine; the NYT original is not archived and the Bored Panda and People originals are not named in the report. The team's pair list is still to be added.
+- Real farm pairs: two NewsGuard-documented pairs load from the Wayback Machine. NYT -> GlobalVillageSpace is retrieved first among 14.6k documents, verified (p = 0.999) and traced; Wired -> TopGolf.kr is retrieved first but not verified. The Bored Panda and People originals are not named in the report.
 - Hard negatives and flagged live pairs are mined automatically; the judge columns in `evaldata/hard_negatives.csv`, `live_flagged.csv` and `search_judgments.csv` are for the two team members to fill.
 - No live farm sites were found among the seeds yet; suspects come from aggregators that republish agency copy (latestly, devdiscourse, socialnews, newsx).
 
@@ -379,9 +380,23 @@ Planned (course project):
 
 ## Timeline
 
-Tracks announced 12:00 on 6 Oct 2026; planning 12:00 to 21:00; build from 21:00.
+Tracks announced 12:00 on 6 Oct 2026; planning 12:00 to 21:00; build from 21:00. Times are IST, from the commit log.
 
-TIMELINE_PLACEHOLDER
+| Time | Milestone |
+| --- | --- |
+| 6 Oct 15:12-22:13 | Plan, brief and permissions committed |
+| 22:20 | Network check passed; package skeleton |
+| 22:29 | Live crawl started (runs in the background from here on) |
+| 22:38 | Wikinews dump loader and graded rewrites (LLM levels generating locally) |
+| 22:47 | Positional index, MinHash/LSH, candidate retrieval, verification, provenance |
+| 23:30 | Copy graph, search with g(d), inspect commands |
+| 23:46 | Evaluation harness with baselines; politeness race found by the crawl report and fixed |
+| 7 Oct 00:05 | Critique round 1: hard-negative labels, distractors, all-pairs shingle baseline, IR-only ablation |
+| 00:30 | Facts-only independent-coverage negatives; structural signals |
+| 00:36 | NewsGuard pairs from the Wayback Machine |
+| 01:04 | Critique round 2: dates-untrusted variant, refusal backoff |
+| 01:12 | Frontier starvation found and fixed |
+| 02:00-02:30 | Final run; critique round 3 (dev cross-validation adds aligned word overlap) |
 
 ## AI-use log
 
