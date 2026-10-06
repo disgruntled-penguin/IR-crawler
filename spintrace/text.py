@@ -8,7 +8,7 @@ from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 STOPWORDS = frozenset(ENGLISH_STOP_WORDS) | {"said", "says", "according", "also", "would", "could", "told"}
 
 QUOTE_MAP = str.maketrans({"“": '"', "”": '"', "„": '"', "‘": "'", "’": "'", "–": "-", "—": "-"})
-TOKEN = re.compile(r"\d+(?:[.,]\d+)*|[a-z]+(?:'[a-z]+)?")
+TOKEN = re.compile(r"\d+(?:[.,]\d+)*|[^\W\d_]+(?:'[^\W\d_]+)?")
 QUOTE = re.compile(r'"([^"]{20,400})"')
 SENT_SPLIT = re.compile(r"(?<=[.!?])[\"']?\s+(?=[\"']?[A-Z0-9])")
 CAPS = re.compile(r"\b[A-Z][a-zA-Z'\-]+(?:\s+(?:of|the|de|al|bin|von|van|for)?\s*[A-Z][a-zA-Z'\-]+)*")
@@ -17,6 +17,12 @@ NUMBER = re.compile(r"\b\d+(?:[.,]\d+)*\b")
 
 def clean(text):
     return unicodedata.normalize("NFKC", text).translate(QUOTE_MAP)
+
+
+def fold(text):
+    """Case and accent folding: "Teherán" and "teheran" become one term."""
+    text = unicodedata.normalize("NFKD", clean(text).lower())
+    return "".join(c for c in text if not unicodedata.combining(c))
 
 
 def _norm_token(t):
@@ -39,7 +45,7 @@ def _porter():
 
 def tokens(text, stemming=False):
     """Lowercased tokens with positions preserved (stopwords kept so phrase queries work)."""
-    out = [_norm_token(t) for t in TOKEN.findall(clean(text).lower())]
+    out = [_norm_token(t) for t in TOKEN.findall(fold(text))]
     if stemming:
         out = [t if t[0].isdigit() else stem(t) for t in out]
     return out
@@ -73,8 +79,10 @@ def facts(text):
         prev = t[max(0, start - 2):start]
         if (start == 0 or prev.strip() in (".", "!", "?", '"', "")) and " " not in span:
             continue
-        if span.lower() in STOPWORDS:
-            continue
-        names.add(span.lower())
+        words = span.split()
+        while words and words[0].lower() in STOPWORDS:
+            words = words[1:]
+        if words and " ".join(words).lower() not in STOPWORDS:
+            names.add(fold(" ".join(words)))
     nums = {n.replace(",", "") for n in NUMBER.findall(t) if len(n.replace(",", "")) >= 2}
     return names, nums
