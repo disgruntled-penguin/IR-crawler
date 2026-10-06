@@ -120,6 +120,30 @@ Written ourselves: the frontier and politeness logic, URL normalisation, tokenis
 positional zoned index, tf-idf and BM25, phrase queries, shingling, MinHash, LSH, candidate
 retrieval, the signals, provenance, the copy graph, search and the evaluation.
 
+## Design choices and why
+
+| Choice | Value | Reason |
+| --- | --- | --- |
+| Politeness delay | max(Crawl-delay, 5 s) per host | The brief asks for "a few seconds"; 5 s keeps ~30 hosts busy at ~1 page/s overall from one process |
+| Backoff | delay x2 per consecutive error (cap 64x, 10 min), stop host after 5 | Standard exponential backoff; 429/503 mean the host wants us to slow down |
+| Frontier | 3 front queues (feed/sitemap entries, article-shaped links, other), bias 8:3:1; one back queue per host, capped at 50 | Mercator design; the bias keeps fresh feed entries first without starving discovery |
+| Trap guards | URL <= 300 chars, depth <= 8, a segment repeated <= 2 times, <= 3 query params, 1,500 pages per host | Calendar and faceted-navigation loops show up as long, deep or parameter-heavy URLs |
+| What a document is | trafilatura main text, >= 120 words, plus article metadata, a publish date or a feed date | Drops section fronts, galleries and stubs; keeps short wire items |
+| Tokens | NFKC, case and accent folding, numbers as values, stopwords kept in postings | Rewrites keep names and numbers but not formatting; phrase queries need every position |
+| Shingles | word 5-grams | Long enough to be specific, short enough to survive light edits (textbook range 4-9) |
+| MinHash / LSH | 128 permutations; 32 bands x 4 rows | Estimate error about 1/sqrt(128) = 0.09; the LSH knee (1/32)^(1/4) = 0.42 Jaccard catches light edits |
+| Candidate query | 30 highest tf-idf body terms with df >= 2; names and numbers boosted x2 | df = 1 terms can only match the suspect itself; the query-budget experiment shows how recall depends on m and on idf |
+| Quote phrases | 6-token windows of each quote (step 3) as phrase queries | A rewrite may trim a quote; any intact window is evidence |
+| Weighting | lnc.ltc cosine for candidates, BM25 (k1 = 1.2, b = 0.75) as a baseline | lnc.ltc puts idf on the query side only, so the rare-term query decides; cosine normalisation stops long documents winning |
+| Candidates | top 20 retrieved, top 5 verified | Recall@20 is the retrieval target; verification is the expensive step |
+| Alignment | sentence pair matches if cosine >= 0.62 (MiniLM) | Paraphrased sentences sit around 0.7-0.9, unrelated ones below 0.5 |
+| Verifier | logistic regression over the signals, class-balanced, fit on dev pairs | Few parameters, inspectable weights (`results/verifier.json`); the threshold maximises dev F1 |
+| Provenance | earlier publish date; if a date is missing, the side covered by the other (margin 0.2); otherwise uncertain | A copy must come after its source; a summary covers less of its source than the source covers of it |
+| g(d) | 1 - p(strongest source edge) | Originals keep g = 1; confirmed copies drop towards 0 |
+| Net score | relevance + lambda g(d), lambda from {0, 0.1, ..., 0.8} chosen on dev queries | Lets relevance dominate and g break near-ties between an original and its copies |
+| Splits | by original story (sha1 parity), dev about 50% / test about 50% | A story and all its rewrites fall on one side, so nothing leaks between dev and test |
+| Evaluation sizes | 400 Wikinews originals, 4,000 distractors, 200 LLM-rewritten; ~150 crawl hard negatives per split | Stable metrics at hackathon cost: a 1-point F1 change is a handful of items |
+
 ## Ethics
 
 Enforced in code (`crawl/`):
