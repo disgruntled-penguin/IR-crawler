@@ -316,6 +316,39 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 | duplicate_rate | 0.033 |
 <!-- results:end -->
 
+## Evaluation protocol
+
+- **Items.** Positives are synthetic rewrites of Wikinews originals at five intensities (exact copy, light edit,
+  WordNet synonym spin, LLM "SEO-friendly" rewrite, LLM summary). Negatives are the originals themselves,
+  crawl hard negatives (same event, other outlet, published within 3 days, at least 3 shared rare names, no
+  shingle containment above 0.1 against any earlier document: median gap 10.5 h, 77% within 24 h), and
+  facts-only articles an LLM wrote from an original's topic, names, numbers and quotes without seeing its text.
+- **Index.** Every item is scored against the full index (crawl, originals, 4,000 Wikinews distractors, all
+  rewrites), except that a rewrite cannot see the other rewrites of its own original.
+- **Splits.** By original story; the verifier and every method's threshold are fit on dev, all numbers are test.
+- **Baselines.** Exact hash; MinHash Jaccard over LSH candidates; shingle containment against every earlier
+  document (the best case for shingles); full-document tf-idf cosine; full-document BM25 normalised by the
+  suspect's self-score; dense cosine of mean MiniLM sentence vectors. Each takes its best dev threshold.
+- **Real cases.** NewsGuard-documented pairs (Wayback Machine), flagged live pairs and live search results for
+  the two judges (`python -m spintrace judge ...`); agreement is reported as Cohen's kappa.
+
+## Known weaknesses
+
+- **Same story versus copied is the hard boundary.** On live data, independent reports of one event and
+  shared agency copy look alike: the round-1 spot check of 8 live flags found about 3 real derivatives. The
+  facts-only negatives are the synthetic answer; the judged live precision is the real one.
+- **Shared wire copy is attributed to an outlet.** When two outlets print the same AP or PTI story, SpinTrace
+  names the earlier outlet as the source; the agency itself is not crawled.
+- **Verification is trained on prose.** The NewsGuard TopGolf.kr page (AI title suggestions plus a reshaped
+  deals list) has its Wired source ranked first by retrieval but is not verified.
+- **Undated provenance mostly abstains** for same-length rewrites; it works for summaries.
+- **Dates are trusted.** A farm that backdates its pages escapes the earlier-only filter; the "no date filter"
+  retrieval variant measures what dropping the filter costs.
+- **Ranking is easy on this corpus.** Whole-document tf-idf, BM25 and dense retrieval also rank the original first;
+  the IR evidence is in cost and in the index-elimination experiment, not in P@1.
+- **Synthetic rewrites come from one 3B model.** Stronger LLMs paraphrase more and would be harder.
+- **Scale.** One crawler process, ~6k crawled articles, one night.
+
 ## What works and what is planned
 
 Works, end to end on live data:
