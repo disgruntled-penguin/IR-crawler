@@ -212,7 +212,7 @@ class Crawler:
         delay = self.robots.delay(host) * self.backoff.get(host, 1.0)
         if not cached:
             # The robots.txt request counts as a visit: put the URL back and wait the host delay.
-            self.frontier.back.setdefault(host, fr.deque()).appendleft(url)
+            self.frontier.push_back(host, url)
             self.frontier.done(host, delay)
             return True
         if not allowed:

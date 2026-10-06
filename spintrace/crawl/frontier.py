@@ -1,8 +1,11 @@
-"""Mercator-style URL frontier.
+"""URL frontier in the Mercator style, with the front queues partitioned by host.
 
-Front queues hold URLs by priority; each host has one back queue; a heap orders hosts by the
-earliest time they may be contacted again, with at most one heap entry per host. The priority of
-a URL comes from priority(), the single function to replace for a different crawl policy.
+Each host keeps one queue per priority level (the front queues); a heap orders hosts by the earliest
+time they may be contacted again, with at most one heap entry per host (the back-queue selector).
+When a host's turn comes, its next URL is drawn from its priority queues with a bias towards high
+priority. Because every host is fetched as often as its delay allows, priority decides what each
+host's next request is, and no host waits for another host's backlog. The priority of a URL comes from
+priority(), the single function to replace for a different crawl policy.
 """
 import heapq
 import random
@@ -14,7 +17,6 @@ from .. import config
 
 N_PRIORITIES = 3
 FRONT_BIAS = [8, 3, 1]
-BACK_QUEUE_CAP = 50
 ARTICLE_PATH = re.compile(r"/(19|20)\d\d/|/\d{6,}|[a-z0-9]+(-[a-z0-9]+){3,}", re.I)
 
 
@@ -29,71 +31,59 @@ def priority(url, source):
 
 class Frontier:
     def __init__(self):
-        self.front = [deque() for _ in range(N_PRIORITIES)]
-        self.back = {}
+        self.queues = {}
         self.heap = []
         self.scheduled = set()
         self.in_flight = set()
         self.next_time = {}
         self.disabled = set()
+        self.rng = random.Random(358)
         # After a restart, no host is contacted until one full delay has passed.
         self.not_before = time.time() + config.DEFAULT_DELAY
 
     def __len__(self):
-        return sum(len(q) for q in self.front) + sum(len(q) for q in self.back.values())
+        return sum(len(q) for qs in self.queues.values() for q in qs)
+
+    def _pending(self, host):
+        return any(self.queues.get(host, ()))
 
     def add(self, url, host, prio):
-        if host not in self.disabled:
-            self.front[min(prio, N_PRIORITIES - 1)].append((url, host))
+        if host in self.disabled:
+            return
+        qs = self.queues.setdefault(host, [deque() for _ in range(N_PRIORITIES)])
+        qs[min(prio, N_PRIORITIES - 1)].append(url)
+        self._schedule(host)
 
     def _schedule(self, host):
         # A host being fetched is rescheduled only by done()/release(), once its next time is known.
-        if host not in self.scheduled and host not in self.in_flight and self.back.get(host):
+        if host not in self.scheduled and host not in self.in_flight and self._pending(host):
             heapq.heappush(self.heap, (self.next_time.get(host, self.not_before), host))
             self.scheduled.add(host)
 
-    def _refill(self, budget=500):
-        """Move URLs from front to back queues, picking front queues with a bias towards high priority."""
-        deferred = [[] for _ in range(N_PRIORITIES)]
-        moved = examined = 0
-        while moved < budget and examined < 5 * budget:
-            live = [i for i in range(N_PRIORITIES) if self.front[i]]
-            if not live:
-                break
-            i = random.choices(live, weights=[FRONT_BIAS[j] for j in live])[0]
-            url, host = self.front[i].popleft()
-            examined += 1
-            if host in self.disabled:
-                continue
-            q = self.back.setdefault(host, deque())
-            if len(q) >= BACK_QUEUE_CAP:
-                deferred[i].append((url, host))
-                continue
-            q.append(url)
-            moved += 1
-            self._schedule(host)
-        for i in range(N_PRIORITIES):
-            self.front[i].extendleft(reversed(deferred[i]))
+    def _pick(self, host):
+        qs = self.queues[host]
+        live = [i for i in range(N_PRIORITIES) if qs[i]]
+        i = self.rng.choices(live, weights=[FRONT_BIAS[j] for j in live])[0]
+        return qs[i].popleft()
 
     def next(self):
         """Pop the URL of the host that may be contacted soonest; returns (ready_time, host, url) or None."""
-        if len(self.heap) < 3:
-            self._refill()
         while self.heap:
             t, host = heapq.heappop(self.heap)
             self.scheduled.discard(host)
-            q = self.back.get(host)
-            if host in self.disabled or not q:
+            if host in self.disabled or not self._pending(host):
                 continue
             if t < self.next_time.get(host, t):
                 self._schedule(host)
                 continue
-            url = q.popleft()
             self.in_flight.add(host)
-            if not q:
-                self._refill(budget=100)
-            return t, host, url
+            return t, host, self._pick(host)
         return None
+
+    def push_back(self, host, url):
+        """Return a URL to the head of its host's most urgent queue (used when robots.txt had to be fetched first)."""
+        qs = self.queues.setdefault(host, [deque() for _ in range(N_PRIORITIES)])
+        qs[0].appendleft(url)
 
     def done(self, host, delay):
         """A request was sent to host: it may not be contacted again for delay seconds."""
@@ -108,4 +98,4 @@ class Frontier:
 
     def disable(self, host):
         self.disabled.add(host)
-        self.back.pop(host, None)
+        self.queues.pop(host, None)
