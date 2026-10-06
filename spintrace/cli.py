@@ -146,6 +146,33 @@ def cmd_suspect(args):
     ctx.emb.save()
 
 
+def cmd_demo(args):
+    """Trace randomly drawn test cases (seeded, never hand-picked), including a miss and a false alarm if any."""
+    import random
+    from .detect import verify
+    from .eval import report
+    data = report.load()
+    meta = data["meta"]
+    test = [it for it in data["items"] if it["split"] == "test"]
+    model = verify.load()
+    rng = random.Random(args.seed)
+    picks = []
+    for level in ("seo", "summary", "facts_only", "hard_negative"):
+        group = [it for it in test if it["level"] == level]
+        if group:
+            picks.append((f"random {level}", rng.choice(group)))
+    misses = [it for it in test if it["label"] == 1 and report.spin_score(it, model)[0] < model["threshold"]]
+    alarms = [it for it in test if it["label"] == 0 and report.spin_score(it, model)[0] >= model["threshold"]]
+    if misses:
+        picks.append(("a missed rewrite (limitation)", rng.choice(misses)))
+    if alarms:
+        picks.append(("a false alarm (limitation)", rng.choice(alarms)))
+    for why, it in picks:
+        print("=" * 100 + f"\nDEMO CASE: {why}; ground truth: {'derived' if it['label'] else 'not derived'}"
+              + (f" from {meta['doc_ids'][it['source']]}" if it["label"] else ""))
+        cmd_suspect(argparse.Namespace(doc=meta["doc_ids"][it["doc"]], sentences=args.sentences, stem=False))
+
+
 def cmd_scan(args):
     from .detect import pipeline, scan
     ctx = pipeline.Context()
@@ -195,7 +222,9 @@ def cmd_eval(args):
     for r in abl:
         print(f"  {r['variant']:<40} {r['macro_f1']:.3f}  FPR hard={r.get('fpr_hard_negative', float('nan')):.3f}"
               f"  FPR facts={r.get('fpr_facts_only', float('nan')):.3f}")
-    print(f"\ntables and charts written to {config.RESULTS}")
+    from .eval import summary
+    summary.build()
+    print(f"\ntables and charts written to {config.RESULTS} (summary.md)")
 
 
 def cmd_search_eval(args):
@@ -203,6 +232,8 @@ def cmd_search_eval(args):
     for r in search_eval.main():
         print("  ".join(f"{k}={v:.3f}" if isinstance(v, float) else f"{k}={v}" for k, v in r.items()))
     print(f"live queries for judging: {search_eval.JUDGE}")
+    from .eval import summary
+    summary.build()
 
 
 def cmd_crawl_report(args):
@@ -212,6 +243,8 @@ def cmd_crawl_report(args):
         if k not in ("min_gap_seconds_by_host", "docs_by_site", "delay_violation_examples"):
             print(f"{k}: {v}")
     print(f"written to {config.RESULTS / 'crawl_report.json'}")
+    from .eval import summary
+    summary.build()
 
 
 def main(argv=None):
@@ -254,6 +287,11 @@ def main(argv=None):
     c.add_argument("--sentences", type=int, default=6)
     c.add_argument("--stem", action="store_true")
     c.set_defaults(fn=cmd_suspect)
+
+    c = sub.add_parser("demo", help="trace seeded random test cases, including a miss and a false alarm")
+    c.add_argument("--seed", type=int, default=7)
+    c.add_argument("--sentences", type=int, default=4)
+    c.set_defaults(fn=cmd_demo)
 
     c = sub.add_parser("scan", help="run detection over the corpus and store the copy graph")
     c.add_argument("--where", default="origin='crawl'")
