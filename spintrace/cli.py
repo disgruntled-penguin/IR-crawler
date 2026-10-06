@@ -182,18 +182,19 @@ def cmd_eval(args):
     print("\nDetection F1 on test, by rewrite level")
     methods = list(dict.fromkeys(r["method"] for r in det))
     levels = [l for l in report.LEVELS if any(r["level"] == l for r in det)]
-    print(f"{'method':<18}" + "".join(f"{l:>10}" for l in levels) + f"{'FPR hard':>10}")
+    print(f"{'method':<20}" + "".join(f"{l:>9}" for l in levels) + f"{'FPR hard':>10}{'FPR facts':>10}")
     for m in methods:
         f1 = {r["level"]: r["f1"] for r in det if r["method"] == m}
-        print(f"{m:<18}" + "".join(f"{f1.get(l, float('nan')):>10.3f}" for l in levels)
-              + f"{f1.get('fpr_hard_negative', float('nan')):>10.3f}")
+        print(f"{m:<20}" + "".join(f"{f1.get(l, float('nan')):>9.3f}" for l in levels)
+              + f"{f1.get('fpr_hard_negative', float('nan')):>10.3f}{f1.get('fpr_facts_only', float('nan')):>10.3f}")
     print("\nRanking of the true original (test positives, all levels)")
     for r in rank:
         if r["level"] == "all":
             print(f"{r['method']:<18} P@1={r['recall@1']:.3f} MRR={r['mrr']:.3f} R@5={r['recall@5']:.3f} R@20={r['recall@20']:.3f}")
     print("\nAblations (macro F1 over levels)")
     for r in abl:
-        print(f"  {r['variant']:<38} {r['macro_f1']:.3f}  FPR hard={r.get('fpr_hard_negative', float('nan')):.3f}")
+        print(f"  {r['variant']:<40} {r['macro_f1']:.3f}  FPR hard={r.get('fpr_hard_negative', float('nan')):.3f}"
+              f"  FPR facts={r.get('fpr_facts_only', float('nan')):.3f}")
     print(f"\ntables and charts written to {config.RESULTS}")
 
 

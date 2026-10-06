@@ -11,7 +11,7 @@ QUOTE_MAP = str.maketrans({"“": '"', "”": '"', "„": '"', "‘": "'", "’"
 TOKEN = re.compile(r"\d+(?:[.,]\d+)*|[^\W\d_]+(?:'[^\W\d_]+)?")
 QUOTE = re.compile(r'"([^"]{20,400})"')
 SENT_SPLIT = re.compile(r"(?<=[.!?])[\"']?\s+(?=[\"']?[A-Z0-9])")
-CAPS = re.compile(r"\b[A-Z][a-zA-Z'\-]+(?:\s+(?:of|the|de|al|bin|von|van|for)?\s*[A-Z][a-zA-Z'\-]+)*")
+CAPS = re.compile(r"\b[A-ZÀ-Þ][^\W\d_]*(?:['\-][^\W\d_]+)*(?:[ \t]+(?:(?:of|the|de|al|bin|von|van|for)[ \t]+)?[A-ZÀ-Þ][^\W\d_]*(?:['\-][^\W\d_]+)*)*")
 NUMBER = re.compile(r"\b\d+(?:[.,]\d+)*\b")
 
 
