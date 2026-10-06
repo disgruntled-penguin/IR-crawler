@@ -337,7 +337,7 @@ def charts(det_rows, pr_data, rank_rows, abl_rows):
     ends = []
     for m in ["spintrace"] + BASELINES:
         ys = [next((r["f1"] for r in det_rows if r["method"] == m and r["level"] == l), np.nan) for l in levels]
-        ax.plot(levels, ys, marker="o", markersize=8, linewidth=2.5 if m == "spintrace" else 2, color=COLORS[m],
+        ax.plot(levels, ys, marker="o", markersize=8, linewidth=2.5 if m == "spintrace" else 2, color=COLORS[m], zorder=5 if m == "spintrace" else 2,
                 label=LABELS[m])
         ends.append([ys[-1], LABELS[m]])
     _end_labels(ax, ends, len(levels) - 1)
@@ -351,7 +351,7 @@ def charts(det_rows, pr_data, rank_rows, abl_rows):
 
     fig, ax = plt.subplots(figsize=(6, 5), dpi=150)
     for m, (p, r) in pr_data.items():
-        ax.plot(r, p, linewidth=2.5 if m == "spintrace" else 2, color=COLORS[m], label=LABELS[m])
+        ax.plot(r, p, linewidth=2.5 if m == "spintrace" else 2, color=COLORS[m], zorder=5 if m == "spintrace" else 2, label=LABELS[m])
     ax.set_xlim(0, 1.01)
     ax.set_ylim(0, 1.02)
     _style(ax, "Precision-recall, all levels pooled (test)", "recall", "precision")
@@ -363,7 +363,7 @@ def charts(det_rows, pr_data, rank_rows, abl_rows):
     fig, ax = plt.subplots(figsize=(8, 4.8), dpi=150)
     for m in ["spintrace"] + BASELINES:
         ys = [next((r["recall@1"] for r in rank_rows if r["method"] == m and r["level"] == l), np.nan) for l in levels]
-        ax.plot(levels, ys, marker="o", markersize=8, linewidth=2.5 if m == "spintrace" else 2, color=COLORS[m],
+        ax.plot(levels, ys, marker="o", markersize=8, linewidth=2.5 if m == "spintrace" else 2, color=COLORS[m], zorder=5 if m == "spintrace" else 2,
                 label=LABELS[m])
     ax.set_ylim(-0.02, 1.02)
     _style(ax, "Original ranked first (P@1) by rewrite level (test)", "rewrite level", "P@1")
