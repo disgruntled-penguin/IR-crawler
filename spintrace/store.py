@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS urls (
     priority INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'queued',
     source TEXT,
+    hint_date REAL,
     discovered_at REAL,
     fetched_at REAL,
     http_status INTEGER,
@@ -67,10 +68,10 @@ def connect(path=None):
     return con
 
 
-def add_url(con, url, host, priority, source):
+def add_url(con, url, host, priority, source, hint_date=None):
     cur = con.execute(
-        "INSERT OR IGNORE INTO urls(url, host, priority, source, discovered_at) VALUES (?,?,?,?,?)",
-        (url, host, priority, source, time.time()),
+        "INSERT OR IGNORE INTO urls(url, host, priority, source, hint_date, discovered_at) VALUES (?,?,?,?,?,?)",
+        (url, host, priority, source, hint_date, time.time()),
     )
     return cur.rowcount > 0
 
