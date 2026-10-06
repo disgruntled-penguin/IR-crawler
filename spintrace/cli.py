@@ -27,6 +27,38 @@ def cmd_crawl(args):
     Crawler(args.seeds, max_pages=args.max_pages).run(hours=args.hours)
 
 
+def cmd_export(args):
+    """Write crawled URLs and per-document features (no article text) for the repository."""
+    import csv
+    import numpy as np
+    from . import corpus, store
+    con = store.connect()
+    feats = corpus.load_features()
+    rows = [r for r in con.execute("SELECT doc_id, url, site, kind, published, date_source, n_words, content_hash "
+                                   "FROM docs WHERE origin IN ('crawl','newsguard') ORDER BY doc_id")]
+    path = config.ROOT / "evaldata" / "crawl_urls.csv"
+    with path.open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["doc_id", "url", "site", "kind", "published", "date_source", "n_words", "sha1_text"])
+        w.writerows([tuple(r) for r in rows])
+    ids = [r["doc_id"] for r in rows if r["doc_id"] in feats]
+    np.savez_compressed(config.ROOT / "evaldata" / "crawl_minhash.npz", doc_ids=np.array(ids),
+                        minhash=np.stack([feats[d]["minhash"] for d in ids]).astype(np.uint32))
+    print(f"exported {len(rows)} URLs and {len(ids)} MinHash signatures to evaldata/")
+
+
+def cmd_recrawl(args):
+    """Re-fetch the exported article URLs politely, to rebuild the corpus from a clean clone."""
+    import csv
+    from .crawl.crawler import Crawler, setup_logging
+    setup_logging(config.LOG_DIR / "recrawl.log")
+    rows = list(csv.DictReader(open(args.urls)))
+    urls = [(r["url"], r["kind"]) for r in rows if not r["url"].startswith("https://web.archive.org")]
+    if args.limit:
+        urls = urls[:args.limit]
+    Crawler(args.seeds, url_list=urls).run()
+
+
 def cmd_build(args):
     """Ingest evaluation documents, compute dedup features and build the index(es)."""
     from . import corpus, index, store
@@ -36,7 +68,7 @@ def cmd_build(args):
     feats, secs = corpus.build_features(con)
     print(f"features for {len(feats)} docs in {secs:.1f}s")
     for stem in ([False, True] if args.stem else [False]):
-        idx = index.build_from_store(stemming=stem, con=con)
+        idx = index.build_from_store(stemming=stem, con=con, only=set(feats))
         print(f"index stemming={stem}: {idx.N} docs, {len(idx.terms)} terms, built in {idx.build_seconds:.1f}s")
 
 
@@ -180,6 +212,15 @@ def main(argv=None):
     c.add_argument("--hours", type=float)
     c.add_argument("--max-pages", type=int)
     c.set_defaults(fn=cmd_crawl)
+
+    c = sub.add_parser("export", help="write crawled URLs and MinHash features (no texts) to evaldata/")
+    c.set_defaults(fn=cmd_export)
+
+    c = sub.add_parser("recrawl", help="politely re-fetch the exported URLs into a fresh store")
+    c.add_argument("--urls", default=str(config.ROOT / "evaldata" / "crawl_urls.csv"))
+    c.add_argument("--seeds", default=str(config.SEEDS / "seeds.csv"))
+    c.add_argument("--limit", type=int)
+    c.set_defaults(fn=cmd_recrawl)
 
     c = sub.add_parser("build", help="ingest eval docs, compute shingles/MinHash, build the index")
     c.add_argument("--stem", action="store_true", help="also build a Porter-stemmed index")

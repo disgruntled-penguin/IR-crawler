@@ -195,9 +195,13 @@ def index_path(stemming=False):
     return config.INDEX_DIR / ("index_stem.pkl" if stemming else "index.pkl")
 
 
-def build_from_store(stemming=False, con=None):
+def build_from_store(stemming=False, con=None, only=None):
+    """Build over the store; only, if given, is the doc_id snapshot to index (the live crawl keeps adding)."""
     con = con or store.connect()
-    idx = Index(stemming=stemming).build(store.iter_docs(con))
+    docs = store.iter_docs(con)
+    if only is not None:
+        docs = (d for d in docs if d["doc_id"] in only)
+    idx = Index(stemming=stemming).build(docs)
     idx.save(index_path(stemming))
     return idx
 

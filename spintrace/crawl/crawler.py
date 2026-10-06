@@ -34,7 +34,7 @@ def retry_after(resp):
 
 
 class Crawler:
-    def __init__(self, seeds_path, max_pages=None):
+    def __init__(self, seeds_path, max_pages=None, url_list=None):
         self.con = store.connect()
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": config.USER_AGENT, "Accept-Language": "en"})
@@ -53,6 +53,12 @@ class Crawler:
         self.pages_per_host = {}
         self.last_poll = 0.0
         self.saved = 0
+        # Re-crawl mode: fetch exactly the listed article URLs, follow no links, poll no feeds.
+        self.url_list = url_list
+        if url_list:
+            self.seeds = []
+            for u, kind in url_list:
+                self.site_kind[site_of(host_of(u))] = kind
         for s in self.seeds:
             url = normalise(s["url"])
             self.site_kind[site_of(host_of(url))] = s["kind"]
@@ -172,8 +178,9 @@ class Crawler:
         if page is None:
             return
         site = site_of(host)
-        for link in page["links"]:
-            self.enqueue(link, "link", base=url)
+        if not self.url_list:
+            for link in page["links"]:
+                self.enqueue(link, "link", base=url)
         n_words = len(page["text"].split())
         if n_words < config.MIN_ARTICLE_WORDS or not (page["is_article"] or page["published"] or hint_date):
             self._event(host, url, "not_article", f"words={n_words}")
@@ -259,6 +266,14 @@ class Crawler:
 
     def run(self, hours=None):
         self.restore()
+        if self.url_list:
+            for u, _ in self.url_list:
+                self.enqueue(u, "seed")
+            self.con.commit()
+            while self.step():
+                pass
+            log.info("RECRAWL done saved=%d", self.saved)
+            return
         self.poll_feeds()
         stop_at = time.time() + hours * 3600 if hours else None
         idle = 0
