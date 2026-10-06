@@ -45,7 +45,7 @@ def wikitext_to_plain(text):
     lines = []
     for line in plain.split("\n"):
         line = re.sub(r"\s+", " ", line).strip()
-        if not line or line.startswith("==") or line.lower().startswith(("thumb|", "file:", "image:")):
+        if not line or line.startswith("==") or line.lower().startswith(("thumb|", "file:", "image:", "category:")):
             continue
         line = re.sub(r"^(thumb|left|right|\d+px)(\|[^|]*)*\|", "", line)
         lines.append(line)
@@ -87,13 +87,21 @@ def build(n=400, min_words=150, max_words=900, n_distractors=4000):
         rows.append((date, title, text))
     rows.sort(reverse=True)
     OUT.parent.mkdir(parents=True, exist_ok=True)
+    # Once rewrites exist, the originals are pinned to the articles they were generated from.
+    pinned = set()
+    rw = config.ROOT / "evaldata" / "rewrites.jsonl"
+    if rw.exists():
+        pinned = {json.loads(l)["orig_title"] for l in rw.open()}
     kept = 0
     out = OUT.open("w")
     dis = DISTRACTORS.open("w")
     for date, title, text in rows:
         body = wikitext_to_plain(text)
         words = len(body.split())
-        if words < min_words or words > max_words:
+        if pinned and kept < n:
+            if title not in pinned:
+                continue
+        elif words < min_words or words > max_words or title in pinned:
             continue
         url = "https://en.wikinews.org/wiki/" + title.replace(" ", "_")
         line = json.dumps({"title": title, "url": url, "published": date, "text": body,

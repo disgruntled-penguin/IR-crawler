@@ -14,7 +14,7 @@ from ..detect import pipeline, verify
 from . import run as runner
 
 LEVELS = ["exact", "light", "synonym", "seo", "summary"]
-NEG_LEVELS = ["original", "hard_negative"]
+NEG_LEVELS = ["original", "hard_negative", "facts_only"]
 BASELINES = ["exact_hash", "minhash_jaccard", "shingle_containment", "tfidf_cosine", "bm25", "dense_cosine"]
 FEATURES = ["rare_cos", "shingle_containment", "align_coverage", "align_mean", "align_order", "quote_overlap",
             "fact_overlap"]
@@ -183,8 +183,8 @@ def ablations(dev, test, full_model):
         for r in rows:
             if r["level"] in LEVELS:
                 row[r["level"]] = r["f1"]
-            elif r["level"] == "fpr_hard_negative":
-                row["fpr_hard_negative"] = r["f1"]
+            elif r["level"] in ("fpr_hard_negative", "fpr_facts_only"):
+                row[r["level"]] = r["f1"]
         out.append(row)
 
     add("full", Method("spintrace", lambda it: spin_score(it, full_model), None))
@@ -232,7 +232,7 @@ def retrieval_variants(test):
 def undated_provenance(test):
     """With dates removed, how often does containment asymmetry name the right direction?"""
     rows = []
-    for level in LEVELS + ["hard_negative"]:
+    for level in LEVELS + ["hard_negative", "facts_only"]:
         group = [it for it in test if it["level"] == level and it.get("direction")]
         if not group:
             continue

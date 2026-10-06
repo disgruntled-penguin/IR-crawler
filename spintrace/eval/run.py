@@ -35,6 +35,12 @@ def build_items(ctx):
         if row["doc_id"] not in idx.doc_num or m["orig_doc"] not in idx.doc_num:
             continue
         n = idx.doc_num[row["doc_id"]]
+        if m["level"] == "facts_only":
+            # Same story, written only from the original's facts: must not be flagged as derived.
+            items.append({"doc": n, "label": 0, "level": "facts_only", "source": None,
+                          "same_event": idx.doc_num[m["orig_doc"]], "split": split_of(m["orig_doc"]),
+                          "group": m["orig_doc"]})
+            continue
         groups[m["orig_doc"]].append(n)
         items.append({"doc": n, "label": 1, "level": m["level"], "source": idx.doc_num[m["orig_doc"]],
                       "split": split_of(m["orig_doc"]), "group": m["orig_doc"]})

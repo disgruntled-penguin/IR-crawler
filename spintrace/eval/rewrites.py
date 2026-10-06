@@ -14,7 +14,9 @@ import requests
 from .. import config
 
 LEVELS = ["exact", "light", "synonym", "seo", "summary"]
-LLM_LEVELS = {"seo", "summary"}
+# Hard negative: an article written from the original's facts and quotes only, never its text.
+NEGATIVE_LEVELS = ["facts_only"]
+LLM_LEVELS = {"seo", "summary", "facts_only"}
 OUT = config.ROOT / "evaldata" / "rewrites.jsonl"
 SRC = config.ROOT / "evaldata" / "wikinews.jsonl"
 OLLAMA = "http://localhost:11434/api/generate"
@@ -26,7 +28,23 @@ PROMPTS = {
             "or any notes.\n\nArticle:\n{text}"),
     "summary": ("Summarise the following news article as a short news brief of about 120 words. "
                 "Output only the brief, without a headline or any notes.\n\nArticle:\n{text}"),
+    "facts_only": ("You are a reporter. Write an original news article of about 250 words reporting the facts "
+                   "below. Use your own structure, angle and wording; do not invent new facts. Output only the "
+                   "article, without a headline.\n\n{text}"),
 }
+
+
+def fact_sheet(o):
+    """What an independent reporter would share with the original: topic, names, numbers, quotes. No prose."""
+    from .. import text as tx
+    t = tx.clean(o["text"])
+    names = list(dict.fromkeys(m.group(0) for m in tx.CAPS.finditer(t) if " " in m.group(0)))
+    nums = list(dict.fromkeys(re.findall(r"\b\d+(?:[.,]\d+)*\b", t)))
+    sheet = f"Topic: {o['title']}\nNames: {', '.join(names[:15])}\nNumbers: {', '.join(nums[:15])}"
+    qs = tx.quotes(t)
+    if qs:
+        sheet += "\nQuotes (use verbatim): " + " | ".join(qs[:3])
+    return sheet
 
 LIGHT_SWAPS = [
     (r"\bsaid\b", "stated"), (r"\bannounced\b", "revealed"), (r"\bhowever\b", "but"), (r"\balso\b", "additionally"),
@@ -120,14 +138,43 @@ def build(n_llm=200, levels=None):
                     text = light_edit(o["text"], rng)
                 elif level == "synonym":
                     text = synonym_spin(o["text"], rng)
+                elif level == "facts_only":
+                    text = llm(level, fact_sheet(o))
                 else:
                     text = llm(level, o["text"])
-                # A farm publishes hours to days after the original.
-                delay = rng.uniform(2 * 3600, 3 * 86400)
+                # A farm publishes hours to days after the original; an independent outlet within hours.
+                if level in NEGATIVE_LEVELS:
+                    delay, site = rng.uniform(3600, 12 * 3600), f"news{rng.randint(1, 12)}.example"
+                else:
+                    delay, site = rng.uniform(2 * 3600, 3 * 86400), f"farm{rng.randint(1, 12)}.example"
                 out.write(json.dumps({
                     "rid": rid, "orig_title": o["title"], "orig_url": o["url"], "level": level, "text": text,
-                    "published": o["published"] + delay, "farm": f"farm{rng.randint(1, 12)}.example",
+                    "published": o["published"] + delay, "farm": site,
                     "generator": MODEL if level in LLM_LEVELS else "rule-based",
                 }) + "\n")
                 out.flush()
                 print(f"rewrite {level} {i} {o['title'][:60]}", flush=True)
+
+
+def rebuild_rule_based():
+    """Regenerate the rule-based levels from the current originals and strip leftover category lines from LLM
+    outputs. Run only while no generator is appending to OUT."""
+    origs = {json.loads(l)["title"]: json.loads(l) for l in SRC.open()}
+    rows = [json.loads(l) for l in OUT.open()]
+    for r in rows:
+        o = origs[r["orig_title"]]
+        rng = random.Random(r["rid"])
+        if r["level"] == "exact":
+            r["text"] = o["text"]
+        elif r["level"] == "light":
+            r["text"] = light_edit(o["text"], rng)
+        elif r["level"] == "synonym":
+            r["text"] = synonym_spin(o["text"], rng)
+        else:
+            r["text"] = "\n".join(l for l in r["text"].split("\n") if not l.strip().startswith("Category:"))
+    tmp = OUT.with_suffix(".tmp")
+    with tmp.open("w") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+    tmp.replace(OUT)
+    return len(rows)

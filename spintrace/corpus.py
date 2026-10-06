@@ -34,7 +34,8 @@ def ingest_eval(con=None):
             url = f"https://{r['farm']}/article/{r['rid']}"
             store.save_doc(con, {
                 "doc_id": store.doc_id_for(url), "url": url, "host": r["farm"], "site": r["farm"],
-                "kind": "suspect", "origin": "synthetic", "title": None, "text": r["text"],
+                "kind": "original" if r["level"] in rewrites.NEGATIVE_LEVELS else "suspect", "origin": "synthetic",
+                "title": None, "text": r["text"],
                 "published": r["published"], "date_source": "synthetic", "fetched_at": None,
                 "meta": {"level": r["level"], "orig_doc": store.doc_id_for(r["orig_url"]), "rid": r["rid"]},
             })
