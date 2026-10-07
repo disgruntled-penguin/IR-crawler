@@ -1,6 +1,6 @@
 # Progress
 
-Updated 2026-10-07 09:25 IST. The live crawl keeps running in the background (watched by a monitor).
+Updated 2026-10-07 evening IST. The crawl is stopped; judging is complete.
 
 ## State
 
@@ -23,7 +23,8 @@ final rerun; `notes/requirements_checklist.md` maps every requirement to its sta
 - Search: with g(d) the original ranks first for 52.6% of test queries (10% without); nDCG@10 0.837 -> 0.886.
 - NewsGuard pairs: NYT -> GlobalVillageSpace retrieved first of 20.9k, verified, traced; Wired -> TopGolf.kr retrieved first, not verified.
 - Scale: +3,637 CC-NEWS articles (24.5k docs), nothing refit: F1 within 0.01 of the main run.
-- Crawl at 09:20: 27,176 articles from 36,418 page requests over 10.8 h; 0 disallowed URLs fetched; 9 delay violations, all before the 23:45 fix; median freshness 73 min. Evaluations used the snapshot at the 04:30 run (~16k crawled articles).
+- Crawl (final, stopped about 12:00 on 7 Oct): 32,513 articles from 43,683 page requests over 13.5 h; 0 disallowed URLs fetched; 9 delay violations, all before the 23:45 fix; median freshness 70 min. Evaluations used the snapshot at the 04:30 run (~16k crawled articles).
+- Human judgments: both judges labelled all 174 live flags and 154 search results. Agreement 0.59 / 0.64, kappa 0.12 / 0.16. Live precision 0.845 (either judge), 0.437 (both), 0.738 (agreed pairs). Team convention: positive if either judge said so; the README reports all three. Hard negatives were not hand-checked.
 
 ## Overnight bugs found and fixed
 
@@ -35,7 +36,7 @@ final rerun; `notes/requirements_checklist.md` maps every requirement to its sta
 
 ## For the team (from 10:00)
 
-1. Judge: `python -m spintrace judge live --judge 1` and `--judge 2` (174 flagged live pairs), then `judge hardneg` and `judge search`. `python -m spintrace judge live --metrics` prints precision and kappa; `python -m spintrace eval --report-only` folds the labels into every table and the README.
+1. Judging is done for the live flags and search (hard negatives were not hand-checked). `python -m spintrace judge live --metrics` prints agreement; `python -m spintrace eval --report-only` folds the labels into every table and the README.
 2. Add farm-site seeds to `seeds/seeds.csv` and any further NewsGuard pairs to `evaldata/newsguard_pairs.csv` (then `python -m spintrace newsguard`).
 3. Demo: `python -m spintrace demo --seed 7` (seeded random cases including a miss and a false alarm), `suspect`, `pair`, `postings teheran`, `search "..."` with and without `--no-g`, `crawl-report` (prints politeness log lines).
 4. Report: README sections map onto the report structure; `results/pipeline.png` is the diagram; `notes/` holds the critique history.

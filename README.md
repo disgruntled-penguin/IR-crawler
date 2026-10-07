@@ -370,26 +370,26 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 
 | measure | value |
 | --- | --- |
-| requests_page | 36418 |
+| requests_page | 43683 |
 | requests_robots | 620 |
-| docs_saved | 27176 |
-| crawl_hours | 10.81 |
-| pages_per_minute | 56.2 |
+| docs_saved | 32513 |
+| crawl_hours | 13.49 |
+| pages_per_minute | 54.0 |
 | hosts | 118 |
-| fresh_articles | 764 |
-| freshness_median_minutes | 73.4 |
-| freshness_p90_minutes | 429.0 |
-| robots_audited_fetches | 36409 |
+| fresh_articles | 968 |
+| freshness_median_minutes | 69.7 |
+| freshness_p90_minutes | 439.4 |
+| robots_audited_fetches | 43674 |
 | disallowed_urls_fetched | 0 |
-| robots_skips | 446 |
+| robots_skips | 512 |
 | min_gap_seconds_overall | 0.29 |
 | delay_violations | 9 |
 | last_delay_violation | 2026-10-06T23:45:28 |
-| trap_guards_fired | 1999 |
-| backoffs | 64 |
-| exact_duplicate_docs | 259 |
-| near_duplicate_docs | 455 |
-| duplicate_rate | 0.0493 |
+| trap_guards_fired | 2569 |
+| backoffs | 77 |
+| exact_duplicate_docs | 792 |
+| near_duplicate_docs | 1099 |
+| duplicate_rate | 0.0695 |
 <!-- results:end -->
 
 ## Evaluation protocol
@@ -417,8 +417,24 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
   slightly fewer facts-only articles (14.4% against 15.6%) while missing far more rewrites.
 - **Same story versus copied is the hard boundary.** Articles written from an original's facts and quotes alone
   are still flagged 15.6% of the time (test), and SEO-rewrite recall is 0.76 at the dev-tuned threshold. Before
-  the facts-only negatives were added, a spot check of 8 live flags found about 3 real derivatives; after, an
-  unofficial spot check of 10 found about 9 (mostly shared agency copy). The judged live precision is the real number.
+  the facts-only negatives were added, a spot check of 8 live flags found about 3 real derivatives.
+- **Live precision is a range, because the judges disagreed.** Both team members labelled all 174 flagged live pairs.
+  A pair counts as derived if either judge said so (the team's convention): precision 0.845. If both must say so, it
+  is 0.437; on the 103 pairs they agreed on, 0.738. They agreed on only 59% of pairs (Cohen's kappa 0.12; Judge 1
+  called 103 derived, Judge 2 called 120), so the number depends on how the labels are combined and we report all
+  three. The either-judge rule is the lenient one and raises precision by construction. Judge 1's not-derived pairs
+  have much less exact text overlap (median shingle containment 0.38 against 0.85 for derived), which fits the
+  sentence-embedding alignment matching independent coverage of one event; the flags cluster on a few site pairs
+  (30 of the 55 flagged indiatimes.com articles).
+- **Shared quotes.** The judges' guide does not count a shared direct quote alone as copying, because independent
+  outlets quote the same speaker. In the flagged pairs quoted sentences are a small share (median 5% of sentences)
+  and dropping them leaves every flag in place (an exploratory check, not tuned), but the mined hard negatives share
+  no text, so a same-event pair that shares quotes is not tested yet.
+- **Judged search does not separate the rankings.** On the 15 live queries, 93.5% of judged results were marked
+  relevant when either judge said so (57% when both), so P@10 (0.933) and nDCG@10 (0.973) are the same with and
+  without g(d); g(d) only raises the share of originals among the relevant top 10, from 0.927 to 0.953. With both
+  judges required, nDCG@10 is 0.811 without g(d) and 0.803 with it. The clear ranking gain is on the synthetic
+  queries (original ranked first for 52.6% of test queries against 10%).
 - **Shared wire copy is attributed to an outlet.** When two outlets print the same AP or PTI story, SpinTrace
   names the earlier outlet as the source; the agency itself is not crawled.
 - **Verification is trained on prose.** The NewsGuard TopGolf.kr page (AI title suggestions plus a reshaped
@@ -431,7 +447,7 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
   the index-elimination experiment. Dense retrieval is the one that slips: with same-story distractors in the
   index it ranks the true source first for only 0.83 of SEO and summary rewrites.
 - **Synthetic rewrites come from one 3B model.** Stronger LLMs paraphrase more and would be harder.
-- **Scale.** One crawler process, ~27k crawled articles over 11 hours (evaluations used the first ~16k). Growing the index by 3,637 CC-NEWS articles
+- **Scale.** One crawler process, 32.5k crawled articles over 13.5 hours (evaluations used the first ~16k). Growing the index by 3,637 CC-NEWS articles
   from the same days (to 24.5k documents) left retrieval and detection within a point of the main results, but
   that is a small step, not a web-scale test.
 
@@ -439,7 +455,7 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 
 Works, end to end on live data:
 
-- Polite focused crawl from 36 seeds (RSS and Atom feeds and three homepages), re-polling feeds every 45 minutes (articles published during the crawl reached the store a median 73 minutes after publication), with a robots.txt audit and per-host gap report (`crawl-report`).
+- Polite focused crawl from 36 seeds (RSS and Atom feeds and three homepages), re-polling feeds every 45 minutes (articles published during the crawl reached the store a median 70 minutes after publication), with a robots.txt audit and per-host gap report (`crawl-report`).
 - Content-seen check over the crawl: exact hash, shingles, MinHash, LSH.
 - Positional zoned index (title, body, quote), tf-idf and BM25, phrase queries, optional Porter stemming.
 - Candidate retrieval from rare (fact-boosted) terms and quote phrases with an earlier-only filter; verification by sentence alignment, order, quotes, names/numbers and shingle containment; provenance by date or, when undated, by coverage asymmetry; copy graph and originality g(d); search with net score.
