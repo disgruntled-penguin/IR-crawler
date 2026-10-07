@@ -115,6 +115,13 @@ def build():
                              [[r["pair_id"], r["status"], r.get("original_rank", ""), r.get("prob_original", ""),
                                r.get("flagged", ""), r.get("traced_to_original", "")] for r in ng]))
 
+    dom = _rows("domain_integrity.csv")
+    if dom:
+        parts.append("**Per-domain integrity** (live crawl; share of a site's articles flagged as derived, top 10):\n\n"
+                     + table(["site", "articles", "flagged derived", "share", "main sources"],
+                             [[r["site"], r["articles"], r["flagged_derived"], _f(r["derived_share"]), r["top_sources"]]
+                              for r in dom[:10]]))
+
     from . import judged
     jm = judged.metrics()
     if jm:
@@ -126,6 +133,7 @@ def build():
     if (R / "crawl_report.json").exists():
         c = json.loads((R / "crawl_report.json").read_text())
         keys = ["requests_page", "requests_robots", "docs_saved", "crawl_hours", "pages_per_minute", "hosts",
+                "fresh_articles", "freshness_median_minutes", "freshness_p90_minutes",
                 "robots_audited_fetches", "disallowed_urls_fetched", "robots_skips", "min_gap_seconds_overall",
                 "delay_violations", "last_delay_violation", "trap_guards_fired", "backoffs", "exact_duplicate_docs",
                 "near_duplicate_docs", "duplicate_rate"]

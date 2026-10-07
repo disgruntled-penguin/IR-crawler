@@ -142,6 +142,21 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 | walli_boredpanda_cat | not loaded |  |  |  |  |
 | topgolf_people_cohen | not loaded |  |  |  |  |
 
+**Per-domain integrity** (live crawl; share of a site's articles flagged as derived, top 10):
+
+| site | articles | flagged derived | share | main sources |
+| --- | --- | --- | --- | --- |
+| devdiscourse.com | 692 | 20 | 0.029 | indiatimes.com (11); independent.co.uk (4); socialnews.xyz (2) |
+| theprint.in | 400 | 11 | 0.028 | indiatimes.com (4); hindustantimes.com (3); devdiscourse.com (1) |
+| independent.co.uk | 608 | 15 | 0.025 | abcnews.com (9); hindustantimes.com (2); france24.com (1) |
+| thehindu.com | 449 | 11 | 0.025 | socialnews.xyz (3); theprint.in (3); abcnews.com (2) |
+| indiatimes.com | 2324 | 55 | 0.024 | devdiscourse.com (17); hindustantimes.com (13); indianexpress.com (10) |
+| latestly.com | 632 | 11 | 0.017 | dw.com (5); socialnews.xyz (3); abc.net.au (1) |
+| newsx.com | 316 | 5 | 0.016 | devdiscourse.com (4); theprint.in (1) |
+| scroll.in | 585 | 9 | 0.015 | theconversation.com (9) |
+| indianexpress.com | 548 | 8 | 0.015 | hindustantimes.com (2); indiatimes.com (2); devdiscourse.com (1) |
+| cbsnews.com | 339 | 4 | 0.012 | france24.com (3); abcnews.com (1) |
+
 **Human judgments** (two team members; filled in `evaldata/*.csv`):
 
 | sheet | rows | judged by both | agreement | Cohen's kappa | share derived (agreed) |
@@ -153,20 +168,23 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 
 | measure | value |
 | --- | --- |
-| requests_page | 21221 |
+| requests_page | 23104 |
 | requests_robots | 620 |
-| docs_saved | 15675 |
-| crawl_hours | 6.51 |
-| pages_per_minute | 54.4 |
+| docs_saved | 17172 |
+| crawl_hours | 7.01 |
+| pages_per_minute | 54.9 |
 | hosts | 118 |
-| robots_audited_fetches | 21212 |
+| fresh_articles | 465 |
+| freshness_median_minutes | 44.4 |
+| freshness_p90_minutes | 249.7 |
+| robots_audited_fetches | 23095 |
 | disallowed_urls_fetched | 0 |
-| robots_skips | 297 |
+| robots_skips | 314 |
 | min_gap_seconds_overall | 0.29 |
 | delay_violations | 9 |
 | last_delay_violation | 2026-10-06T23:45:28 |
-| trap_guards_fired | 711 |
-| backoffs | 39 |
+| trap_guards_fired | 718 |
+| backoffs | 42 |
 | exact_duplicate_docs | 259 |
 | near_duplicate_docs | 455 |
 | duplicate_rate | 0.0494 |
