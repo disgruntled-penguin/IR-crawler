@@ -283,6 +283,11 @@ def cmd_judge_ui(args):
     judge_server.serve(args.host, args.port)
 
 
+def cmd_app(args):
+    from .ui import app_server
+    app_server.serve(args.host, args.port)
+
+
 def cmd_crawl_report(args):
     from .crawl import report
     rep = report.write()
@@ -383,6 +388,11 @@ def main(argv=None):
     c.add_argument("--host", default="127.0.0.1", help="0.0.0.0 to let a teammate judge from another machine on the network")
     c.add_argument("--port", type=int, default=8765)
     c.set_defaults(fn=cmd_judge_ui)
+
+    c = sub.add_parser("app", help="web app: search with originality and the per-site integrity table")
+    c.add_argument("--host", default="127.0.0.1")
+    c.add_argument("--port", type=int, default=8766)
+    c.set_defaults(fn=cmd_app)
 
     c = sub.add_parser("crawl-report", help="politeness and correctness statistics of the crawl")
     c.set_defaults(fn=cmd_crawl_report)

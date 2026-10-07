@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SpinTrace</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a65; --line: #e2e0da;
+  --accent: #2f5d8a; --copy: #a15c1e; --copybg: #fbeedd; --ok: #2e7d4f; --bar: #d9d7d0;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #9c9a93; --line: #34332f;
+    --accent: #7fb0e0; --copy: #e0a26a; --copybg: #3a2a1a; --ok: #5cb784; --bar: #3a3935;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 -apple-system, "Segoe UI", system-ui, sans-serif; }
+header { background: var(--panel); border-bottom: 1px solid var(--line); padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; }
+header h1 { font-size: 17px; margin: 0; }
+header h1 small { font-weight: 400; color: var(--muted); font-size: 13px; margin-left: 8px; }
+nav { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+nav button { border: 0; background: transparent; color: var(--ink); padding: 6px 14px; font: inherit; cursor: pointer; }
+nav button + button { border-left: 1px solid var(--line); }
+nav button.on { background: var(--accent); color: #fff; }
+main { max-width: 1000px; margin: 0 auto; padding: 18px 16px 60px; }
+.hidden { display: none; }
+form.q { display: flex; gap: 8px; margin-bottom: 8px; }
+form.q input[type=search] { flex: 1; font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); min-width: 0; }
+button.go { font: inherit; padding: 10px 18px; border-radius: 8px; border: 0; background: var(--accent); color: #fff; cursor: pointer; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+.opts label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.note { color: var(--muted); font-size: 13px; margin: 4px 0 12px; }
+.hit { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; display: grid; grid-template-columns: 30px 1fr; gap: 10px; }
+.hit.copy { border-left: 4px solid var(--copy); }
+.rank { color: var(--muted); font-weight: 600; padding-top: 1px; }
+.hit h3 { margin: 0 0 2px; font-size: 16px; line-height: 1.35; }
+.hit h3 a { color: var(--ink); text-decoration: none; }
+.hit h3 a:hover { color: var(--accent); text-decoration: underline; }
+.meta { color: var(--muted); font-size: 13px; }
+.badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 10px; margin-left: 6px; vertical-align: 1px; }
+.badge.copy { background: var(--copybg); color: var(--copy); }
+.badge.orig { color: var(--ok); border: 1px solid var(--ok); }
+.scores { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.sc { display: inline-flex; align-items: center; gap: 6px; }
+.sc i { display: inline-block; width: 70px; height: 5px; background: var(--bar); border-radius: 3px; overflow: hidden; }
+.sc i b { display: block; height: 100%; background: var(--accent); }
+.sc.g i b { background: var(--ok); }
+.from { margin-top: 6px; font-size: 13px; color: var(--copy); }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 14px; }
+th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+td .share { display: inline-block; height: 6px; background: var(--copy); border-radius: 3px; vertical-align: middle; margin-right: 8px; }
+.empty { text-align: center; color: var(--muted); padding: 40px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SpinTrace<small>find the original behind a rewrite</small></h1>
+  <nav id="nav"><button data-t="search">Search</button><button data-t="integrity">Site integrity</button></nav>
+</header>
+<main>
+  <section id="search">
+    <form class="q" id="qform"><input type="search" id="q" placeholder="Search the crawl, e.g. Nobel physics Halzen" autofocus><button class="go">Search</button></form>
+    <div class="opts">
+      <label><input type="checkbox" id="useG" checked> rank originals above copies (g(d))</label>
+      <label><input type="checkbox" id="crawlOnly" checked> live crawl only</label>
+    </div>
+    <div class="note" id="note"></div>
+    <div id="results"></div>
+  </section>
+  <section id="integrity" class="hidden">
+    <p class="note">Share of each site's crawled articles that SpinTrace traced to an earlier article from another outlet. Agency reprints count: a high share means a site mostly republishes.</p>
+    <div id="itable"></div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const when = t => t ? new Date(t * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC" : "undated";
+const bar = (label, v, cls = "") => `<span class="sc ${cls}">${label}<i><b style="width:${Math.max(0, Math.min(1, v)) * 100}%"></b></i>${v.toFixed(2)}</span>`;
+
+function showTab(t) {
+  document.querySelectorAll("main > section").forEach(s => s.classList.toggle("hidden", s.id !== t));
+  document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  try { localStorage.setItem("spintraceTab", t); } catch (e) {}
+  if (t === "integrity" && !$("itable").dataset.loaded) loadIntegrity();
+}
+
+async function runSearch(ev) {
+  if (ev) ev.preventDefault();
+  const q = $("q").value.trim();
+  if (!q) return;
+  $("note").textContent = "Searching...";
+  const p = new URLSearchParams({ q, g: $("useG").checked ? 1 : 0, crawl: $("crawlOnly").checked ? 1 : 0 });
+  const r = await (await fetch("/api/search?" + p)).json();
+  const copies = r.results.filter(x => x.copy_of).length;
+  $("note").textContent = `${r.results.length} results from ${r.n_docs} indexed documents; ${copies} flagged as copies of an earlier article.`;
+  $("results").innerHTML = r.results.length ? r.results.map(x => hit(x, $("useG").checked)).join("") : `<div class="empty">No results.</div>`;
+}
+
+function hit(x, useG) {
+  const c = x.copy_of;
+  const badge = c ? `<span class="badge copy">copy</span>` : `<span class="badge orig">original</span>`;
+  const from = c ? `<div class="from">Traced to ${esc(c.site)}: ${esc(c.title || "")} (p=${c.prob})</div>` : "";
+  return `<div class="hit${c ? " copy" : ""}"><div class="rank">${x.rank}</div><div>
+<h3><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>${badge}</h3>
+<div class="meta">${esc(x.site)} · ${when(x.published)} · ${x.words ?? "?"} words</div>${from}
+<div class="scores">${bar("net", Math.min(x.net / 1.3, 1))}${bar("relevance", x.rel)}${useG ? bar("originality g", x.g, "g") : ""}</div></div></div>`;
+}
+
+async function loadIntegrity() {
+  const rows = await (await fetch("/api/integrity")).json();
+  $("itable").dataset.loaded = 1;
+  if (!rows.length) { $("itable").innerHTML = `<div class="empty">Run <code>python -m spintrace scan</code> first.</div>`; return; }
+  const max = Math.max(...rows.map(r => r.derived_share)) || 1;
+  $("itable").innerHTML = `<table><tr><th>Site</th><th class="n">Articles</th><th class="n">Flagged</th><th>Share derived</th><th>Mostly from</th></tr>` +
+    rows.map(r => `<tr><td>${esc(r.site)}</td><td class="n">${r.articles}</td><td class="n">${r.flagged_derived}</td>
+<td><span class="share" style="width:${60 * r.derived_share / max}px"></span>${(100 * r.derived_share).toFixed(1)}%</td><td>${esc(r.top_sources)}</td></tr>`).join("") + "</table>";
+}
+
+document.querySelectorAll("#nav button").forEach(b => b.onclick = () => showTab(b.dataset.t));
+$("qform").onsubmit = runSearch;
+$("useG").onchange = $("crawlOnly").onchange = () => runSearch();
+let tab = "search";
+try { tab = localStorage.getItem("spintraceTab") || "search"; } catch (e) {}
+showTab(["search", "integrity"].includes(tab) ? tab : "search");
+</script>
+</body>
+</html>
