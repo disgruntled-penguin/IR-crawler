@@ -1,6 +1,6 @@
 # Progress
 
-Updated 2026-10-07 04:45 IST. The live crawl keeps running in the background (watched by a monitor).
+Updated 2026-10-07 09:25 IST. The live crawl keeps running in the background (watched by a monitor).
 
 ## State
 
@@ -23,7 +23,7 @@ final rerun; `notes/requirements_checklist.md` maps every requirement to its sta
 - Search: with g(d) the original ranks first for 52.6% of test queries (10% without); nDCG@10 0.837 -> 0.886.
 - NewsGuard pairs: NYT -> GlobalVillageSpace retrieved first of 20.9k, verified, traced; Wired -> TopGolf.kr retrieved first, not verified.
 - Scale: +3,637 CC-NEWS articles (24.5k docs), nothing refit: F1 within 0.01 of the main run.
-- Crawl: ~15.8k articles; 0 disallowed URLs fetched; 9 delay violations, all before the 23:45 fix.
+- Crawl at 09:20: 27,176 articles from 36,418 page requests over 10.8 h; 0 disallowed URLs fetched; 9 delay violations, all before the 23:45 fix; median freshness 73 min. Evaluations used the snapshot at the 04:30 run (~16k crawled articles).
 
 ## Overnight bugs found and fixed
 

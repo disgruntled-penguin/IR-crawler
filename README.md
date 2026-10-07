@@ -343,26 +343,26 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 
 | measure | value |
 | --- | --- |
-| requests_page | 23104 |
+| requests_page | 36418 |
 | requests_robots | 620 |
-| docs_saved | 17172 |
-| crawl_hours | 7.01 |
-| pages_per_minute | 54.9 |
+| docs_saved | 27176 |
+| crawl_hours | 10.81 |
+| pages_per_minute | 56.2 |
 | hosts | 118 |
-| fresh_articles | 465 |
-| freshness_median_minutes | 44.4 |
-| freshness_p90_minutes | 249.7 |
-| robots_audited_fetches | 23095 |
+| fresh_articles | 764 |
+| freshness_median_minutes | 73.4 |
+| freshness_p90_minutes | 429.0 |
+| robots_audited_fetches | 36409 |
 | disallowed_urls_fetched | 0 |
-| robots_skips | 314 |
+| robots_skips | 446 |
 | min_gap_seconds_overall | 0.29 |
 | delay_violations | 9 |
 | last_delay_violation | 2026-10-06T23:45:28 |
-| trap_guards_fired | 718 |
-| backoffs | 42 |
+| trap_guards_fired | 1999 |
+| backoffs | 64 |
 | exact_duplicate_docs | 259 |
 | near_duplicate_docs | 455 |
-| duplicate_rate | 0.0494 |
+| duplicate_rate | 0.0493 |
 <!-- results:end -->
 
 ## Evaluation protocol
@@ -404,7 +404,7 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
   the index-elimination experiment. Dense retrieval is the one that slips: with same-story distractors in the
   index it ranks the true source first for only 0.83 of SEO and summary rewrites.
 - **Synthetic rewrites come from one 3B model.** Stronger LLMs paraphrase more and would be harder.
-- **Scale.** One crawler process, ~16k crawled articles, one night. Growing the index by 3,637 CC-NEWS articles
+- **Scale.** One crawler process, ~27k crawled articles over 11 hours (evaluations used the first ~16k). Growing the index by 3,637 CC-NEWS articles
   from the same days (to 24.5k documents) left retrieval and detection within a point of the main results, but
   that is a small step, not a web-scale test.
 
@@ -412,7 +412,7 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 
 Works, end to end on live data:
 
-- Polite focused crawl from 36 seeds (RSS and Atom feeds and three homepages), re-polling feeds every 45 minutes (articles published during the crawl reached the store a median 44 minutes after publication), with a robots.txt audit and per-host gap report (`crawl-report`).
+- Polite focused crawl from 36 seeds (RSS and Atom feeds and three homepages), re-polling feeds every 45 minutes (articles published during the crawl reached the store a median 73 minutes after publication), with a robots.txt audit and per-host gap report (`crawl-report`).
 - Content-seen check over the crawl: exact hash, shingles, MinHash, LSH.
 - Positional zoned index (title, body, quote), tf-idf and BM25, phrase queries, optional Porter stemming.
 - Candidate retrieval from rare (fact-boosted) terms and quote phrases with an earlier-only filter; verification by sentence alignment, order, quotes, names/numbers and shingle containment; provenance by date or, when undated, by coverage asymmetry; copy graph and originality g(d); search with net score.
