@@ -44,3 +44,8 @@ final rerun; `notes/requirements_checklist.md` maps every requirement to its sta
 ## Blockers
 
 - None open. The Bored Panda and People originals in NewsGuard's report are not named, so those two pairs stay unloaded.
+
+## Web interfaces (added 2026-10-07 afternoon)
+
+- `python -m spintrace judge-ui` (port 8765): blind judging page over the three label sheets.
+- `python -m spintrace app` (port 8766): Search with g(d), Trace and Site integrity tabs over the same index and detection code.

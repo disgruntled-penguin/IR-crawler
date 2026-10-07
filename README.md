@@ -80,8 +80,15 @@ Optional scale experiment (downloads one 1 GB CC-NEWS file): `python -m spintrac
 `python -m spintrace judge live --judge 1` (then `--judge 2`, and the sheets `hardneg` and `search`) is the
 labelling loop for the two judges; `python -m spintrace eval --report-only` folds their labels into the results.
 `python -m spintrace judge-ui` serves the same sheets as a web page on http://127.0.0.1:8765: both texts side by side,
-word runs of six or more shared by the two highlighted, keyboard labels, and no SpinTrace score, verdict or other
+word runs of eight or more shared by the two underlined, keyboard labels, and no SpinTrace score, verdict or other
 judge's label on screen, so the judgments stay blind.
+
+`python -m spintrace app` serves the demo web app on http://127.0.0.1:8766 (the first trace loads the models and takes
+about 20 seconds). It has three tabs over the same modules as the command line: Search (ranked results with relevance,
+originality g(d) and a "copy" badge naming the original; untick g(d) to see the ranking without it), Trace (the
+`suspect` steps as a page: rare-term query, candidate sources, verification signals, sentence alignment, verdict;
+also reachable as `/?trace=<doc id or URL>`) and Site integrity (the per-site derived share from `scan`). It is a thin
+layer: `spintrace/ui/service.py` returns plain dicts and holds no detection logic.
 
 Inspecting intermediate output (for the demo):
 
@@ -420,7 +427,7 @@ Works, end to end on live data:
 - Positional zoned index (title, body, quote), tf-idf and BM25, phrase queries, optional Porter stemming.
 - Candidate retrieval from rare (fact-boosted) terms and quote phrases with an earlier-only filter; verification by sentence alignment, order, quotes, names/numbers and shingle containment; provenance by date or, when undated, by coverage asymmetry; copy graph and originality g(d); search with net score.
 - Evaluation: synthetic graded rewrites, same-site distractors, mined hard negatives, six baselines with dev-tuned thresholds, ablations, stemming and query variants, undated provenance, search with and without g(d), crawl statistics.
-- `suspect`, `pair` and `postings` print every intermediate step for the demo.
+- `suspect`, `pair` and `postings` print every intermediate step for the demo; the web app shows the same steps for any indexed article.
 
 Partial:
 
