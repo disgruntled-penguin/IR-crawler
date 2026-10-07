@@ -90,6 +90,12 @@ def _context():
     return _state["ctx"]
 
 
+def warm():
+    """Load the index and the detection models ahead of the first request."""
+    with LOCK:
+        _context()
+
+
 def _brief(d, **extra):
     return {"doc_id": d["doc_id"], "site": d["site"], "title": d["title"] or d["url"], "url": d["url"],
             "published": _clean(d["published"]), **extra}

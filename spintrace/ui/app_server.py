@@ -1,4 +1,4 @@
-"""Local web app: search with originality, and the per-site integrity table.
+"""Local web app: search with originality, tracing a suspect to its source, and the per-site integrity table.
 
 Everything is computed by the same modules the command line uses; this file only maps URLs to them.
 """
@@ -31,6 +31,8 @@ class Handler(BaseHTTPRequestHandler):
             elif u.path == "/api/search":
                 self._send(service.search(q.get("q", ""), use_g=q.get("g", "1") == "1",
                                           crawl_only=q.get("crawl", "1") == "1", k=int(q.get("k", 10))))
+            elif u.path == "/api/trace":
+                self._send(service.trace(q["doc"]))
             elif u.path == "/api/integrity":
                 self._send(service.integrity())
             else:
@@ -43,6 +45,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(host="127.0.0.1", port=8766):
-    threading.Thread(target=lambda: service.search("warmup"), daemon=True).start()
+    threading.Thread(target=service.warm, daemon=True).start()
     print(f"SpinTrace app on http://{host}:{port}  (Ctrl+C to stop)")
     ThreadingHTTPServer((host, port), Handler).serve_forever()
