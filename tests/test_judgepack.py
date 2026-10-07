@@ -26,3 +26,11 @@ def test_merge_adds_missing_labels_and_keeps_existing(tmp_path, monkeypatch):
     rows = list(csv.DictReader(mine.open()))
     assert [r["judge2"] for r in rows] == ["not_derived", "derived", ""]
     assert rows[0]["judge1"] == "derived"
+
+
+def test_is_positive_either_versus_both():
+    row = dict(judge1="derived", judge2="not_derived")
+    assert judged.is_positive(row, "live", "any") is True
+    assert judged.is_positive(row, "live", "both") is False
+    assert judged.is_positive(dict(judge1="", judge2=""), "live") is None
+    assert judged.is_positive(dict(judge1="not_relevant", judge2=""), "search") is False

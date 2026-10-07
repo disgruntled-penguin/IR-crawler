@@ -17,6 +17,7 @@ SHEETS = {
 }
 PAIR_KEYS = {"live": ("suspect", "source"), "hardneg": ("suspect", "earlier")}
 _lock = threading.Lock()
+POSITIVE = {"live": "derived", "hardneg": "derived", "search": "relevant"}
 LABELS = {"d": "derived", "n": "not_derived", "r": "relevant", "x": "not_relevant"}
 
 
@@ -79,21 +80,40 @@ def kappa(a, b):
     return (po - pe) / (1 - pe) if pe < 1 else 1.0
 
 
+def is_positive(row, sheet, rule="any"):
+    """One verdict per row from the two judges, None if nobody judged it.
+
+    Rule "any" is the team's convention: the positive label (derived, relevant) wins if either judge gave it.
+    Rule "both" is the strict reading: positive only if both judges gave it.
+    """
+    pos = POSITIVE[sheet]
+    got = [row[c] for c in ("judge1", "judge2") if row.get(c)]
+    if not got:
+        return None
+    return (pos in got) if rule == "any" else (len(got) == 2 and all(g == pos for g in got))
+
+
 def metrics():
-    """Precision of live flags and agreement, from whatever has been judged so far."""
+    """Agreement and the share of positives under each way of combining the judges, from the labels so far."""
     out = {}
-    for sheet, positive in (("live", "derived"), ("hardneg", "derived")):
+    for sheet in ("live", "hardneg", "search"):
         path = SHEETS[sheet]
         if not path.exists():
             continue
+        positive = POSITIVE[sheet]
         rows = list(csv.DictReader(path.open()))
         j1 = [r.get("judge1", "") for r in rows]
         j2 = [r.get("judge2", "") for r in rows]
         both = [(x, y) for x, y in zip(j1, j2) if x and y]
         agreed = [x for x, y in both if x == y]
+        judged_rows = [r for r in rows if is_positive(r, sheet) is not None]
+        share = lambda rule: (sum(is_positive(r, sheet, rule) for r in judged_rows) / len(judged_rows)) if judged_rows else None
         out[sheet] = {"rows": len(rows), "judged_by_both": len(both), "agreement": (len(agreed) / len(both)) if both else None,
                       "kappa": kappa(j1, j2), "share_derived_where_agreed":
-                      (sum(x == positive for x in agreed) / len(agreed)) if agreed else None}
+                      (sum(x == positive for x in agreed) / len(agreed)) if agreed else None,
+                      "positive_any": share("any"), "positive_both": share("both"),
+                      "judge1_positive": (j1.count(positive) / sum(bool(x) for x in j1)) if any(j1) else None,
+                      "judge2_positive": (j2.count(positive) / sum(bool(x) for x in j2)) if any(j2) else None}
     if "live" in out:
-        out["live"]["precision_of_flags"] = out["live"]["share_derived_where_agreed"]
+        out["live"]["precision_of_flags"] = out["live"]["positive_any"]
     return out

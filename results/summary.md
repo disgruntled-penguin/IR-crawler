@@ -157,12 +157,22 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 | indianexpress.com | 548 | 8 | 0.015 | hindustantimes.com (2); indiatimes.com (2); devdiscourse.com (1) |
 | cbsnews.com | 339 | 4 | 0.012 | france24.com (3); abcnews.com (1) |
 
-**Human judgments** (two team members; filled in `evaldata/*.csv`):
+**Human judgments** (two team members; labels in `evaldata/*.csv`). Positive means derived on the live flags and relevant on search. The team's convention counts a pair positive if either judge said so; the strict column needs both. Agreement and kappa are measured before any combining:
 
-| sheet | rows | judged by both | agreement | Cohen's kappa | share derived (agreed) |
-| --- | --- | --- | --- | --- | --- |
-| live | 174 | 0 | - | - | - |
-| hardneg | 600 | 0 | - | - | - |
+| sheet | rows | judged by both | agreement | Cohen's kappa | judge 1 positive | judge 2 positive | positive (either judge) | positive (both judges) | positive (agreed pairs only) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| live | 174 | 174 | 0.592 | 0.123 | 0.592 | 0.690 | 0.845 | 0.437 | 0.738 |
+| hardneg | 600 | 0 | - | - | - | - | - | - | - |
+| search | 154 | 154 | 0.636 | 0.161 | 0.929 | 0.578 | 0.935 | 0.571 | 0.898 |
+
+**Search on the live queries, judged** (15 queries, top 10 with and without g(d); pooled judgments):
+
+| judges | setting | queries | P@10 | nDCG@10 | original ranked first | originals among relevant top 10 |
+| --- | --- | --- | --- | --- | --- | --- |
+| either says relevant | relevance only | 15 | 0.933 | 0.973 | 0.867 | 0.927 |
+| either says relevant | with g(d) | 15 | 0.933 | 0.973 | 0.867 | 0.953 |
+| both say relevant | relevance only | 15 | 0.573 | 0.811 | 0.600 | 0.924 |
+| both say relevant | with g(d) | 15 | 0.560 | 0.803 | 0.600 | 0.963 |
 
 **Is the crawler correct and polite?**
 

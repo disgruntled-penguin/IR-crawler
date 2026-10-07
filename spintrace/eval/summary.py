@@ -125,10 +125,23 @@ def build():
     from . import judged
     jm = judged.metrics()
     if jm:
-        parts.append("**Human judgments** (two team members; filled in `evaldata/*.csv`):\n\n" + table(
-            ["sheet", "rows", "judged by both", "agreement", "Cohen's kappa", "share derived (agreed)"],
-            [[k, v["rows"], v["judged_by_both"], _f(v["agreement"]), _f(v["kappa"]), _f(v["share_derived_where_agreed"])]
+        parts.append("**Human judgments** (two team members; labels in `evaldata/*.csv`). Positive means derived on the live "
+                     "flags and relevant on search. The team's convention counts a pair positive if either judge said so; "
+                     "the strict column needs both. Agreement and kappa are measured before any combining:\n\n" + table(
+            ["sheet", "rows", "judged by both", "agreement", "Cohen's kappa", "judge 1 positive", "judge 2 positive",
+             "positive (either judge)", "positive (both judges)", "positive (agreed pairs only)"],
+            [[k, v["rows"], v["judged_by_both"], _f(v["agreement"]), _f(v["kappa"]), _f(v["judge1_positive"]),
+              _f(v["judge2_positive"]), _f(v["positive_any"]), _f(v["positive_both"]), _f(v["share_derived_where_agreed"])]
              for k, v in jm.items()]))
+    from . import search_eval
+    if (config.ROOT / "evaldata" / "search_judgments.csv").exists():
+        js = search_eval.judged_report()
+        if js:
+            parts.append("**Search on the live queries, judged** (15 queries, top 10 with and without g(d); pooled judgments):\n\n"
+                         + table(["judges", "setting", "queries", "P@10", "nDCG@10", "original ranked first",
+                                  "originals among relevant top 10"],
+                                 [[r["judges"], r["setting"], r["queries"], _f(r["p@10"]), _f(r["ndcg@10"]),
+                                   _f(r["original_first"]), _f(r["originals_among_relevant_top10"])] for r in js]))
 
     if (R / "crawl_report.json").exists():
         c = json.loads((R / "crawl_report.json").read_text())

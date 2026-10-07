@@ -1,0 +1,5 @@
+judges,setting,queries,p@10,ndcg@10,original_first,originals_among_relevant_top10
+either says relevant,relevance only,15,0.9333,0.9725,0.8667,0.9267
+either says relevant,with g(d),15,0.9333,0.9725,0.8667,0.9533
+both say relevant,relevance only,15,0.5733,0.8115,0.6,0.9236
+both say relevant,with g(d),15,0.56,0.803,0.6,0.9627

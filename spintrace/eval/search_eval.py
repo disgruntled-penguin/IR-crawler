@@ -7,12 +7,14 @@ queries and reported on test queries. Live queries are written out for the team 
 import csv
 import json
 import math
+from collections import defaultdict
 
 import numpy as np
 
 from .. import config, index, store
 from ..detect import scan
 from ..search import search
+from . import judged
 from .run import split_of
 
 LIVE_QUERIES = ["Francis Halzen Nobel physics neutrinos", "Kenya first Ebola case", "Paramount Warner Bros merger",
@@ -95,3 +97,42 @@ def write_live(con, idx, g, lam):
                 prev = old.get((q, d), {})
                 w.writerow([q, d, url, a.index(d) + 1 if d in a else "", b.index(d) + 1 if d in b else "",
                             f"{g.get(d, 1.0):.2f}", prev.get("judge1", ""), prev.get("judge2", "")])
+
+
+def judged_report():
+    """P@10, nDCG@10 and the share of originals in the top 10 on the live queries, from the two judges' labels.
+
+    Rankings come from the sheet (rank_no_g, rank_with_g). Relevance is pooled: every document either ranking put in
+    its top 10 was judged, and the ideal nDCG ranking holds the relevant ones. A result with g at least 0.5 counts as
+    an original; flagged copies have g of at most 0.2.
+    """
+    rows = list(csv.DictReader(JUDGE.open()))
+    by = defaultdict(list)
+    for r in rows:
+        by[r["query"]].append(r)
+    out = []
+    for rule in ("any", "both"):
+        for name, col in (("relevance only", "rank_no_g"), ("with g(d)", "rank_with_g")):
+            acc = defaultdict(list)
+            for q, rs in by.items():
+                pos = {r["doc_id"]: judged.is_positive(r, "search", rule) for r in rs}
+                if any(v is None for v in pos.values()):
+                    continue
+                top = sorted((r for r in rs if r[col]), key=lambda r: int(r[col]))
+                gains = [int(pos[r["doc_id"]]) for r in top]
+                n_rel = sum(pos.values())
+                rel_top = [r for r, gn in zip(top, gains) if gn]
+                acc["p@10"].append(sum(gains) / 10)
+                acc["ndcg@10"].append(ndcg(gains, [1] * n_rel))
+                acc["original_first"].append(float(bool(top) and bool(gains[0]) and float(top[0]["g"]) >= 0.5))
+                acc["originals_among_relevant_top10"].append(
+                    sum(float(r["g"]) >= 0.5 for r in rel_top) / len(rel_top) if rel_top else 0.0)
+            if acc:
+                out.append({"judges": "either says relevant" if rule == "any" else "both say relevant", "setting": name,
+                            "queries": len(acc["p@10"]), **{k: round(float(np.mean(v)), 4) for k, v in acc.items()}})
+    if out:
+        with (config.RESULTS / "search_eval_judged.csv").open("w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(out[0]))
+            w.writeheader()
+            w.writerows(out)
+    return out
