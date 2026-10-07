@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SpinTrace Judging</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a65; --line: #e2e0da;
+  --accent: #2f5d8a; --underline: #4a4945; --mark: #f0c040; --qmark: #c9e4ff;
+  --yes: #2e7d4f; --no: #a33a3a; --skip: #6b6a65;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #9c9a93; --line: #34332f;
+    --accent: #7fb0e0; --underline: #6b6a65; --mark: #b08a1c; --qmark: #1f4a70;
+    --yes: #5cb784; --no: #e07a7a; --skip: #9c9a93;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 -apple-system, "Segoe UI", system-ui, sans-serif; }
+header { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line); padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+header h1 { font-size: 16px; margin: 0; letter-spacing: .2px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--ink); padding: 6px 12px; font: inherit; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--accent); color: #fff; }
+.prog { color: var(--muted); font-size: 13px; }
+.bar { height: 4px; background: var(--line); border-radius: 2px; width: 160px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+main { max-width: 1400px; margin: 0 auto; padding: 16px; }
+details.rubric { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
+details.rubric summary { cursor: pointer; font-weight: 600; }
+details.rubric ul { margin: 8px 0 2px; padding-left: 20px; }
+.query { font-size: 18px; margin: 0 0 12px; }
+.query b { color: var(--accent); }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.cols.one { grid-template-columns: 1fr; }
+@media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+.doc { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.tag { font-size: 11px; font-weight: 700; letter-spacing: .8px; color: var(--muted); text-transform: uppercase; }
+.doc h2 { font-size: 17px; margin: 4px 0 6px; line-height: 1.35; }
+.meta { font-size: 13px; color: var(--muted); margin-bottom: 10px; word-break: break-all; }
+.meta a { color: var(--accent); }
+.text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 62vh; overflow-y: auto; padding-right: 6px; }
+mark { background: var(--mark); color: inherit; border-radius: 2px; }
+.cols:not(.one) mark { background: transparent; border-bottom: 2px solid var(--underline); border-radius: 0; }
+mark.q { background: var(--qmark); }
+.actions { position: sticky; bottom: 0; background: var(--bg); padding: 12px 0 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.actions button { font: inherit; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+.actions button kbd { font: 12px ui-monospace, monospace; color: var(--muted); margin-left: 6px; }
+.actions .yes { border-color: var(--yes); color: var(--yes); font-weight: 600; }
+.actions .no { border-color: var(--no); color: var(--no); font-weight: 600; }
+.actions .chosen { color: #fff !important; }
+.actions .yes.chosen { background: var(--yes); }
+.actions .no.chosen { background: var(--no); }
+.spacer { flex: 1; }
+.status { color: var(--muted); font-size: 13px; }
+.done { text-align: center; padding: 60px 16px; color: var(--muted); }
+label.tog { font-size: 13px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SpinTrace judging</h1>
+  <div class="seg" id="judgeSeg"><button data-j="1">Judge 1</button><button data-j="2">Judge 2</button></div>
+  <div class="seg" id="sheetSeg">
+    <button data-s="live">Live flags</button><button data-s="hardneg">Hard negatives</button><button data-s="search">Search</button>
+  </div>
+  <div><div class="prog" id="prog"></div><div class="bar"><i id="barFill" style="width:0"></i></div></div>
+  <label class="tog"><input type="checkbox" id="hl" checked> highlight shared phrases <kbd>h</kbd></label>
+</header>
+<main>
+  <details class="rubric" id="rubric"></details>
+  <div id="view"></div>
+  <div class="actions" id="actions"></div>
+</main>
+<script>
+const RUBRIC = {
+  pair: `<summary>How to judge a pair</summary><ul>
+<li><b>Derived (d)</b>: the suspect was written from the earlier article: same sentence order, the same quotes in the same order, borrowed phrasing that has been reworded, or a straight copy. Two outlets running the same wire story (PTI, ANI, IANS, Reuters, AP) also count as derived.</li>
+<li><b>Not derived (n)</b>: the same event reported independently: shared names, numbers and dates, but its own structure, its own quotes or angle.</li>
+<li>Judge from the texts. Highlighted runs are word sequences (8+) shared by both; they are evidence, not the answer. Don't discuss pairs with the other judge until you have both finished.</li>
+<li>Skip (s) if a text is missing or unreadable. <kbd>←</kbd>/<kbd>→</kbd> move between rows; you can change a label any time.</li></ul>`,
+  search: `<summary>How to judge a search result</summary><ul>
+<li><b>Relevant (r)</b>: the article is about what the query asks for, so a reader searching for it would want to see this article.</li>
+<li><b>Not relevant (x)</b>: off topic, or only mentions the query terms in passing.</li>
+<li>Judge relevance only, not whether the article is an original or a copy. Query terms are highlighted.</li></ul>`
+};
+const KEYS = {
+  pair: [["derived", "Derived", "d", "yes"], ["not_derived", "Not derived", "n", "no"]],
+  search: [["relevant", "Relevant", "r", "yes"], ["not_relevant", "Not relevant", "x", "no"]]
+};
+const TAGS = { live: ["Suspect", "Earlier article"], hardneg: ["Suspect", "Earlier article"], search: ["Result"] };
+
+const st = { judge: 1, sheet: "live", item: null };
+try { const s = JSON.parse(localStorage.getItem("judgeState") || "{}"); Object.assign(st, s); } catch (e) {}
+const save = () => { try { localStorage.setItem("judgeState", JSON.stringify({ judge: st.judge, sheet: st.sheet })); } catch (e) {} };
+const $ = id => document.getElementById(id);
+const kind = () => st.sheet === "search" ? "search" : "pair";
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const norm = w => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+
+function marks(text, other, n) {
+  const parts = text.split(/(\s+)/), idx = [];
+  parts.forEach((p, k) => { if (p.trim() && norm(p)) idx.push(k); });
+  const words = idx.map(k => norm(parts[k]));
+  const grams = new Set();
+  const ow = other.split(/\s+/).map(norm).filter(Boolean);
+  for (let i = 0; i + n <= ow.length; i++) grams.add(ow.slice(i, i + n).join(" "));
+  const hit = new Array(words.length).fill(false);
+  for (let i = 0; i + n <= words.length; i++)
+    if (grams.has(words.slice(i, i + n).join(" "))) for (let j = i; j < i + n; j++) hit[j] = true;
+  // One mark per run: the spaces between two shared words belong to the run.
+  let out = "", k = 0;
+  while (k < parts.length) {
+    const w = idx.indexOf(k);
+    if (w < 0 || !hit[w]) { out += esc(parts[k]); k++; continue; }
+    let e = w;
+    while (e + 1 < idx.length && hit[e + 1] && idx[e + 1] === idx[e] + 2) e++;
+    out += "<mark>" + esc(parts.slice(k, idx[e] + 1).join("")) + "</mark>";
+    k = idx[e] + 1;
+  }
+  return out;
+}
+
+function queryMarks(text, query) {
+  const terms = new Set(query.split(/\s+/).map(norm).filter(w => w.length > 2));
+  return text.split(/(\s+)/).map(p => terms.has(norm(p)) ? `<mark class="q">${esc(p)}</mark>` : esc(p)).join("");
+}
+
+function renderDoc(d, tag, html) {
+  if (d.missing) return `<div class="doc"><div class="tag">${tag}</div><p>Not in the local store (${d.doc_id}). Run <code>python -m spintrace recrawl</code>, or skip.</p></div>`;
+  return `<div class="doc"><div class="tag">${tag}</div><h2>${esc(d.title || "(no title)")}</h2>
+<div class="meta">${esc(d.site)} · published ${d.published || "unknown"}<br><a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.url)}</a></div>
+<div class="text">${html}</div></div>`;
+}
+
+function render() {
+  const it = st.item, hl = $("hl").checked;
+  document.querySelectorAll("#judgeSeg button").forEach(b => b.classList.toggle("on", +b.dataset.j === st.judge));
+  document.querySelectorAll("#sheetSeg button").forEach(b => b.classList.toggle("on", b.dataset.s === st.sheet));
+  const open = $("rubric").open;
+  $("rubric").innerHTML = RUBRIC[kind()];
+  $("rubric").open = open;
+  if (!it) return;
+  if (it.finished) {
+    $("view").innerHTML = `<div class="done">Every row in this sheet has a label from Judge ${st.judge}. Use ← to review, or pick another sheet.</div>`;
+  } else {
+    const [a, b] = it.docs, tags = TAGS[st.sheet];
+    let body;
+    if (st.sheet === "search") {
+      body = `<p class="query">Query: <b>${esc(it.query)}</b></p><div class="cols one">${renderDoc(a, tags[0], a.missing ? "" : (hl ? queryMarks(a.text, it.query) : esc(a.text)))}</div>`;
+    } else {
+      const ha = a.missing || b.missing || !hl ? x => esc(x.text || "") : null;
+      body = `<div class="cols">${renderDoc(a, tags[0], ha ? ha(a) : marks(a.text, b.text, 8))}${renderDoc(b, tags[1], ha ? ha(b) : marks(b.text, a.text, 8))}</div>`;
+    }
+    $("view").innerHTML = body;
+  }
+  const btns = KEYS[kind()].map(([v, label, key, cls]) =>
+    `<button class="${cls}${it.label === v ? " chosen" : ""}" data-v="${v}" ${it.finished ? "disabled" : ""}>${label}<kbd>${key}</kbd></button>`).join("");
+  $("actions").innerHTML = `<button id="prev">← Prev</button>${btns}<button id="skip" ${it.finished ? "disabled" : ""}>Skip<kbd>s</kbd></button>
+<button id="next">Next →</button><span class="spacer"></span><span class="status">Row ${Math.min(it.i + 1, it.n)} of ${it.n}${it.label ? " · your label: " + it.label.replace("_", " ") : ""}</span>`;
+  $("actions").querySelectorAll("[data-v]").forEach(b => b.onclick = () => setLabel(b.dataset.v));
+  $("prev").onclick = () => go(it.i - 1);
+  $("next").onclick = () => go(it.i + 1);
+  $("skip").onclick = () => go(it.i + 1);
+}
+
+async function refreshProgress() {
+  const p = await (await fetch("/api/progress")).json();
+  const s = p[st.sheet];
+  if (!s) { $("prog").textContent = "sheet not found"; return; }
+  const done = s["judge" + st.judge];
+  $("prog").textContent = `Judge ${st.judge}: ${done} of ${s.rows} labelled`;
+  $("barFill").style.width = (100 * done / s.rows) + "%";
+}
+
+async function load(i) {
+  const q = new URLSearchParams({ sheet: st.sheet, judge: st.judge });
+  if (i !== undefined && i !== null) q.set("i", i);
+  st.item = await (await fetch("/api/item?" + q)).json();
+  render();
+  refreshProgress();
+  window.scrollTo({ top: 0 });
+}
+
+function go(i) {
+  if (!st.item) return;
+  if (i < 0) i = 0;
+  if (i > st.item.n) i = st.item.n;
+  load(i);
+}
+
+async function setLabel(v) {
+  const it = st.item;
+  if (!it || it.finished) return;
+  const r = await fetch("/api/label", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sheet: st.sheet, judge: st.judge, i: it.i, label: v }) });
+  if (!r.ok) { alert("Could not save: " + (await r.text())); return; }
+  // After a fresh label jump to the next unlabelled row; when revising an old one, just move on by one.
+  if (it.label) go(it.i + 1); else load();
+}
+
+document.querySelectorAll("#judgeSeg button").forEach(b => b.onclick = () => { st.judge = +b.dataset.j; save(); load(); });
+document.querySelectorAll("#sheetSeg button").forEach(b => b.onclick = () => { st.sheet = b.dataset.s; save(); load(); });
+$("hl").onchange = render;
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.target.tagName === "INPUT") return;
+  const k = e.key.toLowerCase(), it = st.item;
+  const hit = KEYS[kind()].find(x => x[2] === k);
+  if (hit) setLabel(hit[0]);
+  else if (k === "s" && it) go(it.i + 1);
+  else if (k === "arrowleft" && it) go(it.i - 1);
+  else if (k === "arrowright" && it) go(it.i + 1);
+  else if (k === "h") { $("hl").checked = !$("hl").checked; render(); }
+});
+load();
+</script>
+</body>
+</html>
