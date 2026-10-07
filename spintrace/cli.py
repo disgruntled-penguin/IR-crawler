@@ -278,6 +278,11 @@ def cmd_judge(args):
         judged.label(args.sheet, args.judge)
 
 
+def cmd_judge_ui(args):
+    from .ui import judge_server
+    judge_server.serve(args.host, args.port)
+
+
 def cmd_crawl_report(args):
     from .crawl import report
     rep = report.write()
@@ -373,6 +378,11 @@ def main(argv=None):
     c.add_argument("--judge", type=int, choices=[1, 2], default=1)
     c.add_argument("--metrics", action="store_true", help="print precision and agreement from the labels so far")
     c.set_defaults(fn=cmd_judge)
+
+    c = sub.add_parser("judge-ui", help="web interface for the same judgments, in the browser")
+    c.add_argument("--host", default="127.0.0.1", help="0.0.0.0 to let a teammate judge from another machine on the network")
+    c.add_argument("--port", type=int, default=8765)
+    c.set_defaults(fn=cmd_judge_ui)
 
     c = sub.add_parser("crawl-report", help="politeness and correctness statistics of the crawl")
     c.set_defaults(fn=cmd_crawl_report)

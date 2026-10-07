@@ -79,6 +79,9 @@ Optional scale experiment (downloads one 1 GB CC-NEWS file): `python -m spintrac
 `build --with-ccnews` is given, so the main results do not depend on it.
 `python -m spintrace judge live --judge 1` (then `--judge 2`, and the sheets `hardneg` and `search`) is the
 labelling loop for the two judges; `python -m spintrace eval --report-only` folds their labels into the results.
+`python -m spintrace judge-ui` serves the same sheets as a web page on http://127.0.0.1:8765: both texts side by side,
+word runs of six or more shared by the two highlighted, keyboard labels, and no SpinTrace score, verdict or other
+judge's label on screen, so the judgments stay blind.
 
 Inspecting intermediate output (for the demo):
 

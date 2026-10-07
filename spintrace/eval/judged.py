@@ -6,6 +6,7 @@ Labels: d = derived, n = not derived (r / x for search relevance).
 """
 import csv
 import textwrap
+import threading
 
 from .. import config, store
 
@@ -15,6 +16,7 @@ SHEETS = {
     "search": config.ROOT / "evaldata" / "search_judgments.csv",
 }
 PAIR_KEYS = {"live": ("suspect", "source"), "hardneg": ("suspect", "earlier")}
+_lock = threading.Lock()
 LABELS = {"d": "derived", "n": "not_derived", "r": "relevant", "x": "not_relevant"}
 
 
@@ -48,11 +50,22 @@ def label(sheet, judge):
         if ans == "q":
             break
         if ans in LABELS:
-            r[col] = LABELS[ans]
-            with path.open("w", newline="") as f:
-                w = csv.DictWriter(f, fieldnames=list(rows[0]))
-                w.writeheader()
-                w.writerows(rows)
+            set_label(sheet, rows.index(r), judge, LABELS[ans])
+
+
+def read_rows(sheet):
+    return list(csv.DictReader(SHEETS[sheet].open()))
+
+
+def set_label(sheet, i, judge, value):
+    """Write one judge's label for row i, re-reading the sheet so the other judge's labels are kept."""
+    with _lock:
+        rows = read_rows(sheet)
+        rows[i][f"judge{judge}"] = value
+        with SHEETS[sheet].open("w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(rows[0]))
+            w.writeheader()
+            w.writerows(rows)
 
 
 def kappa(a, b):
