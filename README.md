@@ -465,7 +465,7 @@ Works, end to end on live data:
 Partial:
 
 - Real farm pairs: two NewsGuard-documented pairs load from the Wayback Machine. NYT -> GlobalVillageSpace is retrieved first among 20.9k documents, verified (p = 0.999) and traced; Wired -> TopGolf.kr is retrieved first but not verified. The Bored Panda and People originals are not named in the report.
-- Hard negatives and flagged live pairs are mined automatically; the judge columns in `evaldata/hard_negatives.csv`, `live_flagged.csv` and `search_judgments.csv` are for the two team members to fill.
+- Hard negatives and flagged live pairs are mined automatically. Both team members have judged the flagged live pairs (`evaldata/live_flagged.csv`) and the search results (`search_judgments.csv`); the hard-negative sheet (`hard_negatives.csv`) is not judged yet.
 - No live farm sites were found among the seeds yet; suspects come from aggregators that republish agency copy (latestly, devdiscourse, socialnews, newsx).
 
 Planned (course project):
