@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from .. import store
-from ..eval import judged
+from ..eval import judged, judgepack
 
 PAGE = Path(__file__).with_name("judge.html")
 KEYS = {"live": ("suspect", "source"), "hardneg": ("suspect", "earlier"), "search": ("doc_id",)}
@@ -17,8 +17,20 @@ ALLOWED = {"live": {"derived", "not_derived"}, "hardneg": {"derived", "not_deriv
            "search": {"relevant", "not_relevant"}}
 
 
+_packed = {}
+
+
+def _pack():
+    """Texts from evaldata/judge_pack.json, for a judge who has no crawl database."""
+    if "docs" not in _packed:
+        _packed["docs"] = judgepack.load()
+    return _packed["docs"]
+
+
 def _doc(con, doc_id):
     r = con.execute("SELECT url, site, title, published, text FROM docs WHERE doc_id=?", (doc_id,)).fetchone()
+    if not r:
+        r = _pack().get(doc_id)
     if not r:
         return {"doc_id": doc_id, "missing": True}
     when = dt.datetime.fromtimestamp(r["published"]).strftime("%Y-%m-%d %H:%M") if r["published"] else None

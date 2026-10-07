@@ -83,6 +83,13 @@ labelling loop for the two judges; `python -m spintrace eval --report-only` fold
 word runs of eight or more shared by the two underlined, keyboard labels, and no SpinTrace score, verdict or other
 judge's label on screen, so the judgments stay blind.
 
+A judge without the crawl database (the other team member, on another machine) uses a pack of just the texts the sheets
+refer to: `python -m spintrace judge-pack` writes `evaldata/judge_pack.json` (about 3 MB; it holds crawled full
+texts, so it is git-ignored and sent privately, never committed). With the repository and that file in `evaldata/`,
+`python -m spintrace judge-ui` on their machine shows the same pages and records labels in their copy of the sheets.
+They send those CSVs back and `python -m spintrace judge-merge live evaldata/their_live_flagged.csv` (also `search`,
+`hardneg`) copies their `judge2` column in without overwriting any existing label.
+
 `python -m spintrace app` serves the demo web app on http://127.0.0.1:8766 (the first trace loads the models and takes
 about 20 seconds). It has three tabs over the same modules as the command line: Search (ranked results with relevance,
 originality g(d) and a "copy" badge naming the original; untick g(d) to see the ranking without it), Trace (the

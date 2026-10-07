@@ -283,6 +283,17 @@ def cmd_judge_ui(args):
     judge_server.serve(args.host, args.port)
 
 
+def cmd_judge_pack(args):
+    from .eval import judgepack
+    n, wanted, size = judgepack.build(args.hardneg)
+    print(f"{n} of {wanted} documents written to {judgepack.PACK} ({size / 1e6:.1f} MB); send it privately, never commit it")
+
+
+def cmd_judge_merge(args):
+    from .eval import judgepack
+    print(judgepack.merge(args.file, args.sheet, args.judge))
+
+
 def cmd_app(args):
     from .ui import app_server
     app_server.serve(args.host, args.port)
@@ -388,6 +399,16 @@ def main(argv=None):
     c.add_argument("--host", default="127.0.0.1", help="0.0.0.0 to let a teammate judge from another machine on the network")
     c.add_argument("--port", type=int, default=8765)
     c.set_defaults(fn=cmd_judge_ui)
+
+    c = sub.add_parser("judge-pack", help="write the texts a remote judge needs (private, not for git)")
+    c.add_argument("--hardneg", type=int, default=100, help="how many hard-negative rows to include")
+    c.set_defaults(fn=cmd_judge_pack)
+
+    c = sub.add_parser("judge-merge", help="copy another judge's labels from their copy of a sheet into ours")
+    c.add_argument("sheet", choices=["live", "hardneg", "search"])
+    c.add_argument("file", help="their copy of the sheet csv")
+    c.add_argument("--judge", type=int, choices=[1, 2], default=2)
+    c.set_defaults(fn=cmd_judge_merge)
 
     c = sub.add_parser("app", help="web app: search with originality and the per-site integrity table")
     c.add_argument("--host", default="127.0.0.1")
