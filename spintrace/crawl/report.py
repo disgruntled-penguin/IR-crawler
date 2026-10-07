@@ -102,6 +102,15 @@ def build(con=None):
             near.add(b)
     rep["near_duplicate_docs"] = len(near)
     rep["duplicate_rate"] = round((rep["exact_duplicate_docs"] + len(near)) / max(len(crawl), 1), 4)
+    # Freshness: how long after publication an article reached the store, for articles published during the crawl.
+    start = con.execute("SELECT MIN(ts) FROM fetch_log").fetchone()[0] or 0
+    lags = sorted((f - p) / 60 for p, f in con.execute(
+        "SELECT published, fetched_at FROM docs WHERE origin='crawl' AND published > ? AND fetched_at >= published "
+        "AND date_source IN ('jsonld','meta','time_tag','feed')", (start,)))
+    if lags:
+        rep["fresh_articles"] = len(lags)
+        rep["freshness_median_minutes"] = round(lags[len(lags) // 2], 1)
+        rep["freshness_p90_minutes"] = round(lags[int(len(lags) * 0.9)], 1)
     rep["docs_by_site"] = dict(Counter(r[0] for r in con.execute("SELECT site FROM docs WHERE origin='crawl'")).most_common())
     rep["date_sources"] = dict(Counter(str(r[0]) for r in con.execute("SELECT date_source FROM docs WHERE origin='crawl'")))
     return rep
