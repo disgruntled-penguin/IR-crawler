@@ -412,7 +412,7 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 
 Works, end to end on live data:
 
-- Polite focused crawl from 36 seeds (RSS and Atom feeds and three homepages), re-polling feeds every 45 minutes, with a robots.txt audit and per-host gap report (`crawl-report`).
+- Polite focused crawl from 36 seeds (RSS and Atom feeds and three homepages), re-polling feeds every 45 minutes (articles published during the crawl reached the store a median 44 minutes after publication), with a robots.txt audit and per-host gap report (`crawl-report`).
 - Content-seen check over the crawl: exact hash, shingles, MinHash, LSH.
 - Positional zoned index (title, body, quote), tf-idf and BM25, phrase queries, optional Porter stemming.
 - Candidate retrieval from rare (fact-boosted) terms and quote phrases with an earlier-only filter; verification by sentence alignment, order, quotes, names/numbers and shingle containment; provenance by date or, when undated, by coverage asymmetry; copy graph and originality g(d); search with net score.
