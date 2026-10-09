@@ -435,6 +435,10 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
   without g(d); g(d) only raises the share of originals among the relevant top 10, from 0.927 to 0.953. With both
   judges required, nDCG@10 is 0.811 without g(d) and 0.803 with it. The clear ranking gain is on the synthetic
   queries (original ranked first for 52.6% of test queries against 10%).
+- **Two crawlers at once broke the delay.** The crawl figures above cover the main crawl. Short rehearsal crawls for the
+  demo video on 7 Oct (23:13-23:16) ran two crawler processes at once; each kept its own 5 s gap, but together they
+  contacted 19 hosts 0.6-5.0 s apart, so `crawl-report` on that database counts 39 delay violations (9 from the first
+  night's race, 30 from this). A crawler now holds an exclusive lock and a second one refuses to start.
 - **Shared wire copy is attributed to an outlet.** When two outlets print the same AP or PTI story, SpinTrace
   names the earlier outlet as the source; the agency itself is not crawled.
 - **Verification is trained on prose.** The NewsGuard TopGolf.kr page (AI title suggestions plus a reshaped

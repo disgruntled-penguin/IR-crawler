@@ -1,5 +1,6 @@
 """Polite focused crawl loop: feeds and sitemaps -> frontier -> robots check -> fetch -> extract -> store."""
 import csv
+import fcntl
 import logging
 import sqlite3
 import time
@@ -15,6 +16,19 @@ from .urlnorm import host_of, normalise, site_of, skip_reason, trap_reason
 log = logging.getLogger("spintrace.crawl")
 # Rate limiting, server errors and outright refusals all count towards backoff and the per-host stop.
 BLOCKING = {401, 403, 405, 429, 451, 503}
+
+
+def single_instance(path):
+    """Hold an exclusive lock for this process's lifetime: two crawlers would each keep their own
+    per-host delay, but together they would hit every host twice as often."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    f = open(path, "w")
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        f.close()
+        raise SystemExit(f"another crawler is already running (lock {path}); stop it before starting a new one")
+    return f
 
 
 def load_seeds(path):
@@ -38,6 +52,7 @@ def retry_after(resp):
 
 class Crawler:
     def __init__(self, seeds_path, max_pages=None, url_list=None):
+        self.lock = single_instance(config.DATA / "crawl.lock")
         self.con = store.connect()
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": config.USER_AGENT, "Accept-Language": "en"})

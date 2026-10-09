@@ -66,3 +66,13 @@ def test_priority_orders_a_hosts_own_requests():
         picks.append(url)
         f.release(host)
     assert "https://h.example/feed-entry" in picks
+
+
+def test_second_crawler_refused(tmp_path):
+    import pytest
+    from spintrace.crawl.crawler import single_instance
+    first = single_instance(tmp_path / "crawl.lock")
+    with pytest.raises(SystemExit):
+        single_instance(tmp_path / "crawl.lock")
+    first.close()
+    single_instance(tmp_path / "crawl.lock").close()
