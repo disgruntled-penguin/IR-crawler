@@ -183,7 +183,89 @@ def dataset():
     write("dataset", ["Data", "Size", "Source and licence", "Used for"], body, "@{}P{3.1cm}P{4.2cm}P{4.6cm}L@{}")
 
 
+def numbers():
+    """LaTeX macros for every number the report's prose cites, so the prose cannot drift from the results."""
+    det, rank = rows("crosslingual_detection.csv"), rows("crosslingual_ranking.csv")
+    ab, eff = rows("crosslingual_ablations.csv"), rows("crosslingual_efficiency.csv")
+    msd, msr = rows("multisource_detection.csv"), rows("multisource_by_rank.csv")
+    msa, msc, cost = rows("multisource_ablations.csv"), rows("multisource_controls.csv"), rows("multisource_cost.csv")
+    N = {}
+
+    def d(method, level):
+        r = find(det, method=method, level=level)
+        return num(r["f1"]) if r else "--"
+
+    def r1(method):
+        r = find(rank, method=method, level="all_hi")
+        return num(r["p@1"]) if r else "--"
+
+    def a(variant, col="macro_f1"):
+        r = find(ab, variant=variant)
+        return num(r[col]) if r else "--"
+
+    def g(method, group):
+        r = find(msd, method=method, group=group)
+        return num(r["f1"]) if r else "--"
+
+    def k(method, n, rk):
+        r = find(msr, method=method, n_sources=n, source_rank=rk)
+        return num(r["recall"]) if r else "--"
+
+    for key, m in (("XlTrans", "hi_translation"), ("XlSeo", "hi_seo"), ("XlSum", "hi_summary")):
+        N[key] = d("spintrace_xl", m)
+        N["BtSpin" + key[2:]] = d("bt_spintrace_en", m)
+    N["DenseTrans"], N["DenseSeo"], N["DenseSum"] = (d("dense_cosine", m) for m in ("hi_translation", "hi_seo", "hi_summary"))
+    N["LatinSum"] = d("latin_only", "hi_summary")
+    N["BtTfidfSum"], N["BtBmSum"] = d("bt_tfidf_cosine", "hi_summary"), d("bt_bm25", "hi_summary")
+    N["XlPone"], N["DensePone"], N["BtSpinPone"] = r1("spintrace_xl"), r1("dense_cosine"), r1("bt_spintrace_en")
+    for key, lvl in (("Same", "fpr_hi_facts_only"), ("Short", "fpr_hi_facts_short"), ("Absent", "fpr_source_absent")):
+        N["XlFpr" + key] = d("spintrace_xl", lvl)
+        N["DenseFpr" + key] = d("dense_cosine", lvl)
+        N["BtSpinFpr" + key] = d("bt_spintrace_en", lvl)
+    e = find(eff, method="spintrace_xl")
+    b = find(eff, method="bt_spintrace_en")
+    N["XlMs"] = num(e["ms_per_suspect"], 0) if e else "--"
+    N["XlRetMs"] = num(e["ms_retrieve"], 0) if e else "--"
+    N["XlPostings"] = num(e["postings_touched"], 0) if e else "--"
+    N["BtLlmSec"] = num(b["llm_seconds"], 1) if b else "--"
+    try:
+        N["Speedup"] = num((float(b["llm_seconds"]) * 1000 + float(b["ms_per_suspect"])) / float(e["ms_per_suspect"]), 0)
+    except (TypeError, ValueError, KeyError):
+        N["Speedup"] = "--"
+    for key, v in (("Full", "full"), ("NoNames", "no_names"), ("NoNumbers", "no_numbers"), ("NoDates", "no_dates"),
+                   ("TranslitExact", "translit_exact"), ("NoDf", "no_idf_check"), ("DenseVerify", "dense_verify"),
+                   ("NoAlign", "no_alignment_signals")):
+        N["Abl" + key] = a(v)
+    N["MsAll"], N["MsContAll"], N["MsMinhashAll"], N["MsMidAll"] = (g(m, "splice (all)") for m in ("spintrace", "containment", "minhash", "midterm"))
+    N["MsPlain"], N["MsPlainCont"] = g("spintrace", "splice splice"), g("containment", "splice splice")
+    N["MsSyn"], N["MsSynCont"] = g("spintrace", "splice splice_synonym"), g("containment", "splice splice_synonym")
+    N["MsSeo"], N["MsSeoCont"] = g("spintrace", "splice splice_seo"), g("containment", "splice splice_seo")
+    N["MsLlm"], N["MsLlmCont"] = g("spintrace", "LLM mashups (both sources test)"), g("containment", "LLM mashups (both sources test)")
+    N["MsSecondSpin"], N["MsSecondMid"] = k("spintrace", "2", "2"), k("midterm", "2", "2")
+    N["MsThirdSpin"], N["MsThirdMid"] = k("spintrace", "3", "3"), k("midterm", "3", "3")
+    for key, v in (("Full", "full"), ("NoResid", "no_residual")):
+        r = find(msa, variant=v)
+        N["MsAbl" + key] = num(r["F1 splice (all)"]) if r else "--"
+    r = find(msc, method="spintrace", level="facts_only")
+    N["MsFalseSame"] = num(r["false_source_rate"]) if r else "--"
+    r = find(msc, method="midterm_shipped", level="facts_only")
+    N["MsFalseSameMid"] = num(r["false_source_rate"]) if r else "--"
+    N["MsMs"] = num(cost[0]["ms_per_suspect"], 0) if cost else "--"
+    live = RESULTS / "crosslingual_live.json"
+    if live.exists():
+        lj = json.loads(live.read_text())
+        N["XlLiveSuspects"], N["XlLiveFlagged"] = str(lj.get("suspects", "--")), str(lj.get("flagged", "--"))
+    ds = RESULTS / "dataset.json"
+    if ds.exists():
+        dj = json.loads(ds.read_text())
+        N["DocsCrawl"] = f"{dj['origins'].get('crawl', {}).get('n', 0):,}".replace(",", "{,}")
+        N["Sites"] = str(dj["crawl_sites"])
+        N["Indic"] = f"{sum(v for k_, v in dj['crawl_scripts'].items() if k_ != 'latn'):,}".replace(",", "{,}")
+    OUT.mkdir(exist_ok=True)
+    (OUT / "numbers.tex").write_text("".join(f"\\newcommand{{\\n{k_}}}{{{v}}}\n" for k_, v in sorted(N.items())))
+
+
 if __name__ == "__main__":
-    for fn in (xl_detection, xl_ablation, ms_detection, ms_by_rank, ms_ablation, ms_controls, dataset):
+    for fn in (numbers, xl_detection, xl_ablation, ms_detection, ms_by_rank, ms_ablation, ms_controls, dataset):
         fn()
     print("tables in", OUT)
