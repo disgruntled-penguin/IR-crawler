@@ -100,6 +100,23 @@ holds, opens the database read-only, and caches each pass in `data/eval/ms_*.pkl
 
 `scripts/run_all.sh` runs build, eval, scan, search-eval, crawl-report and export in that order.
 
+Final-phase data, evaluation and report (the order that was used):
+
+```
+python -c "from spintrace.eval import xl_rewrites; xl_rewrites.build()"   # Hindi, Tamil, Telugu, Bengali rewrites,
+                                            # back-translations and LLM mashups (needs Ollama with gemma3:4b; resumable,
+                                            # about 30 s per item, cached in evaldata/rewrites_xl.jsonl)
+bash scripts/final_run.sh                   # eval-multi, eval-multi --live, eval-xl, live-xl, dataset summary, report tables and figures
+python -m spintrace.eval.dataset_stats      # results/dataset.md and dataset.json: what is in the store and the label files
+python report/make_tables.py                # LaTeX tables and number macros from results/ (report/tables/)
+python report/make_figures.py               # report charts (report/figures/)
+tectonic report/SpinTrace_final_report.tex  # the report PDF
+```
+
+The report build uses macOS system fonts (Charter, Avenir Next, Menlo, Devanagari Sangam MN), so it builds as is on a
+Mac and needs those fonts replaced elsewhere. `scripts/final_run.sh` took 16 minutes on an 8 GB M1; each step caches
+its work per item, so a rerun after more rewrites are generated only adds the new items.
+
 Cross-language tracing (Indian-language rewrites of English news; see the section below):
 
 ```
