@@ -77,10 +77,15 @@ python -m spintrace crawl-report            # politeness and correctness statist
 Cross-language tracing (Indian-language rewrites of English news; see the section below):
 
 ```
-python -m spintrace build-xl --dense         # name k-gram lexicon over the index, and dense heads for the baseline
-python -m spintrace eval-xl                  # cross-language evaluation; tables and charts in results/crosslingual_*
-python -m spintrace live-xl --rebuild        # every crawled Indian-language page against the English crawl
+python -m spintrace build-xl --dense         # name k-gram lexicon (2 min) and dense heads for the baseline (15 min)
+python -m spintrace eval-xl --fresh          # cross-language evaluation, 2-4 s per item; tables and charts in results/crosslingual_*
+python -m spintrace live-xl --rebuild        # every crawled Indian-language page against the English crawl, about 2 s per page
 ```
+
+`eval-xl` reads whatever rows `evaldata/rewrites_xl.jsonl` holds (`SPINTRACE_XL_ROWS` points elsewhere) and caches
+each scored item in `data/eval/xl_raw.pkl`, so a rerun only scores new rows unless `--fresh` is given;
+`--report-only` refits and rewrites the tables from the cache in seconds. Times are for an 8 GB Apple M1 on CPU
+with the generation queue running.
 
 Optional scale experiment (downloads one 1 GB CC-NEWS file): `python -m spintrace ccnews`, then
 `python -m spintrace build`, then `python -m spintrace scale`. The main index leaves CC-NEWS out unless
