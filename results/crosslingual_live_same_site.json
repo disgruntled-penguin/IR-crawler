@@ -1,0 +1,172 @@
+{
+  "english_index_docs": {
+    "live": 4384,
+    "main_crawl": 14442
+  },
+  "suspects": 237,
+  "flagged": 1,
+  "flagged_derived": 1,
+  "flagged_undated": 0,
+  "flagged_crediting_source": 1,
+  "flagged_naming_agency": 0,
+  "median_lag_hours": 3.5,
+  "by_script": {
+    "beng": {
+      "suspects": 84,
+      "flagged": 0
+    },
+    "telu": {
+      "suspects": 68,
+      "flagged": 0
+    },
+    "deva": {
+      "suspects": 57,
+      "flagged": 1
+    },
+    "taml": {
+      "suspects": 24,
+      "flagged": 0
+    },
+    "gujr": {
+      "suspects": 4,
+      "flagged": 0
+    }
+  },
+  "by_site": {
+    "hindustantimes.com": {
+      "suspects": 125,
+      "flagged": 0
+    },
+    "bbc.com": {
+      "suspects": 112,
+      "flagged": 1
+    }
+  },
+  "judged": false,
+  "examples_flagged": [
+    {
+      "suspect_url": "https://www.bbc.com/hindi/articles/cknv4zp263r6o",
+      "suspect_site": "bbc.com",
+      "script": "deva",
+      "suspect_published": 1795229881.886,
+      "index": "live",
+      "source_url": "https://www.bbc.co.uk/news/articles/c6jre8xd83qgo",
+      "source_site": "bbc.co.uk",
+      "prob": 0.9025,
+      "verdict": "derived",
+      "flagged": 1,
+      "n_numbers": 12,
+      "n_dates": 1,
+      "n_latin": 3,
+      "n_names": 331,
+      "postings_touched": 140526,
+      "lag_hours": 3.5,
+      "credits_source": 1,
+      "agencies_named": ""
+    }
+  ],
+  "examples_any": [
+    {
+      "suspect_url": "https://www.hindustantimes.com/bangla/bengal/suvendu-adhikari-warns-mamata-banerjee-regarding-her-broken-leg-271791207578562.html",
+      "suspect_site": "hindustantimes.com",
+      "script": "beng",
+      "suspect_published": 1791211391.0,
+      "index": "main",
+      "source_url": "https://www.opindia.com/news-updates/kerala-congress-and-sfi-clash-with-each-other-while-protesting-against-cec-gyanesh-kumar-at-hurl-stones-and-bottles/",
+      "source_site": "opindia.com",
+      "prob": 0.0151,
+      "verdict": "derived",
+      "flagged": 0,
+      "n_numbers": 1,
+      "n_dates": 0,
+      "n_latin": 8,
+      "n_names": 155,
+      "postings_touched": 361114,
+      "lag_hours": 105.2,
+      "credits_source": 0,
+      "agencies_named": ""
+    },
+    {
+      "suspect_url": "https://www.hindustantimes.com/telugu/news/gold-prices-fall-mcx-1-lakh-49-thousand-dollar-strengthens-261791188899621.html",
+      "suspect_site": "hindustantimes.com",
+      "script": "telu",
+      "suspect_published": 1791189105.0,
+      "index": "main",
+      "source_url": "https://www.newsx.com/web_story_tag/priyanka-chopra/",
+      "source_site": "newsx.com",
+      "prob": 0.0116,
+      "verdict": "derived",
+      "flagged": 0,
+      "n_numbers": 27,
+      "n_dates": 0,
+      "n_latin": 8,
+      "n_names": 224,
+      "postings_touched": 621446,
+      "lag_hours": 460.8,
+      "credits_source": 0,
+      "agencies_named": ""
+    },
+    {
+      "suspect_url": "https://www.bbc.com/marathi/articles/cr0qj14dn74zo",
+      "suspect_site": "bbc.com",
+      "script": "deva",
+      "suspect_published": 1795168954.011,
+      "index": "live",
+      "source_url": "https://theconversation.com/jensen-huang-scandal-illustrates-why-human-nature-is-cybersecuritys-weakest-link-296763",
+      "source_site": "theconversation.com",
+      "prob": 0.013,
+      "verdict": "derived",
+      "flagged": 0,
+      "n_numbers": 2,
+      "n_dates": 0,
+      "n_latin": 1,
+      "n_names": 381,
+      "postings_touched": 307782,
+      "lag_hours": 82.0,
+      "credits_source": 0,
+      "agencies_named": ""
+    },
+    {
+      "suspect_url": "https://www.hindustantimes.com/bangla/entertainment/srijla-guha-shares-that-she-may-not-become-a-mother-after-suffering-an-injury-from-nandini-dutta-271791273624820.html",
+      "suspect_site": "hindustantimes.com",
+      "script": "beng",
+      "suspect_published": 1791277260.0,
+      "index": "main",
+      "source_url": "https://indianexpress.com/section/explained/explained-global/",
+      "source_site": "indianexpress.com",
+      "prob": 0.0137,
+      "verdict": "derived",
+      "flagged": 0,
+      "n_numbers": 4,
+      "n_dates": 0,
+      "n_latin": 6,
+      "n_names": 178,
+      "postings_touched": 411315,
+      "lag_hours": 9.0,
+      "credits_source": 0,
+      "agencies_named": ""
+    },
+    {
+      "suspect_url": "https://www.hindustantimes.com/bangla/news/abhishek-on-gyanesh-tmc-mp-demands-arrest-of-chief-election-commissioner-while-walking-in-india-bloc-meet-271791267980730.html",
+      "suspect_site": "hindustantimes.com",
+      "script": "beng",
+      "suspect_published": 1791268169.0,
+      "index": "main",
+      "source_url": "https://www.devdiscourse.com/article/headlines/3987401-fight-is-with-ec-yet-bjp-provides-answers-says-congress-mp-imran-masood-as-india-bloc-marches-to-ec",
+      "source_site": "devdiscourse.com",
+      "prob": 0.017,
+      "verdict": "derived",
+      "flagged": 0,
+      "n_numbers": 3,
+      "n_dates": 0,
+      "n_latin": 3,
+      "n_names": 170,
+      "postings_touched": 400403,
+      "lag_hours": 0.7,
+      "credits_source": 0,
+      "agencies_named": ""
+    }
+  ],
+  "flagged_same_outlet": 0,
+  "seconds": 533.2
+}

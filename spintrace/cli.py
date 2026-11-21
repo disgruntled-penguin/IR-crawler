@@ -471,14 +471,14 @@ def cmd_live_xl(args):
     from .eval import xl_live
     if args.rebuild:
         xl_live.build()
-    s = xl_live.run(seed=args.seed)
+    s = xl_live.run(seed=args.seed, same_site=args.same_site)
     for k, v in s.items():
         if not k.startswith("examples"):
             print(f"{k}: {v}")
     for r in s["examples_flagged"]:
         print(f"  flagged p={r['prob']} {r['suspect_url']} <- {r['source_url']} lag={r['lag_hours']}h "
               f"credits_source={r['credits_source']} agencies={r['agencies_named'] or '-'}")
-    print(f"written to {xl_live.OUT} and {xl_live.SUMMARY}")
+    print(f"written to {xl_live.OUT.parent} and {xl_live.SUMMARY.parent}")
 
 
 def main(argv=None):
@@ -613,6 +613,8 @@ def main(argv=None):
 
     c = sub.add_parser("live-xl", help="cross-language detection over the crawled Indian-language pages")
     c.add_argument("--rebuild", action="store_true", help="rebuild the live English index from the store now")
+    c.add_argument("--same-site", action="store_true",
+                   help="diagnostic: pages of bilingual outlets (BBC, HT) may match their own English pages")
     c.add_argument("--seed", type=int, default=7)
     c.set_defaults(fn=cmd_live_xl)
 

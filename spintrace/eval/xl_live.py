@@ -21,6 +21,9 @@ INDEX = config.INDEX_DIR / "xl_live_index.pkl"
 LEXICON = config.INDEX_DIR / "xl_live_kgram.pkl"
 OUT = config.ROOT / "evaldata" / "live_xl.csv"
 SUMMARY = config.RESULTS / "crosslingual_live.json"
+# Outlets that publish the same story in English and an Indian language; translations inside one outlet
+# are not spin, so the main run excludes them, and the same-site diagnostic counts them.
+BILINGUAL = ("bbc.com", "hindustantimes.com")
 LIVE_DAYS = 3
 ALIASES = {
     "reuters": ["reuters", "रॉयटर्स", "रायटर्स", "रॉयटर", "রয়টার্স", "రాయిటర్స్", "ராய்ட்டர்ஸ்"],
@@ -115,11 +118,16 @@ def contexts(con):
     return live, live_idx.live_since, main, not_crawl
 
 
-def run(seed=7, examples=5):
+def run(seed=7, examples=5, same_site=False):
+    """Every Indian-language page against the English crawl. same_site instead takes only pages of the
+    bilingual outlets and lets them match their own outlet's English pages: a check that real
+    translations are found when the source is in the index."""
     con = embed_xl.connect_ro()
     live, since, main, not_crawl = contexts(con)
     rows = []
     sus = suspects(con)
+    if same_site:
+        sus = [s for s in sus if s["site"] in BILINGUAL]
     t0 = time.time()
     for i, s in enumerate(sus):
         recent = (s["fetched_at"] or 0) >= since
@@ -127,7 +135,7 @@ def run(seed=7, examples=5):
         excl = None if recent else not_crawl.copy()
         if not recent and s["doc_id"] in main.idx.doc_num:
             excl[main.idx.doc_num[s["doc_id"]]] = True
-        rep = xl.analyse_text(ctx, s, exclude=excl)
+        rep = xl.analyse_text(ctx, {**s, "site": None} if same_site else s, exclude=excl)
         best = rep["source"] or (max(rep["verified"], key=lambda v: v["prob"]) if rep["verified"] else None)
         src = ctx.row(best["doc"]) if best else None
         agencies, own = credits(s["text"], src["site"] if src else "")
@@ -146,8 +154,9 @@ def run(seed=7, examples=5):
             print(f"live-xl {i + 1}/{len(sus)} flagged={sum(r['flagged'] for r in rows)} {time.time() - t0:.0f}s",
                   flush=True)
     live.emb.save()
-    OUT.parent.mkdir(exist_ok=True)
-    with OUT.open("w", newline="") as f:
+    out = OUT.with_name("live_xl_same_site.csv") if same_site else OUT
+    out.parent.mkdir(exist_ok=True)
+    with out.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]) if rows else ["suspect_url"])
         w.writeheader()
         w.writerows(rows)
@@ -156,7 +165,11 @@ def run(seed=7, examples=5):
     flagged = [r for r in rows if r["flagged"]]
     summary["examples_flagged"] = rng.sample(flagged, min(examples, len(flagged)))
     summary["examples_any"] = rng.sample(rows, min(examples, len(rows)))
-    SUMMARY.write_text(json.dumps(summary, indent=2, ensure_ascii=False))
+    if same_site:
+        summary["flagged_same_outlet"] = sum(r["flagged"] and r["source_site"] == r["suspect_site"] for r in rows)
+    summary["seconds"] = round(time.time() - t0, 1)
+    path = SUMMARY.with_name("crosslingual_live_same_site.json") if same_site else SUMMARY
+    path.write_text(json.dumps(summary, indent=2, ensure_ascii=False))
     return summary
 
 
