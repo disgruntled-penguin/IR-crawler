@@ -4,8 +4,9 @@ Each mashup splices one contiguous block of sentences from each of two or three 
 proportions, with the blocks in a random order. Easy mashups combine random originals; hard ones combine
 originals published within 7 days of each other that share rare terms, so the sources compete for one
 query. Levels: the splice as is, a light edit (the word swaps and sentence drops of rewrites.light_edit,
-with its boilerplate opening and closing), and a WordNet synonym spin, which defeats shingles. All
-sources of a mashup come from one split. Deterministic, written to evaldata/mashups.jsonl.
+with its boilerplate opening and closing), a WordNet synonym spin, and splice_seo, which splices blocks of
+the committed LLM SEO rewrites of the originals (a paraphrase that defeats shingles; the sources are the
+originals). All sources of a mashup come from one split. Deterministic, written to evaldata/mashups.jsonl.
 """
 import hashlib
 import json
@@ -19,6 +20,7 @@ from .run import split_of
 OUT = config.ROOT / "evaldata" / "mashups.jsonl"
 MIXES = [(0.5, 0.5), (0.7, 0.3), (0.4, 0.3, 0.3), (0.5, 0.25, 0.25)]
 LEVELS = ["splice", "splice_light", "splice_synonym"]
+ALL_LEVELS = LEVELS + ["splice_seo"]
 VARIANTS = ["easy", "hard"]
 PER_CELL = 12
 TARGET_SENTS = 16
@@ -34,7 +36,13 @@ def originals():
     for o in origs:
         o["main"] = True
     origs += [dict(o, main=False) for o in wikinews.distractors()]
+    seo = {}
+    for l in rewrites.OUT.open():
+        r = json.loads(l)
+        if r["level"] == "seo":
+            seo[r["orig_url"]] = tx.sentences(r["text"])
     for o in origs:
+        o["seo_sents"] = seo.get(o["url"])
         o["doc_id"] = store.doc_id_for(o["url"])
         o["split"] = split_of(o["doc_id"])
         o["sents"] = tx.sentences(o["text"])
@@ -99,19 +107,20 @@ def edit_block(sents, level, rng):
 
 def make(srcs, mix, level, variant, rng_key):
     rng = random.Random(rng_key)
-    sizes = block_sizes(mix, [len(o["sents"]) for o in srcs])
+    key = "seo_sents" if level == "splice_seo" else "sents"
+    sizes = block_sizes(mix, [len(o[key]) for o in srcs])
     if sizes is None:
         return None
     blocks = []
     for o, n in zip(srcs, sizes):
-        start = rng.randint(0, len(o["sents"]) - n)
+        start = rng.randint(0, len(o[key]) - n)
         blocks.append((o, start, n))
     order = list(range(len(blocks)))
     rng.shuffle(order)
     parts, labels = [], []
     for j in order:
         o, start, n = blocks[j]
-        text = edit_block(o["sents"][start:start + n], level, rng)
+        text = edit_block(o[key][start:start + n], level, rng)
         parts.append(text)
         labels += [j] * len(tx.sentences(text))
     if level == "splice_light":
@@ -155,6 +164,24 @@ def build(per_cell=PER_CELL):
                         out.append(m)
                     if len(out) == len(LEVELS):
                         rows += out
+                        made += 1
+        # Paraphrase level: blocks of the committed LLM SEO rewrites of each original, spliced by the same rule.
+        pool = [o for o in pool if o["main"] and o["seo_sents"] and len(o["seo_sents"]) >= 5]
+        for variant in VARIANTS:
+            for mix in MIXES:
+                rng = random.Random(f"{split}|{variant}|{mix}|seo")
+                used, made = set(), 0
+                while made < per_cell:
+                    srcs = pick_sources(pool, len(mix), variant, rng, used)
+                    if srcs is None:
+                        break
+                    base = hashlib.sha1("|".join([o["doc_id"] for o in srcs] + [str(mix), "seo"]).encode()).hexdigest()[:12]
+                    m = make(srcs, mix, "splice_seo", variant, f"{base}|splice_seo")
+                    if m is not None:
+                        m["id"] = f"mash:{base}:splice_seo"
+                        m["group"] = base
+                        m["generator"] = "rule-based splice of llama3.2:3b SEO rewrites"
+                        rows.append(m)
                         made += 1
     OUT.parent.mkdir(exist_ok=True)
     with OUT.open("w") as f:
