@@ -28,12 +28,23 @@ def fact_terms(idx, text):
     return out
 
 
-def rare_term_query(idx, n, m=QUERY_TERMS, facts=None):
-    """Top m body terms of doc n by tf-idf (fact terms boosted), skipping stopwords and terms only this doc has.
+def text_terms(idx, text):
+    """{term id: tf} for a text that is not in the index, over the index's vocabulary."""
+    out = {}
+    for t in idx.tokens(text):
+        tid = idx.vocab.get(t)
+        if tid is not None:
+            out[tid] = out.get(tid, 0) + 1
+    return out
+
+
+def rare_term_query(idx, n, m=QUERY_TERMS, facts=None, terms=None):
+    """Top m body terms of doc n (or of the given {term id: tf}) by tf-idf, fact terms boosted, skipping
+    stopwords and terms only one doc has.
 
     Returns {term id: query weight multiplier * tf} so the boost carries into the ltc query vector.
     """
-    terms = idx.doc_terms(n)
+    terms = terms if terms is not None else idx.doc_terms(n)
     facts = facts or set()
     scored = []
     for t, tf in terms.items():
@@ -59,12 +70,17 @@ def budget_query(idx, n, m, mode, seed=0):
 
 def earlier_mask(idx, n, require_dates=True):
     """Parametric filter: other sites, published before the suspect. Undated documents stay in, flagged later."""
-    pub = idx.meta["published"]
-    mask = idx.meta["site"] != idx.meta["site"][n]
+    mask = mask_before(idx, idx.meta["published"][n], idx.meta["site"][n], require_dates)
     mask[n] = False
-    t = pub[n]
-    if require_dates and not np.isnan(t):
-        mask &= ~(pub >= t)
+    return mask
+
+
+def mask_before(idx, published, site=None, require_dates=True):
+    """The same filter for a suspect outside the index: other sites, published before `published`."""
+    pub = idx.meta["published"]
+    mask = np.ones(idx.N, dtype=bool) if site is None else idx.meta["site"] != site
+    if require_dates and published is not None and not np.isnan(published):
+        mask &= ~(pub >= published)
     return mask
 
 
@@ -88,9 +104,20 @@ def retrieve(idx, n, text, k=TOP_K, m=QUERY_TERMS, use_quotes=True, require_date
              use_facts=True):
     """Return (candidates, stats). Each candidate: dict(doc, rare_cos, quote_frac, score)."""
     allowed = earlier_mask(idx, n, require_dates)
+    return _retrieve(idx, n, None, text, allowed, k, m, use_quotes, exclude, use_facts)
+
+
+def retrieve_text(idx, text, published=None, site=None, k=TOP_K, m=QUERY_TERMS, use_quotes=True,
+                  require_dates=True, exclude=None, use_facts=True):
+    """retrieve() for a suspect that is not in the index (a translation back to English, a mashup)."""
+    allowed = mask_before(idx, published, site, require_dates)
+    return _retrieve(idx, None, text_terms(idx, text), text, allowed, k, m, use_quotes, exclude, use_facts)
+
+
+def _retrieve(idx, n, terms, text, allowed, k, m, use_quotes, exclude, use_facts):
     if exclude is not None:
         allowed &= ~exclude
-    q = rare_term_query(idx, n, m, fact_terms(idx, text) if use_facts else None)
+    q = rare_term_query(idx, n, m, fact_terms(idx, text) if use_facts else None, terms)
     qvec = idx.query_vector(q)
     cos = dict(idx.cosine(qvec, allowed, k=k))
     qh, n_quotes = quote_hits(idx, text, allowed) if use_quotes else ({}, 0)
