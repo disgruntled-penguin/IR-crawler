@@ -313,6 +313,106 @@ Both of us labelled all 174 pairs that SpinTrace flagged in the live crawl. We j
 
 Two of four NewsGuard-documented pairs loaded from the Wayback Machine; for the other two the report does not name the originals. The New York Times original of a GlobalVillageSpace rewrite is retrieved first among 20,860 documents, verified at p~=~0.999 and traced. The Wired original of a TopGolf.kr page is also retrieved first but not verified (p~=~0.0): that page is AI title suggestions plus a reshaped deals list, and our verifier was trained on prose. Two pairs are anecdotes, not a measurement.
 
+\subsection{Tracing translations}
+\label{sec:xl}
+
+A Hindi suspect has to be traced to its English source among all earlier English documents from other sites, about 9{,}300 in the index; the source is among them unless the item is a source-absent negative. We report F1 for three derivative levels with the negatives pooled, and the false-positive rate (FPR) on three negative sets: an independent Hindi article on the same event, its 100-word version, and a derivative whose true source has been removed from the index. Thresholds are tuned on dev. Each baseline gets its best dev threshold: translate the suspect back to English with the LLM and run exact hash, MinHash, tf-idf, BM25 and the English SpinTrace on the result; multilingual dense cosine over every document; and retrieval from the suspect's Latin-script tokens alone, which shows whether the number, date and name bridge is needed.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Hindi to English, test split: F1 per derivative level and false-positive rate on three negative sets, with P@1 for the source. Back-translation baselines use English dev thresholds; rows with the threshold chosen on test and all confidence intervals are in \code{results/crosslingual\_detection.csv}.}
+  \label{tab:xl}
+  \footnotesize
+  \setlength{\tabcolsep}{3pt}
+  \input{tables/xl_detection}
+\end{table}
+
+% VERIFY direction of every comparison below against Table tab:xl after the final run
+SpinTrace on anchors reaches F1 \nXlTrans, \nXlSeo and \nXlSum on translations, SEO rewrites and summaries, and ranks the true source first for \nXlPone of the derivatives. Translating back and then running the English SpinTrace reaches \nBtSpinTrans, \nBtSpinSeo and \nBtSpinSum, so the two are close in accuracy; tf-idf and BM25 on the back-translation also find the source (summary F1 \nBtTfidfSum and \nBtBmSum), because a faithful translation back restores much of the wording. Exact hash and MinHash score zero, as they must: a translation shares no shingles with its source. The embedding-only baselines are the weak ones. Multilingual dense cosine reaches \nDenseTrans, \nDenseSeo and \nDenseSum and flags \nDenseFprSame of the same-event articles, and retrieval from Latin-script tokens alone reaches only \nLatinSum on summaries, so the bridge through numbers and transliterated names is doing the work.
+
+Where SpinTrace wins is cost, not accuracy. It spends \nXlMs\,ms per suspect, of which retrieval is \nXlRetMs\,ms over about \nXlPostings\ postings, with no LLM call and no embedding of the corpus. Translating back costs about \nBtLlmSec\,s of LLM time per suspect on this machine before any detection, roughly \nSpeedup\ times more. Dense retrieval needs every document embedded first, which took about fifteen minutes for the 9{,}300 English documents and grows with the corpus; the inverted index already exists.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Ablations for the Hindi path, test macro F1 over the three levels, each variant refit on dev. Full-system numbers differ from Table~\ref{tab:xl} because the ablation pools all levels.}
+  \label{tab:xlabl}
+  \footnotesize
+  \input{tables/xl_ablation}
+\end{table}
+
+Removing one thing at a time (Table~\ref{tab:xlabl}) shows which parts carry weight. Without the sentence-alignment signals macro F1 falls to \nAblNoAlign, so verification is essential and anchors alone cannot decide. Dropping name anchors costs more than dropping numbers (\nAblNoNames and \nAblNoNumbers against \nAblFull), exact transliteration without the fuzzy k-gram step gives \nAblTranslitExact, and removing the source-language document-frequency check, which stops a name that is common in Hindi news but rare in our English crawl from acting as a strong anchor, gives \nAblNoDf. Dates change nothing at this scale (\nAblNoDates). Swapping our retrieval for dense retrieval with the same verifier gives \nAblDenseVerify, so on this corpus the index is not a better candidate generator than embeddings; what it adds is cost and an explanation a person can read.
+
+\paragraph{Length is not a shortcut}
+\label{sec:length}
+A hostile reading of Table~\ref{tab:xl} is that the negatives differ from the summaries in length rather than in derivation. We checked, and the worry is half right. Word count alone separates the Hindi summaries (median 117 to 120 words) from the same-event negatives (median 218 to 230 words) perfectly, with an AUC of 1.00 on both dev and test; translations (AUC 0.52) and SEO rewrites (0.76) are mostly not separable by length. So we generated a second same-event negative of about 100 words for every test original, and report the false-positive rate on both. SpinTrace flags \nXlFprShort of the short negatives against \nXlFprSame of the long ones; the short ones are a test-only diagnostic, so a threshold tuned on the long negatives is exposed if it lets short ones through.
+
+\paragraph{Other scripts and live pages}
+% VERIFY the other-script numbers after the final run
+The same code, with the same dev thresholds, traces Tamil, Telugu and Bengali translations of 24 originals each (Table~\ref{tab:xlother}); these are small sets, offered as a generality check and not as a benchmark.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Other scripts, test split: F1 on translations of 24 originals per language, pooled with the same negatives. Small sets; intervals are in \code{results/crosslingual\_detection.csv}.}
+  \label{tab:xlother}
+  \footnotesize
+  \input{tables/xl_other}
+\end{table}
+ On the crawl itself, we traced \nXlLiveSuspects\ Indian-language pages against same-day English pages and \nXlLiveFlagged\ was flagged, a Hindi page whose English counterpart was most likely shared agency copy. The reason is structural more than a failure: most Hindi stories have no English source in our crawl, outlets translating their own stories are filtered by the other-site rule, and same-event coverage is correctly rejected. A diagnostic that lets bilingual outlets match their own English pages finds the English original of a BBC Hindi page and of a few Hindustan Times pages, but ranks the outlet's own English article first for only a small share of them, because most Hindi pages are not translations. Nobody has judged these live results, so we claim no live precision.
+
+\subsection{Tracing mashups}
+\label{sec:ms}
+
+A mashup has to be traced to all of its sources. We score the predicted source set against the true one (precision, recall, F1 over sources and the share of mashups whose set is exactly right), on 759 rule-based splice mashups of two or three originals in known proportions and on the LLM mashups. Every method takes its best dev F1 among the thresholds that name a source for at most 10.6\% of the dev same-story articles and hard negatives, which is the false-source rate of the mid-term verifier as shipped, so no method buys recall by naming a source for everything. Baselines: the mid-term single-source pipeline; the same candidates above the threshold with no residual step (one-shot); MinHash LSH; and shingle containment against every earlier document, the strongest shingle method.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Mashups, test split: F1 of the predicted source set, by how the mashup was built. LLM mashups are those with both sources in the test split (a small set). Intervals are in \code{results/multisource\_detection.csv}.}
+  \label{tab:ms}
+  \footnotesize
+  \setlength{\tabcolsep}{3pt}
+  \input{tables/ms_detection}
+\end{table}
+
+% VERIFY direction of every comparison below against Tables tab:ms, tab:msrank, tab:msabl, tab:msctrl after the final run
+SpinTrace recovers the source sets with F1 \nMsAll over all splices, against \nMsContAll for shingle containment and \nMsMidAll for the mid-term method, which cannot name more than one source and is capped well below that. On plain copy-and-paste splices shingle containment does about as well as we do (\nMsPlainCont against \nMsPlain) and is far cheaper; the gap opens when the blocks are reworded: \nMsSyn against \nMsSynCont for synonym-spun blocks and \nMsSeo against \nMsSeoCont for blocks taken from SEO rewrites. The one-shot baseline equals the mid-term one for a reason worth stating: a whole-document verifier passes a candidate only if it explains most of the suspect, and in a mashup of two or three sources at most one can, so one-shot almost never adds a second source. Recall of the second of two sources is \nMsSecondSpin for SpinTrace and \nMsSecondMid for the mid-term method, and of the third of three \nMsThirdSpin and \nMsThirdMid (Table~\ref{tab:msrank}). On the LLM mashups SpinTrace reaches F1 \nMsLlm against \nMsLlmCont for shingles; this set is small and its shares are unknown.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Share of true sources found, by the source's rank in the mashup (largest first), on test splices.}
+  \label{tab:msrank}
+  \footnotesize
+  \setlength{\tabcolsep}{3pt}
+  \input{tables/ms_by_rank}
+\end{table}
+
+\begin{table}[t]
+  \centering\small
+  \caption{Mashup ablations, each variant retuned on dev under the same false-source bar; test numbers.}
+  \label{tab:msabl}
+  \footnotesize
+  \setlength{\tabcolsep}{3pt}
+  \input{tables/ms_ablation}
+\end{table}
+
+The explain-away step is a smaller part of the result than we expected. Replacing the residual query with a single query for the whole suspect lowers splice F1 from \nMsAblFull\ to \nMsAblNoResid\ (Table~\ref{tab:msabl}): a single query already has the second source among its top five candidates for most two-source splices, so the residual query mainly helps the third source and lowers the false-source rate. What carries the result is the per-round verification criterion; putting the mid-term whole-document verifier inside the same rounds collapses F1. We state this because it would be easy to credit the rounds.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Controls: extra sources named for single-source rewrites (a correct answer is none), and sources named for same-story and hard-negative articles (a correct answer is none), on test.}
+  \label{tab:msctrl}
+  \footnotesize
+  \setlength{\tabcolsep}{3pt}
+  \input{tables/ms_controls}
+\end{table}
+
+On the controls (Table~\ref{tab:msctrl}) SpinTrace never adds an extra source to a single-source rewrite, and names a false source for \nMsFalseSame\ of the same-story articles against \nMsFalseSameMid\ for the mid-term verifier as shipped. % VERIFY the single-source recall and live counts below against the final run
+It loses on splices of LLM-paraphrased blocks, where its recall of single sources (64\% of SEO rewrites, 80\% of summaries) is below the mid-term verifier's, because the per-round criterion is stricter. It costs \nMsMs\,ms per suspect. On the crawl, 13 of 174 articles flagged by the single-source pipeline get two or more verified sources and none of 300 unflagged ones get any; in 6 of those 13 the two sources are one wire text printed by two outlets, which the output marks. These live results are unjudged.
+
+\subsection{Format changes: a negative result}
+
+We also tried the third kind of derivative the mid-term failed on, an article recast as a listicle or a question-and-answer page, where no sentences line up. We added order-free fact signals (idf-weighted overlap of names, numbers, dates and quotes, and fact-to-sentence coverage) and refit on dev. They did not help. The shipped verifier already handles rule-based listicles (F1 0.964) and Q\&As (0.943), because our reformattings keep whole sentences, and refitting with the fact signals lowers both to 0.931 and raises the false-positive rate on same-story articles from 0.156 to 0.300. The NewsGuard TopGolf.kr page, which motivated the experiment, is still retrieved first and still not verified by any variant. We report it as a negative result: a real format change by an LLM, with sentences rewritten, was not tested.
+
+
 \subsection{Crawler correctness and politeness}
 
 \begin{table}[t]

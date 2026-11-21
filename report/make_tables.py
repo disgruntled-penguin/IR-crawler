@@ -78,6 +78,20 @@ def xl_detection():
                            "FPR source absent", "P@1"], body, "@{}l" + "R" * 7 + "@{}")
 
 
+def xl_other():
+    det = rows("crosslingual_detection.csv")
+    langs = [("ta_translation", "Tamil"), ("te_translation", "Telugu"), ("bn_translation", "Bengali"),
+             ("hi_translation", "Hindi (for comparison)")]
+    body = []
+    for key, label in XL_METHODS[:1] + [m for m in XL_METHODS if m[0] in ("dense_cosine", "latin_only")]:
+        cells = [label]
+        for lv, _ in langs:
+            r = find(det, method=key, level=lv)
+            cells.append(num(r["f1"]) if r else "--")
+        body.append(cells)
+    write("xl_other", ["Method"] + [l for _, l in langs], body, "@{}l" + "R" * len(langs) + "@{}")
+
+
 def xl_ablation():
     ab = rows("crosslingual_ablations.csv")
     names = {"full": "Full system", "no_names": "No name anchors", "no_numbers": "No number anchors",
@@ -266,6 +280,6 @@ def numbers():
 
 
 if __name__ == "__main__":
-    for fn in (numbers, xl_detection, xl_ablation, ms_detection, ms_by_rank, ms_ablation, ms_controls, dataset):
+    for fn in (numbers, xl_detection, xl_other, xl_ablation, ms_detection, ms_by_rank, ms_ablation, ms_controls, dataset):
         fn()
     print("tables in", OUT)
