@@ -24,7 +24,9 @@ Attack. Positives are Hindi derivatives of the first 220 words of an original, w
 
 Defence. The negatives share names, numbers and quotes with the source by construction, so anchor overlap cannot separate them (the cross-validation on dev dropped the anchor-overlap signals for exactly this reason). Alignment signals decide.
 
-Open. Length is not controlled. Check to run on the final data: AUC of word count alone for separating positives from negatives. If it is far from 0.5 the report must say the negatives are easier than they look.
+Checked (22 Nov, 44 originals, same on dev and test): word count alone separates Hindi summaries (median 117 to 120 words) from the same-event negatives (median 218 to 230 words) perfectly, AUC 1.00. Translations (AUC 0.52) and SEO rewrites (0.76) are mostly not separable by length. So the summary level's low false-positive rate was weaker evidence than it looked, and the verifier's alignment features could in principle be using length indirectly.
+
+Fix. A second same-event negative, `hi_facts_short`, written from the same fact sheet but asked for about 100 words, generated for every test original (with back-translations for the translate-then-detect baseline). It is a test-only diagnostic (dev thresholds are unchanged), so a threshold tuned against the long negatives is exposed if it lets short ones through. The final table reports the false-positive rate on both negative sets side by side.
 
 ## 4. Was anything tuned on test, or leaked between originals and rewrites?
 
@@ -55,5 +57,5 @@ Is the midterm claim intact? Yes: the English single-source path is unchanged (c
 
 1. Reword the cross-language claim (accuracy parity, cost and no-translation win) in the README and report. Not done yet.
 2. Related-work paragraph with the prior art in the report. Not done yet.
-3. Length-only AUC check on the final Hindi set. Not run yet; result goes here after the final run.
+3. Length-matched negatives (`hi_facts_short`) generated and scored on test. Generation running; result goes here after the final run. If the short-negative false-positive rate is far above the long one, the summary level's precision claim is withdrawn and the verifier is refit with short negatives in dev.
 4. Keep the `@oracle` rows and the both-sources-in-test subset in the tables (already in the agents' output).
