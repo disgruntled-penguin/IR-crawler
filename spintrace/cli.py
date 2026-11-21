@@ -176,8 +176,16 @@ def cmd_sources(args):
     import numpy as np
     from .detect import multisource
     from .eval import ms_eval
+    if not args.doc and not args.file:
+        raise SystemExit("give a doc_id, URL or mashup id, or --file")
     ctx = ms_eval.context()
-    sus, gold, excl, note = ms_eval.suspect_for_key(ctx, args.doc, args.xl)
+    if args.file:
+        import hashlib
+        text = open(args.file, encoding="utf-8").read()
+        sus = multisource.Suspect("text:" + hashlib.sha1(text.encode()).hexdigest()[:16], text)
+        gold, excl, note = None, None, f"  [text from {args.file}, not in the index; no date filter]"
+    else:
+        sus, gold, excl, note = ms_eval.suspect_for_key(ctx, args.doc, args.xl)
     model = ctx.ms_model
     print(f"SUSPECT {sus.doc_id} {sus.site} published={_when(sus.published)}{note}")
     if sus.url:
@@ -436,7 +444,8 @@ def main(argv=None):
     c.set_defaults(fn=cmd_suspect)
 
     c = sub.add_parser("sources", help="every source of a mashup, round by round, with sentence shares")
-    c.add_argument("doc", help="doc_id, URL, mashup id (mash:...) or LLM mashup id (mashllm:...)")
+    c.add_argument("doc", nargs="?", help="doc_id, URL, mashup id (mash:...) or LLM mashup id (mashllm:...)")
+    c.add_argument("--file", help="trace the text in this file instead (not in the index)")
     c.add_argument("-k", type=int, default=8, help="candidates to print per round")
     c.add_argument("--sentences", type=int, default=4, help="covered sentences to print per round")
     c.add_argument("--xl", help="path of rewrites_xl.jsonl, for LLM mashups")
