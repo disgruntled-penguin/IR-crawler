@@ -616,32 +616,43 @@ Bengali, Telugu, Tamil and Gujarati feeds and tags each page's script) against t
 restarted crawl against an index of the English pages crawled in the same three days, older pages against the
 main index's crawled documents. Output: `evaldata/live_xl.csv` (URLs, scores, anchor counts, lag and whether the
 suspect names the outlet or a wire agency; no article text) and `results/crosslingual_live.json` (counts and five
-seeded-random examples). Nobody judged these pairs, so they are counts, not precision. In the run of 21 Nov
-(633 pages: 504 Hindi, 73 Bengali, 56 Telugu; 1,802 English pages from the same days) one page was flagged: an Aaj
-Tak story on the bullet train traced to ThePrint 15.8 h earlier, both most likely from the same PTI wire copy.
-Five pages scored above 0.5 (Aaj Tak, Amar Ujala and India TV against ThePrint, France 24 and NewsX).
+seeded-random examples). Nobody judged these pairs, so they are counts, not precision. In the final run of 22 Nov
+(1,387 Indian-language pages: 1,166 Devanagari, 86 Bengali, 70 Telugu, 25 Tamil, 25 Gurmukhi, 15 Gujarati; against
+5,729 English pages from the same days and the main crawl) 7 pages were flagged, all Devanagari, a median 3.5 h
+after the English page: two BBC Hindi articles traced to BBC News articles on another BBC domain (source credited;
+a bilingual outlet translating its own reporting), two Amar Ujala pages traced to Times of India, two India TV pages
+traced to The Independent and to The Hindu (one names PTI), and one Aaj Tak page traced to ThePrint 15.8 h earlier.
+Two flagged pages credit their source and one names a wire agency.
 
 Why so few: the Hindi outlets mostly cover Indian regional, political and entertainment news written in Hindi or
 taken from the Hindi wires, whose English source is not in our crawl, so there is usually nothing to find; the
-earlier-other-site filter excludes an outlet translating itself (BBC Hindi from BBC News, HT Bangla from
-Hindustan Times), which is not spin; and most pairs that share anchors are independent coverage of one event, which
-the verifier is built to reject. The 30-day window is not the limit (flagged lags were 1-16 h). The `--same-site`
-diagnostic lets the 237 pages of the two bilingual outlets match their own English pages: retrieval put the
-outlet's own English article first for 6 of 112 BBC pages and 8 of 125 HT pages, and one was flagged, a BBC Hindi
-article traced to its BBC News original 3.5 h earlier (p = 0.90; a Marathi version scored 0.73, below the
-threshold). BBC's language services adapt rather than translate, and HT Bangla and Telugu mostly run their own
-stories, so this is a small, honest check of recall on real translations, not a measurement.
+earlier-other-site filter excludes an outlet translating itself where both pages share a site (HT Bangla from
+Hindustan Times), and most pairs that share anchors are independent coverage of one event, which the verifier is
+built to reject. The 30-day window is not the limit (flagged lags were 0.4-16 h). The `--same-site` diagnostic lets
+the 282 pages of the bilingual outlets match their own English pages and flags 2, both BBC Hindi articles that
+credit their source. BBC's language services adapt rather than translate and HT Bangla and Telugu mostly run their
+own stories, so this is a small, honest check of recall on real translations, not a measurement.
 
 **Where SpinTrace-XL loses or is unproven.**
 - Translate-then-detect is a strong baseline: with the LLM's back-translation, plain tf-idf or BM25 also rank the
-  source first. It costs about 23 s of LLM time per suspect on this machine against well under a second for the
-  anchor query and verification, and it needs a generative model in the loop for every page crawled.
+  source first (P@1 1.000), though at their best dev thresholds their F1 is lower, most on summaries. It costs
+  about 21 s of LLM time per suspect on this machine against well under a second for the anchor query and
+  verification, and it needs a generative model in the loop for every page crawled. The cost of SpinTrace-XL
+  excludes sentence embedding when those embeddings are cached; the cold cost is measured separately
+  (`results/crosslingual_cold_cost.json`, once measured).
 - The multilingual dense baseline finds the source almost as often (P@1 0.91) without any IR; its problem is
   deciding, not finding (it flags most facts-only articles). Dense retrieval followed by our verifier is close to
-  the full system; the anchors win on cost (no corpus-wide embedding, which took 15 minutes for 20.9k document
+  the full system; the anchors win on cost (no corpus-wide embedding, which took 15 minutes for 20,860 document
   heads here and must be redone for every new page) and on being inspectable, not on recall at this scale.
-- Sample sizes are small (11 test positives per Hindi level in the first run); a perfect score on 11 items still
-  allows an error rate up to 0.26.
+- Sample sizes are small (22 test positives per Hindi level, 12 per other language in this run); a zero false-positive
+  rate on 22 items still allows a rate up to 0.15, and the intervals in the tables say so.
+- The length-matched negatives (about 100 words, same event) are flagged 0.091 of the time against 0.000 for the
+  long ones, a small rise with overlapping intervals; word count alone separates the Hindi summaries from the long
+  negatives perfectly (AUC 1.00), which is why the short negatives exist (`notes/critique_final.md`).
+- Tamil, Telugu and Bengali did not generalise end to end: anchors retrieve the source (P@1 0.42, 0.58, 0.92
+  against 0.08 for dense retrieval) but the sentence-embedding verifier does not transfer (F1 about 0 to 0.13), most
+  likely because the multilingual sentence model was not trained on these languages (not checked against its
+  model card).
 - Name anchors are noisy: common Hindi words sound like rare English names. The source-language df check removes
   much of it, and the ablation shows the system depends on it (P@1 falls to 0.79 without it).
 - All synthetic rewrites come from one 4B model, from Wikinews English; real farms may summarise more loosely.
