@@ -3,8 +3,8 @@ import math
 
 import numpy as np
 
-from .. import corpus, embed, index, store
-from . import candidates, signals, verify
+from .. import corpus, dedup, embed, index, store
+from . import candidates, multisource, signals, verify
 
 VERIFY_TOP = 5
 TIE_MARGIN = 0.05
@@ -27,6 +27,45 @@ class Context:
 
     def num(self, doc_id):
         return self.idx.doc_num[doc_id]
+
+
+class TextFeatures(dict):
+    """Shingle sets computed from text on first use, standing in for the full features file."""
+
+    def __init__(self, ctx, size=5000):
+        super().__init__()
+        self.ctx, self.size = ctx, size
+
+    def add(self, doc_id, text):
+        self[doc_id] = {"shingles": dedup.shingles(text)}
+
+    def __missing__(self, doc_id):
+        v = {"shingles": dedup.shingles(self.ctx.doc(self.ctx.num(doc_id))["text"])}
+        if len(self) >= self.size:
+            del self[next(iter(self))]
+        self[doc_id] = v
+        return v
+
+
+class LazyContext(Context):
+    """A Context that never writes to the store and does not hold the corpus: documents are read on demand
+    from a read-only connection and shingles come from their text. For runs beside a live crawler."""
+
+    def __init__(self, stemming=False, idx=None, emb=None):
+        self.con = store.connect_readonly()
+        self.idx = idx or index.load(stemming)
+        self.feats = TextFeatures(self)
+        self.emb = emb or embed.get()
+        self.model = verify.load()
+        self.ms_model = multisource.load_model()
+        self._docs = {}
+
+    def doc(self, n):
+        d = self._docs.get(n)
+        if d is None:
+            row = self.con.execute("SELECT * FROM docs WHERE doc_id=?", (self.idx.doc_ids[n],)).fetchone()
+            d = self._docs[n] = dict(row)
+        return d
 
 
 def date_of(d):
@@ -84,3 +123,9 @@ def analyse(ctx, n, k_verify=VERIFY_TOP, model=None, use_quotes=True, signal_nam
     flagged = bool(best and best["prob"] >= model["threshold"] and best["verdict"] != "uncertain")
     return {"doc": n, "doc_id": s["doc_id"], "url": s["url"], "stats": stats, "candidates": cands,
             "verified": verified, "flagged": flagged, "source": best if flagged else None}
+
+
+def analyse_multi(ctx, n, **kw):
+    """Optional multi-source pass for document number n: every verified source with its sentence share."""
+    tr = multisource.trace(ctx, multisource.Suspect.from_index(ctx, n), **kw)
+    return tr, multisource.finalize(tr)

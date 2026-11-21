@@ -74,6 +74,13 @@ def connect(path=None):
     return con
 
 
+def connect_readonly(path=None):
+    """A read-only connection, for analysis runs beside a live crawler that owns the database."""
+    con = sqlite3.connect(f"file:{path or config.DB_PATH}?mode=ro", uri=True, timeout=60)
+    con.row_factory = sqlite3.Row
+    return con
+
+
 def add_url(con, url, host, priority, source, hint_date=None):
     cur = con.execute(
         "INSERT OR IGNORE INTO urls(url, host, priority, source, hint_date, discovered_at) VALUES (?,?,?,?,?,?)",

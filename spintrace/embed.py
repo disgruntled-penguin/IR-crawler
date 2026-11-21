@@ -70,6 +70,25 @@ class Embedder:
             self.dirty = False
 
 
+class OverlayEmbedder(Embedder):
+    """Reads the shared cache but writes new entries only to its own file, so a side run never rewrites emb.pkl."""
+
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+        self.base = set(self.cache)
+        if path.exists():
+            with path.open("rb") as f:
+                self.cache.update(pickle.load(f))
+
+    def save(self):
+        if self.dirty:
+            new = {k: v for k, v in self.cache.items() if k not in self.base}
+            with self.path.open("wb") as f:
+                pickle.dump(new, f, protocol=pickle.HIGHEST_PROTOCOL)
+            self.dirty = False
+
+
 _emb = None
 
 
