@@ -1,0 +1,210 @@
+{
+  "english_index_docs": {
+    "live": 2293,
+    "main_crawl": 14442
+  },
+  "suspects": 633,
+  "flagged": 1,
+  "flagged_derived": 1,
+  "flagged_undated": 0,
+  "flagged_crediting_source": 0,
+  "flagged_naming_agency": 0,
+  "median_lag_hours": 15.8,
+  "by_script": {
+    "deva": {
+      "suspects": 504,
+      "flagged": 1
+    },
+    "beng": {
+      "suspects": 73,
+      "flagged": 0
+    },
+    "telu": {
+      "suspects": 56,
+      "flagged": 0
+    }
+  },
+  "by_site": {
+    "latestly.com": {
+      "suspects": 2,
+      "flagged": 0
+    },
+    "indiatimes.com": {
+      "suspects": 2,
+      "flagged": 0
+    },
+    "indianexpress.com": {
+      "suspects": 1,
+      "flagged": 0
+    },
+    "theprint.in": {
+      "suspects": 2,
+      "flagged": 0
+    },
+    "socialnews.xyz": {
+      "suspects": 2,
+      "flagged": 0
+    },
+    "thehindu.com": {
+      "suspects": 3,
+      "flagged": 0
+    },
+    "hindustantimes.com": {
+      "suspects": 125,
+      "flagged": 0
+    },
+    "aajtak.in": {
+      "suspects": 91,
+      "flagged": 1
+    },
+    "abplive.com": {
+      "suspects": 65,
+      "flagged": 0
+    },
+    "bhaskar.com": {
+      "suspects": 88,
+      "flagged": 0
+    },
+    "indiatv.in": {
+      "suspects": 76,
+      "flagged": 0
+    },
+    "tv9hindi.com": {
+      "suspects": 50,
+      "flagged": 0
+    },
+    "amarujala.com": {
+      "suspects": 72,
+      "flagged": 0
+    },
+    "bbc.com": {
+      "suspects": 54,
+      "flagged": 0
+    }
+  },
+  "judged": false,
+  "examples_flagged": [
+    {
+      "suspect_url": "https://www.aajtak.in/business/utility/photo/india-first-bullet-train-mumbai-to-ahmedabad-update-railway-minister-tutd-2702145-2026-11-21",
+      "suspect_site": "aajtak.in",
+      "script": "deva",
+      "suspect_published": 1795251728.0,
+      "index": "live",
+      "source_url": "https://theprint.in/india/first-high-speed-rail-service-will-commence-in-2027-vaishnaw-on-bullet-train/3104703/",
+      "source_site": "theprint.in",
+      "prob": 0.9592,
+      "verdict": "derived",
+      "flagged": 1,
+      "n_numbers": 16,
+      "n_dates": 0,
+      "n_latin": 3,
+      "n_names": 112,
+      "postings_touched": 32825,
+      "lag_hours": 15.8,
+      "credits_source": 0,
+      "agencies_named": ""
+    }
+  ],
+  "examples_any": [
+    {
+      "suspect_url": "https://www.bhaskar.com/national/news/india-social-media-rules-it-ministry-meta-youtube-x-liability-139596744.html",
+      "suspect_site": "bhaskar.com",
+      "script": "deva",
+      "suspect_published": 1793841259.0,
+      "index": "live",
+      "source_url": "https://www.hindustantimes.com/india-news/detain-deport-foreign-citizen-imran-khan-bjp-leader-kirit-somaiya-writes-to-mumbai-police-after-actor-joins-protest-101791731639752.html",
+      "source_site": "hindustantimes.com",
+      "prob": 0.0343,
+      "verdict": "derived",
+      "flagged": 0,
+      "n_numbers": 3,
+      "n_dates": 1,
+      "n_latin": 6,
+      "n_names": 106,
+      "postings_touched": 22875,
+      "lag_hours": 585.2,
+      "credits_source": 0,
+      "agencies_named": ""
+    },
+    {
+      "suspect_url": "https://www.indiatv.in/entertainment/bollywood/alka-yagnik-returns-to-singing-stage-after-health-struggles-subhash-ghai-shares-heartfelt-note-2026-11-21-1255508",
+      "suspect_site": "indiatv.in",
+      "script": "deva",
+      "suspect_published": 1795231629.0,
+      "index": "live",
+      "source_url": "https://www.theverge.com/gadgets/1035460/best-early-black-friday-apple-deals-2026",
+      "source_site": "theverge.com",
+      "prob": 0.0109,
+      "verdict": "derived",
+      "flagged": 0,
+      "n_numbers": 4,
+      "n_dates": 1,
+      "n_latin": 1,
+      "n_names": 113,
+      "postings_touched": 26013,
+      "lag_hours": 9.9,
+      "credits_source": 0,
+      "agencies_named": ""
+    },
+    {
+      "suspect_url": "https://www.hindustantimes.com/bangla/entertainment/sreemoyee-chattoraj-shares-emotional-note-on-returning-to-shooting-radhuni-na-kadhuni-11-days-postcsection-271791209201417.html",
+      "suspect_site": "hindustantimes.com",
+      "script": "beng",
+      "suspect_published": 1791217843.0,
+      "index": "main",
+      "source_url": "https://www.latestly.com/entertainment/bollywood/amitabh-bachchan-sustains-knee-injury-after-fall-on-kaun-banega-crorepati-18-set-7627977.html",
+      "source_site": "latestly.com",
+      "prob": 0.0106,
+      "verdict": "derived",
+      "flagged": 0,
+      "n_numbers": 6,
+      "n_dates": 0,
+      "n_latin": 12,
+      "n_names": 182,
+      "postings_touched": 401827,
+      "lag_hours": 108.8,
+      "credits_source": 0,
+      "agencies_named": ""
+    },
+    {
+      "suspect_url": "https://www.hindustantimes.com/bangla/news/supreme-court-justice-ujjal-bhuyan-praised-the-students-of-nalsar-271791182771279.html",
+      "suspect_site": "hindustantimes.com",
+      "script": "beng",
+      "suspect_published": 1791183166.0,
+      "index": "main",
+      "source_url": "https://www.thehindu.com/news/national/cec-gyanesh-kumar-row-cjp-opposition-parties-to-organise-separate-protests-live-updates-october-2-2026/article71535655.ece",
+      "source_site": "thehindu.com",
+      "prob": 0.0157,
+      "verdict": "derived",
+      "flagged": 0,
+      "n_numbers": 3,
+      "n_dates": 0,
+      "n_latin": 6,
+      "n_names": 180,
+      "postings_touched": 418259,
+      "lag_hours": 76.6,
+      "credits_source": 0,
+      "agencies_named": "pti"
+    },
+    {
+      "suspect_url": "https://www.aajtak.in/technology/tech-news/story/reliance-jio-vs-starlink-india-satellite-internet-launch-date-price-ttecr-dskc-2702039-2026-11-21",
+      "suspect_site": "aajtak.in",
+      "script": "deva",
+      "suspect_published": 1795239492.0,
+      "index": "live",
+      "source_url": "https://gizmodo.com/best-antivirus/avira",
+      "source_site": "gizmodo.com",
+      "prob": 0.011,
+      "verdict": "derived",
+      "flagged": 0,
+      "n_numbers": 10,
+      "n_dates": 0,
+      "n_latin": 8,
+      "n_names": 127,
+      "postings_touched": 38678,
+      "lag_hours": 46.6,
+      "credits_source": 0,
+      "agencies_named": ""
+    }
+  ]
+}

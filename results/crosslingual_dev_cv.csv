@@ -1,0 +1,4 @@
+features,n_features,dev_cv_macro_f1,dev_cv_fpr_facts_only
+all,12,0.8478,0.1667
+no_anchor_signals,6,0.9144,0.0667
+no_retrieval_score,11,0.8478,0.1667

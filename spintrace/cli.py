@@ -391,6 +391,176 @@ def cmd_crawl_report(args):
     summary.build()
 
 
+def cmd_build_xl(args):
+    """Name lexicon (k-gram index) for the English index, and optionally the dense baseline's head vectors."""
+    from . import embed_xl, index, kgram
+    idx = index.load(False)
+    lex = kgram.build(idx, embed_xl.connect_ro())
+    print(f"lexicon: {len(lex.kg.keys)} name keys ({len(lex.kg_fold.keys)} voicing-folded) from {int(lex.latin.sum())} "
+          f"Latin-script docs in {lex.build_seconds:.0f}s; source-language pages {lex.indic_n} -> {kgram.PATH}")
+    if args.dense:
+        embed_xl.build_dense(list(idx.doc_ids))
+    if args.live:
+        from .eval import xl_live
+        live, llex = xl_live.build()
+        print(f"live English index: {live.N} docs, {len(live.terms)} terms -> {xl_live.INDEX}")
+
+
+def cmd_kgram(args):
+    """Tolerant name lookup, step by step: transliteration, phonetic key, k-grams and their postings, matches."""
+    from . import index, kgram, text_indic as ti, translit as tr
+    lex = kgram.load()
+    idx = index.load(False)
+    name = ti.normalize(args.name)
+    for w in ti.tokens(name):
+        latin = tr.word(w) if ti.is_indic(w) else w
+        fold = ti.is_indic(w) and 0x0B80 <= ord(w[0]) < 0x0C00
+        key = tr.key(latin, fold)
+        print(f"{w!r} -> transliteration {latin!r} -> phonetic key {key!r}{' (voicing folded, Tamil)' if fold else ''}")
+        if ti.is_indic(w):
+            idf, df = lex.source_idf(w)
+            print(f"   source-language df={df}" + (f" idf={idf:.2f}" if idf is not None else " (too few pages)"))
+        kg = lex.kg_fold if fold else lex.kg
+        gs = sorted(kgram.grams(key))
+        print(f"   {kgram.K}-grams of '${key}$': {gs}")
+        for g in gs:
+            post = kg.postings(g)
+            print(f"   postings[{g!r}] ({len(post)} keys): {post[:args.limit]}")
+        print(f"   matches (k-gram Jaccard >= {kgram.MIN_JACCARD}, edit distance <= {kgram.MAX_EDIT}, 1 for short keys):")
+        for k, jac, ed, terms in kg.lookup(key, limit=args.limit):
+            shown = ", ".join(f"{t}(df={idx.df[idx.vocab[t]] if t in idx.vocab else 0})" for t, _ in terms.most_common(4))
+            print(f"     {k:<12} jaccard={jac:.2f} edit={ed}  english terms: {shown}")
+
+
+def _xl_suspect(key, live, absent=False):
+    """(context, suspect, exclusion mask, ground truth, options) for a rewrites_xl rid (searched as in eval-xl,
+    without the time window) or a crawled doc_id or URL (searched as live pages are)."""
+    import numpy as np
+    from . import embed_xl
+    from .detect import crosslingual as xl
+    from .eval import xl_eval
+    if live:
+        from . import index, kgram
+        from .eval import xl_live
+        ctx = xl.Context(idx=index.Index.load(xl_live.INDEX), lex=kgram.load(xl_live.LEXICON))
+    else:
+        ctx = xl.Context()
+    rows = {r["rid"]: r for r in xl_eval.load_rows()} if xl_eval.ROWS.exists() else {}
+    if key in rows:
+        items = [it for it in xl_eval.build_items(ctx, [rows[key]]) if it["rid"] == key]
+        if not items:
+            raise SystemExit(f"rid {key} has no indexed source")
+        it = items[-1] if absent else items[0]
+        truth = (f"ground truth: {it['level']}, " + ("derived from " if it["label"] else "NOT derived; same event as ")
+                 + ctx.row(it["orig"])["url"] + (" (source masked out)" if it["level"] == "source_absent" else ""))
+        return ctx, xl_eval.suspect(it), xl_eval.exclude_mask(ctx.idx, it), truth, xl_eval.VARIANTS["full"]
+    con = embed_xl.connect_ro()
+    r = con.execute("SELECT doc_id, url, site, title, text, published, meta FROM docs WHERE doc_id=? OR url=?",
+                    (key, key)).fetchone()
+    if not r:
+        raise SystemExit(f"no crawled document or rewrite id matches {key!r}")
+    excl = np.zeros(ctx.idx.N, dtype=bool)
+    if r["doc_id"] in ctx.idx.doc_num:
+        excl[ctx.idx.doc_num[r["doc_id"]]] = True
+    return ctx, dict(r), excl, f"live page ({xl.script_of_doc(dict(r))}), unjudged", xl.FULL
+
+
+def cmd_suspect_xl(args):
+    """Trace an Indian-language suspect to an English source, printing every intermediate step."""
+    from .detect import crosslingual as xl
+    ctx, s, excl, truth, opts = _xl_suspect(args.key, args.live, args.absent)
+    print(f"SUSPECT {s['doc_id']} {s.get('site')} published={_when(s.get('published'))}  [{truth}]")
+    print("  " + textwrap.shorten(s["text"], 200))
+    rep = xl.analyse_text(ctx, s, exclude=excl, opts=opts)
+    a, st = rep["anchors"], rep["stats"]
+    print(f"\n1. NUMBERS (canonical, Indic digits and lakh/crore/million resolved): {dict(a.numbers)}")
+    print(f"   DATES (month, day): {a.dates}   WEEKDAYS: {dict(a.weekdays)}   LATIN TOKENS: {dict(a.latin)}")
+    print(f"\n2. NAMES: transliteration -> phonetic key -> k-gram matches (key, Jaccard, edit distance, English terms)")
+    for n in a.names[:args.names]:
+        src = f"src df={n['src_df']}" + (f" idf={n['src_idf']:.2f}" if n["src_idf"] is not None else "")
+        ms = "; ".join(f"{k} J={j:.2f} ed={e} {'/'.join(t for t, _ in terms.most_common(xl.TERMS_PER_KEY))}"
+                       for k, j, e, terms in n["matches"])
+        print(f"   {n['token']:<14} {n['translit']:<16} key={n['key']:<9} {src:<20} {ms}")
+    if len(a.names) > args.names:
+        print(f"   ... {len(a.names) - args.names} more")
+    print(f"\n3. QUERY to the English index: {len(st['query_terms'])} terms, earlier docs allowed={st['allowed']}"
+          f"/{ctx.idx.N}, postings touched={st['postings_touched']}, {st['ms']:.0f} ms")
+    print("   " + ", ".join(f"{t}[{kind}:{src} idf={idf}]" for t, idf, kind, src, w in st["query_terms"][:args.terms]))
+    print(f"\n4. CANDIDATES (anchor cosine, reranked by date phrases and name bigram phrases {a.name_pairs[:4]})")
+    for i, c in enumerate(rep["candidates"][:10]):
+        d = ctx.row(c["doc"])
+        print(f"   {i + 1:>2}. score={c['score']:.3f} cos={c['cos']:.3f} dates={c['date_frac']:.2f} "
+              f"name_phrases={c.get('name_phrase', 0):.2f} {d['site']:<20} "
+              f"{_when(d['published'])} {(d['title'] or d['url'])[:60]}")
+    print("\n5. VERIFICATION of the top candidates")
+    for v in rep["verified"]:
+        sig = " ".join(f"{k}={x:.2f}" for k, x in v["signals"].items())
+        print(f"   p={v['prob']:.3f} {v['site']:<20} {sig}\n      provenance: {v['verdict']} ({v['why']})")
+    best = rep["source"] or (rep["verified"][0] if rep["verified"] else None)
+    if best:
+        c = ctx.row(best["doc"])
+        ss, es = ctx.emb.doc(s["doc_id"], s["text"])
+        cs, ec = ctx.emb.doc(c["doc_id"], c["text"])
+        sims = es.astype("float32") @ ec.astype("float32").T
+        print(f"\n6. SENTENCE ALIGNMENT with {c['site']} (multilingual cosine, threshold {xl.ALIGN_THRESHOLD})")
+        for i in range(min(args.sentences, len(ss))):
+            j = int(sims[i].argmax())
+            mark = "==" if sims[i, j] >= xl.ALIGN_THRESHOLD else "  "
+            print(f"   {mark} s{i} -> c{j} cos={sims[i, j]:.2f}\n      S: {textwrap.shorten(ss[i], 110)}\n"
+                  f"      C: {textwrap.shorten(cs[j], 110)}")
+    verdict = (f"DERIVED from {rep['source']['url']} (p={rep['source']['prob']:.3f}, {rep['source']['verdict']})"
+               if rep["flagged"] else "NOT FLAGGED as derivative")
+    print(f"\n7. VERDICT: {verdict}  [threshold {ctx.model['threshold']:.3f}, weights from {ctx.model['source']}]")
+    ctx.emb.save()
+
+
+def cmd_eval_xl(args):
+    """Cross-language evaluation: score every item, fit on Hindi dev, report test metrics with bootstrap CIs."""
+    from .eval import xl_eval
+    if not args.report_only:
+        xl_eval.run(fresh=args.fresh, limit=args.sample, use_dense=not args.no_dense)
+    det, rank, abl, eff, counts, model, cv = xl_eval.main()
+    print("eval sets:", json.dumps(counts))
+    for r in cv:
+        print(f"dev 5-fold CV, verifier features {r['features']:<20} macro F1={r['dev_cv_macro_f1']:.3f} "
+              f"FPR facts-only={r['dev_cv_fpr_facts_only']:.3f}")
+    print(f"verifier fit on Hindi dev with features '{model['feature_set']}': threshold={model['threshold']:.3f}")
+    levels = xl_eval.HI_LEVELS + xl_eval.OTHER_LEVELS
+    print("\nDetection F1 on test [95% bootstrap CI], by level; FPR on the negatives")
+    print(f"{'method':<22}" + "".join(f"{l:>22}" for l in levels) + f"{'FPR facts':>11}{'FPR absent':>11}")
+    for m in dict.fromkeys(r["method"] for r in det):
+        f = {r["level"]: r for r in det if r["method"] == m}
+        cells = "".join(f"{f[l]['f1']:>8.3f} [{f[l]['f1_lo']:.2f},{f[l]['f1_hi']:.2f}]" if l in f else f"{'-':>22}"
+                        for l in levels)
+        fprs = "".join(f"{f['fpr_' + l]['f1']:>11.3f}" if 'fpr_' + l in f else f"{'-':>11}" for l in xl_eval.NEG_LEVELS)
+        print(f"{m:<22}{cells}{fprs}")
+    print("\nRanking of the true original (test positives)")
+    for r in rank:
+        print(f"  {r['method']:<20} {r['level']:<16} n={r['n']:<3} P@1={r['p@1']:.3f} [{r['p@1_lo']:.2f},{r['p@1_hi']:.2f}]"
+              f" MRR={r['mrr']:.3f} R@5={r['recall@5']:.3f} R@20={r['recall@20']:.3f}")
+    print("\nAblations (test macro F1 over Hindi levels; each variant refit on dev)")
+    for r in abl:
+        print("  " + "  ".join(f"{k}={v:.3f}" if isinstance(v, float) else f"{k}={v}" for k, v in r.items()))
+    print("\nCost per suspect")
+    for r in eff:
+        print("  " + "  ".join(f"{k}={v:.1f}" if isinstance(v, float) else f"{k}={v}" for k, v in r.items()))
+    print(f"\ntables and charts written to {config.RESULTS} (crosslingual_*)")
+
+
+def cmd_live_xl(args):
+    from .eval import xl_live
+    if args.rebuild:
+        xl_live.build()
+    s = xl_live.run(seed=args.seed, same_site=args.same_site)
+    for k, v in s.items():
+        if not k.startswith("examples"):
+            print(f"{k}: {v}")
+    for r in s["examples_flagged"]:
+        print(f"  flagged p={r['prob']} {r['suspect_url']} <- {r['source_url']} lag={r['lag_hours']}h "
+              f"credits_source={r['credits_source']} agencies={r['agencies_named'] or '-'}")
+    print(f"written to {xl_live.OUT.parent} and {xl_live.SUMMARY.parent}")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="spintrace")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -516,6 +686,39 @@ def main(argv=None):
     c.add_argument("--host", default="127.0.0.1")
     c.add_argument("--port", type=int, default=8766)
     c.set_defaults(fn=cmd_app)
+
+    c = sub.add_parser("build-xl", help="name k-gram lexicon for cross-language detection (and dense heads)")
+    c.add_argument("--dense", action="store_true", help="also embed every document's head (dense baseline)")
+    c.add_argument("--live", action="store_true", help="also build the live English crawl index and its lexicon")
+    c.set_defaults(fn=cmd_build_xl)
+
+    c = sub.add_parser("kgram", help="tolerant name lookup: transliteration, key, k-gram postings, matches")
+    c.add_argument("name")
+    c.add_argument("--limit", type=int, default=8)
+    c.set_defaults(fn=cmd_kgram)
+
+    c = sub.add_parser("suspect-xl", help="trace an Indian-language suspect to an English source, step by step")
+    c.add_argument("key", help="rid from rewrites_xl.jsonl, or a crawled doc_id or URL")
+    c.add_argument("--absent", action="store_true", help="mask the true source out (the source-absent test)")
+    c.add_argument("--live", action="store_true", help="search the live English crawl index instead")
+    c.add_argument("--names", type=int, default=20)
+    c.add_argument("--terms", type=int, default=30)
+    c.add_argument("--sentences", type=int, default=6)
+    c.set_defaults(fn=cmd_suspect_xl)
+
+    c = sub.add_parser("eval-xl", help="cross-language evaluation against translate-then-detect and dense baselines")
+    c.add_argument("--report-only", action="store_true")
+    c.add_argument("--fresh", action="store_true", help="recompute cached items")
+    c.add_argument("--no-dense", action="store_true")
+    c.add_argument("--sample", type=int)
+    c.set_defaults(fn=cmd_eval_xl)
+
+    c = sub.add_parser("live-xl", help="cross-language detection over the crawled Indian-language pages")
+    c.add_argument("--rebuild", action="store_true", help="rebuild the live English index from the store now")
+    c.add_argument("--same-site", action="store_true",
+                   help="diagnostic: pages of bilingual outlets (BBC, HT) may match their own English pages")
+    c.add_argument("--seed", type=int, default=7)
+    c.set_defaults(fn=cmd_live_xl)
 
     c = sub.add_parser("crawl-report", help="politeness and correctness statistics of the crawl")
     c.set_defaults(fn=cmd_crawl_report)

@@ -97,6 +97,10 @@ def analyse(ctx, n, k_verify=VERIFY_TOP, model=None, use_quotes=True, signal_nam
     """Return a report dict for document number n."""
     model = model or ctx.model
     s = ctx.doc(n)
+    from . import crosslingual
+    if crosslingual.script_of_doc(s) != "latn":
+        # A translation shares no words with its source: bridge languages through numbers, dates and names.
+        return crosslingual.analyse(ctx, n)
     if cands is None:
         cands, stats = candidates.retrieve(ctx.idx, n, s["text"], use_quotes=use_quotes)
     else:

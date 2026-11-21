@@ -1,0 +1,22 @@
+{
+  "features": [
+    "xl_cos",
+    "align_coverage",
+    "align_mean",
+    "align_order",
+    "ordered_coverage",
+    "back_coverage"
+  ],
+  "weights": [
+    0.17803234129740672,
+    3.5724272008167914,
+    1.6229745781483451,
+    1.4089133113310524,
+    2.693632964859688,
+    1.2482029366548772
+  ],
+  "bias": -4.822539190937843,
+  "threshold": 0.7833623104770023,
+  "source": "dev split",
+  "feature_set": "no_anchor_signals"
+}

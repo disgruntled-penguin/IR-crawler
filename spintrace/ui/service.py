@@ -117,21 +117,28 @@ def trace(key):
         cands = []
         for c in rep["candidates"][:10]:
             d = ctx.doc(c["doc"])
-            cands.append(_brief(d, score=round(c["score"], 3), rare_cos=round(c["rare_cos"], 3),
-                                quote_frac=round(c["quote_frac"], 2)))
+            cands.append(_brief(d, score=round(c["score"], 3), rare_cos=round(c.get("rare_cos", c.get("cos", 0.0)), 3),
+                                quote_frac=round(c.get("quote_frac", 0.0), 2)))
         verified = [_brief(ctx.doc(v["doc"]), prob=round(v["prob"], 3), verdict=v["verdict"], why=v["why"],
                            signals={k: round(x, 3) for k, x in v["signals"].items()}) for v in rep["verified"]]
         focus = rep["source"] or (rep["verified"][0] if rep["verified"] else None)
         align = None
         if focus:
             c = ctx.doc(focus["doc"])
-            best, arg, _ = signals.Pair(s, c, ctx.feats, ctx.emb).alignment()
-            ss, _ = ctx.emb.doc(s["doc_id"], s["text"])
-            cs, _ = ctx.emb.doc(c["doc_id"], c["text"])
-            align = {"source": _brief(c), "threshold": signals.ALIGN_THRESHOLD, "n_suspect": len(ss),
-                     "rows": alignment_rows(best, arg, ss, cs, signals.ALIGN_THRESHOLD)}
+            if rep.get("crosslingual"):
+                # An Indian-language page is aligned with the multilingual model, at its own threshold.
+                from ..detect import crosslingual
+                emb, thr = crosslingual._context_for(ctx).emb, crosslingual.ALIGN_THRESHOLD
+                best, arg, _ = crosslingual.Pair(s, c, emb, None, None).alignment()
+            else:
+                emb, thr = ctx.emb, signals.ALIGN_THRESHOLD
+                best, arg, _ = signals.Pair(s, c, ctx.feats, ctx.emb).alignment()
+            ss, _ = emb.doc(s["doc_id"], s["text"])
+            cs, _ = emb.doc(c["doc_id"], c["text"])
+            align = {"source": _brief(c), "threshold": thr, "n_suspect": len(ss),
+                     "rows": alignment_rows(best, arg, ss, cs, thr)}
         return {"suspect": _brief(s, words=s["n_words"]),
-                "query": {"terms": [[t, w] for t, w in st["query_terms"]], "quotes": st["n_quotes"],
+                "query": {"terms": [[q[0], q[1]] for q in st["query_terms"]], "quotes": st.get("n_quotes", 0),
                           "allowed": st["allowed"], "n_docs": ctx.idx.N, "postings": st["postings_touched"]},
                 "candidates": cands, "verified": verified, "alignment": align,
                 "verdict": {"flagged": rep["flagged"], "threshold": round(ctx.model["threshold"], 3),
