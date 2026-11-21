@@ -1,0 +1,70 @@
+{
+  "false_source_cap": 0.10588235294117647,
+  "items": {
+    "dev none facts_only": 110,
+    "dev none hard_negative": 60,
+    "dev single light": 40,
+    "dev single seo": 110,
+    "dev single summary": 110,
+    "dev single synonym": 40,
+    "dev splice splice": 96,
+    "dev splice splice_light": 96,
+    "dev splice splice_seo": 89,
+    "dev splice splice_synonym": 96,
+    "test none facts_only": 90,
+    "test none hard_negative": 60,
+    "test single light": 40,
+    "test single seo": 90,
+    "test single summary": 90,
+    "test single synonym": 40,
+    "test splice splice": 96,
+    "test splice splice_light": 96,
+    "test splice splice_seo": 94,
+    "test splice splice_synonym": 96
+  },
+  "llm_items": 0,
+  "params": {
+    "containment": {
+      "threshold": 0.16162123606994971
+    },
+    "midterm": {
+      "threshold": 0.8536065494556491
+    },
+    "midterm_shipped": {
+      "threshold": 0.8044385720126767
+    },
+    "minhash": {
+      "threshold": 0.1015625
+    },
+    "oneshot": {
+      "threshold": 0.8536065494556491
+    },
+    "spintrace": {
+      "cover": 0.62,
+      "stop_share": 0.0,
+      "threshold": 0.95
+    }
+  },
+  "params_max_f1": {
+    "containment": {
+      "threshold": 0.04402999791833291
+    },
+    "midterm": {
+      "threshold": 0.04590144998251552
+    },
+    "midterm_shipped": {
+      "threshold": 0.8044385720126767
+    },
+    "minhash": {
+      "threshold": 0.1015625
+    },
+    "oneshot": {
+      "threshold": 0.008863640664744116
+    },
+    "spintrace": {
+      "cover": 0.62,
+      "stop_share": 0.0,
+      "threshold": 0.5
+    }
+  }
+}

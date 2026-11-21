@@ -1,0 +1,7 @@
+method,threshold,F1 splice (all),F1 splice splice_seo,F1 all items (mashups and controls),recall 2 src rank 2,recall 3 src rank 2,recall 3 src rank 3,light extra_source_rate,synonym extra_source_rate,seo extra_source_rate,summary extra_source_rate,facts_only false_source_rate,hard_negative false_source_rate
+spintrace,0.5000,0.9720,0.8936,0.9535,0.9271,0.9211,0.9421,0.0000,0.0000,0.0111,0.0000,0.5222,0.1167
+midterm,0.0459,0.5128,0.3624,0.6210,0.2188,0.1105,0.0632,0.0000,0.0000,0.0000,0.0000,0.9222,0.1333
+oneshot,0.0089,0.8563,0.6705,0.8169,0.7760,0.5842,0.5474,0.0500,0.0750,0.0667,0.1556,0.9778,0.4000
+minhash,0.1016,0.1880,0.0000,0.2155,0.0990,0.0211,0.0211,0.0000,0.0000,0.0000,0.0000,0.0333,0.0000
+containment,0.0440,0.9174,0.5988,0.8934,0.8646,0.7789,0.8368,0.0500,0.0000,0.0111,0.0333,0.4667,0.2333
+midterm_shipped,0.8044,0.1474,0.0253,0.4036,0.0417,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.1556,0.0167

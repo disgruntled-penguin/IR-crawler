@@ -1,0 +1,4 @@
+method,ms_per_suspect,rounds_per_suspect,postings_touched_per_round,ms_embed_suspect,docs_verified_per_round
+spintrace,98.5235,1.6604,10283.2395,0.0329,5.0000
+containment,1.5399,,,,
+minhash,0.4716,,,,

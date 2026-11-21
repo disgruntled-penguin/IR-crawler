@@ -20,7 +20,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from .. import config, dedup, embed, store, text as tx
+from .. import config, dedup, embed, store
 from ..detect import candidates, multisource, pipeline, signals, verify
 from . import hardneg, mashups, xl_rewrites
 from .run import split_of
@@ -900,6 +900,18 @@ def suspect_for_key(ctx, key, xl=None):
 LIVE = config.ROOT / "evaldata" / "live_multisource.csv"
 
 
+def source_overlap(ctx, sources):
+    """Largest shingle containment between two found sources: near 1 means they are copies of one text (syndicated
+    wire copy), so the 'second source' is the same original printed twice."""
+    best = 0.0
+    sh = [ctx.feats[s["doc_id"]]["shingles"] for s in sources]
+    for i in range(len(sh)):
+        for j in range(len(sh)):
+            if i != j:
+                best = max(best, dedup.containment(sh[i], sh[j]))
+    return round(best, 3)
+
+
 def live(sample=300, xl=None, seed=358, examples=5, unflagged=300):
     """The multi-source pass over crawled articles the single-source scan flagged, plus a seeded sample of crawled
     articles it did not flag (a mashup's whole-document score can stay under the midterm threshold). Unjudged:
@@ -928,17 +940,18 @@ def live(sample=300, xl=None, seed=358, examples=5, unflagged=300):
                "midterm_source_url": ctx.doc(ctx.idx.doc_num[src])["url"] if src in ctx.idx.doc_num else "",
                "midterm_prob": round(prob, 3) if prob is not None else "", "n_sources": len(fin["sources"]),
                "first_source_is_midterm_source": bool(src and fin["sources"] and fin["sources"][0]["doc_id"] == src),
-               "unexplained": round(fin["unexplained"], 3)}
+               "unexplained": round(fin["unexplained"], 3), "max_source_overlap": source_overlap(ctx, fin["sources"])}
         for j, s in enumerate(fin["sources"][:multisource.MAX_SOURCES], 1):
             row.update({f"source{j}": s["doc_id"], f"source{j}_url": s["url"], f"source{j}_site": s["site"],
                         f"source{j}_share": round(s["share"], 3), f"source{j}_prob": round(s["prob"], 3)})
         rows.append(row)
         if (i + 1) % 50 == 0:
             ctx.emb.save()
-            print(f"live {i + 1}/{len(pick)} {time.time() - t0:.0f}s", flush=True)
+            print(f"live {i + 1}/{len(pick) + len(rest)} {time.time() - t0:.0f}s", flush=True)
     ctx.emb.save()
     keys = ["suspect", "suspect_url", "suspect_site", "n_sentences", "flagged_by_midterm", "midterm_source",
-            "midterm_source_url", "midterm_prob", "n_sources", "first_source_is_midterm_source", "unexplained"]
+            "midterm_source_url", "midterm_prob", "n_sources", "first_source_is_midterm_source", "unexplained",
+            "max_source_overlap"]
     keys += [f"source{j}{k}" for j in range(1, multisource.MAX_SOURCES + 1)
              for k in ("", "_url", "_site", "_share", "_prob")]
     with LIVE.open("w", newline="") as f:
@@ -962,6 +975,8 @@ def live(sample=300, xl=None, seed=358, examples=5, unflagged=300):
             summary.append({"set": name, "measure": "first source equals the midterm source",
                             "value": round(float(np.mean([r["first_source_is_midterm_source"] for r in part])), 3)})
     multi = [r for r in rows if r["n_sources"] >= 2]
+    summary.append({"set": "all", "measure": "multi-source articles whose sources share >= 50% of shingles (one text "
+                    "printed twice)", "value": sum(r["max_source_overlap"] >= 0.5 for r in multi)})
     pairs = defaultdict(int)
     for r in multi:
         pairs[" + ".join(sorted({r[f"source{j}_site"] for j in range(1, r["n_sources"] + 1)}))] += 1
