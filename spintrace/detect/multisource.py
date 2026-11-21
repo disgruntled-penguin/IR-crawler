@@ -11,6 +11,10 @@ The midterm verifier was fit on whole-document pairs, where a true source covers
 a 30% source of a mashup does not. The round verifier therefore scores coverage relative to the
 residual (a 30% source covers almost all of what is left once the 70% source is explained), plus the
 order, contiguity and inherited wording that separate copying from independent same-event reports.
+Partial coverage alone cannot tell a mashup's source from the original of an article written
+independently from the same facts; what can is the rest of the suspect. In the independent article
+the sentences that do not align are still about the candidate's story; in a mashup they belong to
+another story. Two signals measure that (res_rest_sim, res_related).
 """
 import json
 import math
@@ -28,10 +32,11 @@ TIE_MARGIN = 0.05
 MODEL_PATH = config.RESULTS / "multisource_verifier.json"
 
 FEATURES = ["rare_cos", "res_coverage", "res_ordered", "res_run", "res_mean", "res_word_overlap",
-            "res_fact_overlap", "res_quote", "res_containment", "back_coverage"]
+            "res_fact_overlap", "res_quote", "res_containment", "back_coverage", "res_rest_sim", "res_related"]
+RELATED = 0.4
 # Used only until `spintrace eval-multi` has fit the round verifier on dev mashups and controls.
-DEFAULT = {"features": FEATURES, "weights": [2.0, 3.0, 3.0, 2.0, 1.0, 3.0, 3.0, 0.5, 1.0, 1.0], "bias": -8.0,
-           "threshold": 0.5, "cover": signals.ALIGN_THRESHOLD, "stop_share": 0.2, "source": "default"}
+DEFAULT = {"features": FEATURES, "weights": [2.0, 3.0, 3.0, 2.0, 1.0, 3.0, 3.0, 0.5, 1.0, 1.0, -3.0, -3.0],
+           "bias": -7.0, "threshold": 0.5, "cover": signals.ALIGN_THRESHOLD, "stop_share": 0.2, "source": "default"}
 
 
 def load_model():
@@ -109,6 +114,7 @@ def round_signals(pair, resid, retrieval, res_facts, res_quotes, res_shingles):
     if nr == 0:
         return {f: 0.0 for f in FEATURES}
     hit = resid & (best >= signals.ALIGN_THRESHOLD)
+    rest = resid & ~hit
     ridx = np.nonzero(resid)[0]
     matched = arg[hit].tolist()
     ss, _ = pair.emb.doc(pair.s["doc_id"], pair.s["text"])
@@ -135,15 +141,20 @@ def round_signals(pair, resid, retrieval, res_facts, res_quotes, res_shingles):
         "res_quote": qhit / len(res_quotes) if res_quotes else float(retrieval.get("quote_frac", 0.0)),
         "res_containment": dedup.containment(res_shingles, cf["shingles"]),
         "back_coverage": float(np.mean(sims[resid].max(axis=0) >= signals.ALIGN_THRESHOLD)),
+        # The unexplained sentences this candidate does not align: still about its story, or another story?
+        "res_rest_sim": float(np.clip(best[rest].mean(), 0, 1)) if rest.any() else 0.0,
+        "res_related": float(np.mean(best[resid] >= RELATED) - hit.sum() / nr),
     }
 
 
 def trace(ctx, sus, model=None, threshold=None, stop_share=None, cover=None, exclude=None, residual=True,
-          use_facts=True, use_quotes=True, k_verify=K_VERIFY, max_sources=MAX_SOURCES, require_dates=True):
+          use_facts=True, use_quotes=True, k_verify=K_VERIFY, max_sources=MAX_SOURCES, require_dates=True,
+          scorer=None):
     """Explain-away rounds for one suspect. Returns the rounds and, via finalize(), sources with shares.
 
     threshold=0 and stop_share=0 run every round up to max_sources; finalize() with real values then gives
     exactly what an early-stopping run would have returned, which is how the evaluation tunes them on dev.
+    scorer(pair, round_signals) replaces the round verifier (the evaluation uses it for an ablation).
     """
     model = model or getattr(ctx, "ms_model", None) or load_model()
     threshold = model["threshold"] if threshold is None else threshold
@@ -190,7 +201,7 @@ def trace(ctx, sus, model=None, threshold=None, stop_share=None, cover=None, exc
             sig = round_signals(pair, resid, c, rfacts, rquotes, rsh)
             verified.append({"doc": c["doc"], "doc_id": cd["doc_id"], "url": cd.get("url"), "site": cd["site"],
                              "published": cd.get("published"), "retrieval": c["score"], "signals": sig,
-                             "prob": score(sig, model)})
+                             "prob": scorer(pair, sig) if scorer else score(sig, model)})
         verified.sort(key=lambda v: -v["prob"])
         best = verified[0]
         # Copies of one original verify almost equally well; the earliest of them is the likelier origin.
