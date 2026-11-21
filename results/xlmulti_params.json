@@ -1,0 +1,32 @@
+{
+ "methods": {
+  "whole text, one source (dev threshold)": {
+   "method": "whole",
+   "block_size": 0,
+   "threshold": 0.9
+  },
+  "whole text, shipped threshold": {
+   "method": "whole",
+   "block_size": 0,
+   "threshold": 0.8751014371992069
+  },
+  "passage tracing": {
+   "method": "blocks",
+   "block_size": 3,
+   "threshold": 0.975
+  }
+ },
+ "false_bar": 0.1,
+ "cost_ms": {
+  "ms_whole": 86.44481016573444,
+  "ms_blocks": 144.71217073550375
+ },
+ "items": {
+  "dev:mash": 77,
+  "dev:single": 78,
+  "dev:negative": 25,
+  "test:mash": 68,
+  "test:single": 75,
+  "test:negative": 50
+ }
+}

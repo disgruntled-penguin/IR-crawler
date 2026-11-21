@@ -59,3 +59,13 @@ Is the midterm claim intact? Yes: the English single-source path is unchanged (c
 2. Related-work paragraph with the prior art in the report. Not done yet.
 3. Length-matched negatives (`hi_facts_short`) generated and scored on test. Generation running; result goes here after the final run. If the short-negative false-positive rate is far above the long one, the summary level's precision claim is withdrawn and the verifier is refit with short negatives in dev.
 4. Keep the `@oracle` rows and the both-sources-in-test subset in the tables (already in the agents' output).
+
+## Addendum: Hindi mashups (prototype added 22 Nov, 03:15)
+
+Attack 1. The first pairing of originals (by sorted id) reshuffled every pair whenever a rewrite was added, so the cache silently dropped most items and a `--report-only` run reported on 15 test mashups instead of 68. Found while reviewing the summary file. Fixed by pairing in the originals' fixed generation order (decided on reproducibility grounds, before comparing the two sets of numbers). Side effect worth stating: the two pairings give F1 0.633 and 0.705 on the same originals, so differences of about 0.07 on this set are noise.
+
+Attack 2. The method names a false source for 28% of long same-event articles on test although dev was under the 10% bar. The threshold was tuned at the edge of the bar on 25 dev negatives, which is one or two items. Not fixed by re-tuning on test (that would be tuning on test). Reported as a weakness; the final run, with a larger dev set, gives the threshold a better chance.
+
+Attack 3. Splices are an easy mashup: contiguous blocks of whole translated sentences with no stitching. Real farm mashups interleave and paraphrase. The SEO-derived splices are the harder variant and score lower. No live Hindi mashup was tested.
+
+Survived: the claim is only that the two features compose (passage tracing recovers about half the sources where whole-text tracing recovers under a third), with the false-source rate stated beside it.

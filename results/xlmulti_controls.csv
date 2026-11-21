@@ -1,0 +1,16 @@
+method,level,n,extra_source_rate,source_found,false_source_rate
+"whole text, one source (dev threshold)",hi_translation,25,0.0,1.0,
+"whole text, one source (dev threshold)",hi_seo,25,0.0,0.96,
+"whole text, one source (dev threshold)",hi_summary,25,0.0,0.88,
+"whole text, one source (dev threshold)",hi_facts_only,25,,,0.0
+"whole text, one source (dev threshold)",hi_facts_short,25,,,0.08
+"whole text, shipped threshold",hi_translation,25,0.0,1.0,
+"whole text, shipped threshold",hi_seo,25,0.0,0.96,
+"whole text, shipped threshold",hi_summary,25,0.0,0.88,
+"whole text, shipped threshold",hi_facts_only,25,,,0.0
+"whole text, shipped threshold",hi_facts_short,25,,,0.08
+passage tracing,hi_translation,25,0.0,1.0,
+passage tracing,hi_seo,25,0.0,0.92,
+passage tracing,hi_summary,25,0.04,0.68,
+passage tracing,hi_facts_only,25,,,0.28
+passage tracing,hi_facts_short,25,,,0.12

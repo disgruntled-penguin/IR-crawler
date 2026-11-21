@@ -675,6 +675,36 @@ own stories, so this is a small, honest check of recall on real translations, no
 - All synthetic rewrites come from one 4B model, from Wikinews English; real farms may summarise more loosely.
 - Shared wire copy is attributed to the earlier outlet, as in the English pipeline.
 
+### Hindi mashups (prototype)
+
+The two final features compose: a Hindi article stitched from two English originals. This is a prototype built from
+parts that already existed, not a new verifier. `detect/crosslingual_multi.py` cuts the Hindi suspect into blocks of a
+few sentences (about the size of the Hindi summaries the cross-language verifier was built for), traces each block to
+an English source through the anchor index, and merges blocks that name the same source into per-source shares. The
+explain-away rounds of the English path need a verifier fit on partial coverage of English sentences, which does not
+exist for Hindi.
+
+```
+python -m spintrace.eval.xl_multi_eval --show 3   # evaluation, and the block-by-block trace of 3 seeded random mashups
+```
+
+Items are built by rule from the Hindi translations and SEO rewrites already in `evaldata/rewrites_xl.jsonl`: the
+first k sentences of one derivative followed by the first 10 - k sentences of another derivative of a different
+original in the same split (k = 5, 6, 7), so the sources and shares are exact. Originals are paired by their fixed
+generation order, so growing the set adds pairs and never reshuffles old ones (the first version paired by sorted id,
+which reshuffled every pair whenever a rewrite was added; the two pairings give F1 0.633 and 0.705 on the same
+originals, which is a fair measure of how noisy a set this small is). Block size and probability threshold are tuned on
+dev under a 10% false-source bar; the whole-text baseline can name at most one source. Numbers and controls:
+`results/xlmulti_summary.md`, `xlmulti_detection.csv`, `xlmulti_controls.csv`.
+
+What it shows, and where it fails: passage tracing recovers roughly half of the sources at precision 1.00, against
+under a third for tracing the whole text as one article (a whole-text verifier does not pass an article that is only
+half copied, as in the English case). It is not reliable: the exact source set is right for about a quarter of the
+mashups; it names a false source for 28% of the long same-event articles and 12% of the 100-word ones (the whole-text
+method: 0% and 8%), although its dev rate was under the bar, so a threshold tuned at the edge of the bar did not carry
+over; and it finds the source of fewer Hindi summaries (0.68 against 0.88) because a three-sentence block of a summary
+has too few anchors. It is reported as evidence that the two features compose, not as a result to build on.
+
 ## Evaluation protocol
 
 - **Items.** Positives are synthetic rewrites of Wikinews originals at six intensities (exact copy, light edit,
