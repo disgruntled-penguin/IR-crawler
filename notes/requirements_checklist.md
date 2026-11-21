@@ -1,6 +1,6 @@
 # Requirements checklist (assignment PDF and CLAUDE.md)
 
-Status as of the overnight run. "Team" marks the items that are human tasks.
+Status as of 7 Oct evening, after judging. "Team" marks the items that are human tasks.
 
 ## Assignment PDF
 
@@ -12,8 +12,8 @@ Status as of the overnight run. "Team" marks the items that are human tasks.
 | Out-of-syllabus methods (BM25, dense retrieval) | Done, as baselines | `index.py`, `eval/run.py` |
 | Runs live on real inputs; nothing faked or hard-coded | Done | live crawl, `demo` draws seeded random cases |
 | README: setup, how to run, data sources, works vs planned | Done | README |
-| README reproduces from a clean clone | Done (tested: clone, tests, recrawl, build, sampled eval, inspect, crawl-report) | PROGRESS.md |
-| Evaluation: judged queries, P/R/P@k, baseline comparison | Synthetic and real parts done; live judgments pending | `results/`, `evaldata/*.csv` (Team: judge) |
+| README reproduces from a clean clone | Done (fresh clone and venv: install, 17 tests, build, postings, eval, demo; recrawl and the NewsGuard fetch need the live web and were not rerun) | PROGRESS.md |
+| Evaluation: judged queries, P/R/P@k, baseline comparison | Done: synthetic, real pairs, and both judges' labels on 174 live flags and 154 search results | `results/`, `evaldata/*.csv` |
 | Graphs and tables | Done | `results/*.png`, `results/summary.md` |
 | Data ethics: robots.txt, delays, no personal data, credits | Done | README "Ethics", "Data and credits"; `crawl-report` |
 | Pipeline diagram for the report | Done | `results/pipeline.png` |
@@ -42,10 +42,17 @@ Status as of the overnight run. "Team" marks the items that are human tasks.
 | Detection P/R/F1 per level, one line per method, PR curve | Done |
 | P@1, MRR, Recall@k; candidates scored and time vs all-pairs | Done |
 | Real farms: rank of the original per NewsGuard pair | Done for 2 pairs; others need original URLs (Team) |
-| Precision of flagged live pairs with judge agreement | Sheet and tool ready; Team to judge |
-| Search: P@10, nDCG@10 with and without g(d); share of originals | Done on synthetic queries; live sheet for Team |
+| Precision of flagged live pairs with judge agreement | Done: 0.845 either judge, 0.437 both, 0.738 agreed pairs; kappa 0.12 (README states all three) |
+| Search: P@10, nDCG@10 with and without g(d); share of originals | Done on synthetic queries and on 15 judged live queries (g(d) leaves P@10 and nDCG@10 unchanged there; README says so) |
 | Crawler: pages, rate, disallowed fetched (0), smallest gap per host, duplicate rate, trap guards | Done (`results/crawl_report.json`) |
 | Ablations, dev-only tuning, where SpinTrace loses, no hand-picked demos | Done |
 | Hard negatives (same event, other outlet) | Done: crawl-mined and facts-only synthetic |
 | Stemming comparison, dense baseline, per-domain integrity report | Done |
 | Only-if-ahead: CC-NEWS scale, round-trip translation | Both done |
+
+## Extras beyond the brief
+
+| Item | Where |
+| --- | --- |
+| Blind judging web page, judge pack and label merge for a remote judge | `spintrace/ui/judge_*`, `eval/judgepack.py` |
+| Demo web app: search with g(d), trace view, site integrity | `python -m spintrace app` |
