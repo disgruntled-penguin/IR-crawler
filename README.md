@@ -965,17 +965,24 @@ Partial:
 
 - Real farm pairs: two NewsGuard-documented pairs load from the Wayback Machine. NYT -> GlobalVillageSpace is retrieved first among 20.9k documents, verified (p = 0.999) and traced; Wired -> TopGolf.kr is retrieved first but not verified. The Bored Panda and People originals are not named in the report.
 - Hard negatives and flagged live pairs are mined automatically. Both team members have judged the flagged live pairs (`evaldata/live_flagged.csv`) and the search results (`search_judgments.csv`); the hard-negative sheet (`hard_negatives.csv`) is not judged yet.
+- The final's live results (cross-language flags and multi-source counts) are unjudged: nobody had time to label
+  them, so they are counts with examples, not precision. Tamil, Telugu and Bengali are retrieved by anchors but not
+  verified (the sentence model does not cover them); the format-change stretch did not help (reported as a negative
+  result).
 - No live farm sites were found among the seeds yet; suspects come from aggregators that republish agency copy (latestly, devdiscourse, socialnews, newsx).
 
-Planned (course project):
+Planned (not done in the final):
 
-1. Adaptive recrawl scheduling from estimated change rates; full Mercator queues with several fetcher threads; distributed crawling.
-2. Farm-aware focused crawling: raise the frontier priority of domains with high derivative rates (the `priority()` hook).
-3. Cross-lingual derivatives beyond the Indic scripts done here (Urdu and other Arabic-script languages), and a
-   crawl of the Hindi wires so live Hindi pages have their real sources in the index.
-4. Learned weights for more signals, trained on judged live pairs instead of synthetic rewrites.
-5. A measurement study of how fast farms copy and how long copies outrank originals.
-6. A much larger index (many CC-NEWS files, with streaming index construction) and external benchmarks (PAN, METER).
+1. A mashup path for Hindi suspects (a Hindi article stitched from two English originals), which would join the two
+   new features; verification for Tamil, Telugu and Bengali with a sentence model that covers them.
+2. Judged live pairs for both new features, and rewrites from stronger LLMs (the Hindi and mashup tests use one 4B
+   model) or a real translation benchmark.
+3. Adaptive recrawl scheduling from estimated change rates; full Mercator queues with several fetcher threads.
+4. Farm-aware focused crawling: raise the frontier priority of domains with high derivative rates (the `priority()`
+   hook), and a crawl of the Hindi wires so live Hindi pages have their real sources in the index.
+5. Learned weights for more signals, trained on judged live pairs instead of synthetic rewrites.
+6. A measurement study of how fast farms copy; a much larger index and external benchmarks (PAN, METER), which is
+   also where the cost advantage of the anchors over embedding the corpus should show.
 
 ## Timeline
 
@@ -998,14 +1005,21 @@ Tracks announced 12:00 on 6 Oct 2026; planning 12:00 to 21:00; build from 21:00.
 | 02:00-02:30 | Final run; critique round 3 (dev cross-validation adds aligned word overlap) |
 | 02:20-02:50 | CC-NEWS scale experiment; the crawler died on a database lock held by the loader, fixed and restarted |
 | 02:55-04:30 | Round-trip translation level generated; full rerun of every experiment with it |
-| 21 Nov 15:50-16:15 | Final phase, multi-source: explain-away rounds, rule-based mashups, first smoke run |
+| 21 Nov 15:05-15:45 | Final phase starts: network check (BBC, Wikinews, Wayback), Indian-language feeds added, crawler restarted; rewrite queue for Hindi, Tamil, Telugu, Bengali and mashups started |
+| 15:45 | Two helper agents in separate worktrees: cross-language and multi-source |
+| 15:50-16:15 | Final phase, multi-source: explain-away rounds, rule-based mashups, first smoke run |
 | 16:15-16:40 | Multi-source evaluation with baselines; first run names a source for 59% of facts-only articles |
 | 16:40-17:05 | Dev diagnosis, rest-of-suspect signals and the false-source bar; full rerun (17 min), live pass |
 | 22 Nov 02:00-02:15 | LLM mashups added to the evaluation; critique notes |
+| 16:00 | The Mac restarted; the crawl, the queue and both agents resumed from stored state, nothing lost |
+| 17:47 | The crawler died on an unhandled connection reset while reading a response body |
+| 22 Nov 02:00 | Crawler fixed (regression test) and restarted for 7 h; queue and agents resumed after a usage limit |
+| 02:30 | Both branches merged; the length check finds Hindi summaries separable by word count (AUC 1.00), so length-matched negatives are added |
+| 02:46-03:02 | Final evaluation run: mashups, Hindi levels, live passes, dataset summary, report tables and figures (16 min) |
 
 ## AI-use log
 
-The team used Claude Code (Anthropic, model Claude Opus 5.5) as a coding agent throughout the build.
+The team used Claude Code (Anthropic, models Claude Opus 5.5 and, for the final phase, Sonnet 5.5) as a coding agent throughout the build, including two helper agents in separate git worktrees for the cross-language and multi-source paths.
 
 - Generated with Claude Code from the team's plan (PLAN.md, CLAUDE.md): the package code under `spintrace/`, the tests, the CLI, the evaluation harness and charts, this README, PROGRESS.md and the critique notes in `notes/`.
 - The team wrote the plan, the brief and the seed strategy, chose the track and claim, reviewed the code and results, and judges the live pairs, hard negatives and search results.
@@ -1020,3 +1034,4 @@ The team used Claude Code (Anthropic, model Claude Opus 5.5) as a coding agent t
   reported unjudged.
 - No AI system labelled evaluation data: synthetic labels come from construction, hard negatives from a rule-based miner, and live pairs are for human judges.
 - Final phase (21 Nov), generated with Claude Code: multi-source tracing (`spintrace/detect/multisource.py`, the `sources` command, the optional multi-source edges in `scan`), the read-only analysis context and embedding overlay, the rule-based mashup and format-rewrite generators, the multi-source and format-change evaluations, their tests, charts and README sections. The LLM mashups in `evaldata/rewrites_xl.jsonl` are gemma3:4b outputs, evaluation data only; mashup labels come from construction.
+- Final phase, report and critique: Claude Code drafted `report/SpinTrace_final_report.tex`, the table and figure generators (`report/make_tables.py`, `report/make_figures.py`), `scripts/final_run.sh`, `spintrace/eval/dataset_stats.py`, the crawler fix for connection resets and `notes/critique_final.md`. The team chose the two problems, the claims and the experiments and reviews the results. The final's live results are unjudged.
