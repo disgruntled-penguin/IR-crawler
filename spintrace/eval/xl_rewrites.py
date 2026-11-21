@@ -22,7 +22,7 @@ OUT = config.ROOT / "evaldata" / "rewrites_xl.jsonl"
 MODEL = "gemma3:4b"
 LANGS = {"hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali"}
 HI_LEVELS = ["hi_translation", "hi_seo", "hi_summary", "hi_facts_only"]
-NEGATIVE = {"hi_facts_only"}
+NEGATIVE = {"hi_facts_only", "hi_facts_short"}
 MAX_WORDS = 220
 N_HI, N_OTHER, N_MASH = 100, 24, 48
 N_HI_FIRST, N_OTHER_FIRST, N_MASH_FIRST = 44, 12, 16
@@ -37,6 +37,9 @@ PROMPTS = {
     "facts_only": ("You are a {lang} news reporter. Write an original {lang} news article of about 200 words "
                    "reporting the facts below. Use your own structure, angle and wording; do not invent new facts. "
                    "Output only the article in {lang}, without a headline.\n\n{text}"),
+    "facts_short": ("You are a {lang} news reporter. Write an original {lang} news brief of about 100 words "
+                    "reporting the facts below. Use your own structure, angle and wording; do not invent new facts. "
+                    "Output only the brief in {lang}, without a headline.\n\n{text}"),
     "back": "Translate the following news article into English. Output only the translation.\n\n{text}",
     "mash": ("Combine the following two news articles into one new news article of about 300 words that uses "
              "material from both. Output only the article, without a headline or notes.\n\nArticle 1:\n{a}\n\n"
@@ -120,6 +123,10 @@ def jobs():
                 yield {"kind": "xl", "orig": o, "level": level}
                 if o["split"] == "test":
                     yield {"kind": "back", "orig": o, "level": level}
+            if o["split"] == "test":
+                # Same-event negative as short as the summaries: length alone must not separate the two.
+                yield {"kind": "xl", "orig": o, "level": "hi_facts_short"}
+                yield {"kind": "back", "orig": o, "level": "hi_facts_short"}
 
     def other(lo, hi):
         for lang in ("ta", "te", "bn"):
@@ -161,7 +168,7 @@ def build():
             row = {"rid": rid, "orig_title": o["title"], "orig_url": o["url"], "generator": MODEL}
             if j["kind"] == "xl":
                 kind = level.split("_", 1)[1]
-                src = fact_sheet(o) if kind == "facts_only" else head(o["text"])
+                src = fact_sheet(o) if kind.startswith("facts") else head(o["text"])
                 text = llm(PROMPTS[kind].format(lang=LANGS[lang], text=src))
                 negative = level in NEGATIVE
                 delay = rng.uniform(3600, 12 * 3600) if negative else rng.uniform(2 * 3600, 3 * 86400)

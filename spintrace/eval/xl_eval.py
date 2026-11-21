@@ -36,7 +36,7 @@ BT_EMB = config.INDEX_DIR / "xl_bt_emb.pkl"
 OUT = config.RESULTS
 HI_LEVELS = ["hi_translation", "hi_seo", "hi_summary"]
 OTHER_LEVELS = ["ta_translation", "te_translation", "bn_translation"]
-NEG_LEVELS = ["hi_facts_only", "source_absent"]
+NEG_LEVELS = ["hi_facts_only", "hi_facts_short", "source_absent"]
 BT_BASELINES = ["exact_hash", "minhash_jaccard", "tfidf_cosine", "bm25"]
 # Every method searches all earlier documents from other sites. The live system's 30-day window would
 # shrink that pool from about 9,000 to about 300 here (the crawl is mostly Sep-Oct 2026), which makes the
@@ -87,7 +87,7 @@ def build_items(ctx, rows):
         n = idx.doc_num[src]
         base = {"rid": r["rid"], "lang": r["lang"], "text": r["text"], "published": r["published"], "site": r["farm"],
                 "split": split_of(src), "group": src, "exclude": sib.get(src, []), "orig": n}
-        if level == "hi_facts_only":
+        if level in ("hi_facts_only", "hi_facts_short"):
             items.append({**base, "level": level, "label": 0, "source": None, "same_event": n})
             continue
         items.append({**base, "level": level, "label": 1, "source": n})
@@ -636,8 +636,8 @@ def summary(det, rank, abl, eff, counts, cv, model):
             + "; ".join(f"{r['features']}: dev CV macro F1 {r['dev_cv_macro_f1']:.3f}" for r in cv) + ".", "",
             "**Is this Hindi article derived from an English one?** F1 per level [95% bootstrap CI] with the "
             "negatives pooled; false-positive rate on each negative set [95% Wilson CI].", "",
-            "| method | " + " | ".join(HI_LEVELS) + " | FPR facts-only | FPR source absent |",
-            "| --- |" + " --- |" * (len(HI_LEVELS) + 2)]
+            "| method | " + " | ".join(HI_LEVELS) + " | FPR facts-only | FPR facts-only (100 words) | FPR source absent |",
+            "| --- |" + " --- |" * (len(HI_LEVELS) + 3)]
     for m in dict.fromkeys(r["method"] for r in det):
         d = {r["level"]: r for r in det if r["method"] == m}
         cells = [_ci(d[l], "f1") if l in d else "-" for l in HI_LEVELS]
