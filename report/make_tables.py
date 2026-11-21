@@ -289,6 +289,12 @@ def numbers():
     N["BtTfidfTrans"], N["BtTfidfSeo"] = d("bt_tfidf_cosine", "hi_translation"), d("bt_tfidf_cosine", "hi_seo")
     N["BtBmTrans"], N["BtBmSeo"] = d("bt_bm25", "hi_translation"), d("bt_bm25", "hi_seo")
     N["BtTfidfPone"] = r1("bt_tfidf_cosine")
+    align_path = RESULTS / "crosslingual_align_check.json"
+    if align_path.exists():
+        ac = json.loads(align_path.read_text())
+        for key, lv in (("Hi", "hi_translation"), ("Ta", "ta_translation"), ("Te", "te_translation"), ("Bn", "bn_translation")):
+            N["Align" + key] = num(ac[lv]["align_mean"], 2)
+            N["AlignCov" + key] = num(ac[lv]["align_coverage"], 2)
     length_path = RESULTS / "crosslingual_length_check.json"
     if length_path.exists():
         lc = json.loads(length_path.read_text())

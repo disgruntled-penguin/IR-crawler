@@ -1,0 +1,22 @@
+{
+ "hi_translation": {
+  "n": 97,
+  "align_mean": 0.8100210594147751,
+  "align_coverage": 0.9360325813934062
+ },
+ "ta_translation": {
+  "n": 11,
+  "align_mean": 0.32443494417450647,
+  "align_coverage": 0.17907092907092909
+ },
+ "te_translation": {
+  "n": 19,
+  "align_mean": 0.2979239413612767,
+  "align_coverage": 0.13030682767524873
+ },
+ "bn_translation": {
+  "n": 23,
+  "align_mean": 0.46204377516456274,
+  "align_coverage": 0.25933016259103214
+ }
+}
