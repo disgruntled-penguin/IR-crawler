@@ -82,7 +82,7 @@ Attack 3. The length-AUC figures in the report were typed by hand from an earlie
 
 Attack 4. Hindi mashups on the full set: passage tracing F1 0.765 (recall 0.62, precision 1.00) against 0.528 for the whole text, but it names a false source for 30% and 28% of same-event articles although its dev rate was at most 10%. The block size also moved to 3 (it was 4 on the first run), which shows the setting is not stable on small sets. Stated as a prototype in the report, as before.
 
-Attack 5. Other scripts: retrieval is uneven (P@1 0.42 Tamil, 0.67 Telugu, 0.92 Bengali) not simply "transfers". Reworded. Verification failure is unchanged; the sentence model's card (read from the local cache) lists Hindi, Marathi, Gujarati and Urdu but not Tamil, Telugu or Bengali, which fits the failure; the alignment scores themselves were not inspected.
+Attack 5. Other scripts: retrieval is uneven (P@1 0.42 Tamil, 0.67 Telugu, 0.92 Bengali) not simply "transfers". Reworded. Verification failure is unchanged; the sentence model's card (read from the local cache) lists Hindi, Marathi, Gujarati and Urdu but not Tamil, Telugu or Bengali, which fits the failure, and the alignment scores confirm it (`xl_align_check.py`: mean alignment cosine on the true source 0.81 for Hindi against 0.30 to 0.46 for the three).
 
 Attack 6. The crawler stores category archive pages with a date in the markup as articles (for example "Health Archives", 368 words). They are extra distractors, not positives or negatives, so no result depends on them, but they inflate the document count. Left in and disclosed in the crawler section.
 

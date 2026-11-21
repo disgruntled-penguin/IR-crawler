@@ -673,7 +673,9 @@ own stories, so this is a small, honest check of recall on real translations, no
 - Tamil, Telugu and Bengali did not generalise end to end: anchors retrieve the source (P@1 0.42, 0.67, 0.92
   against 0.08 for dense retrieval) but the sentence-embedding verifier does not transfer (F1 about 0 to 0.13), most
   likely because the multilingual sentence model's card lists Hindi, Marathi, Gujarati and Urdu among its 50
-  languages but not Tamil, Telugu or Bengali (alignment scores were not inspected directly).
+  languages but not Tamil, Telugu or Bengali, and the alignment agrees: on the true source the mean alignment cosine
+  is 0.81 for Hindi (coverage 0.94) and 0.32, 0.30 and 0.46 for Tamil, Telugu and Bengali (coverage 0.18, 0.13, 0.26;
+  `results/crosslingual_align_check.json`).
 - Name anchors are noisy: common Hindi words sound like rare English names. The source-language df check removes
   much of it, and the ablation shows the system depends on it (P@1 falls to 0.70 without it).
 - All synthetic rewrites come from one 4B model, from Wikinews English; real farms may summarise more loosely.
