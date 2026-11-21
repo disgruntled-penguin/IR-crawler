@@ -620,6 +620,30 @@ precision.
   shipped midterm's dev rate rather than a tuned value, but the decision to fix it was informed by a test number
   (`notes/critique_multisource.md`).
 
+**Format changes (stretch): the order-free fact signals do not help.** A copy that turns its source into a listicle or
+a Q&A keeps the facts but not the prose order the midterm verifier leans on. `spintrace/eval/formats.py` makes two
+rule-based format rewrites of each of the 400 originals (`evaldata/formats.jsonl`, deterministic): a listicle (the
+fact-bearing sentences as a shuffled numbered list under a "what we know" line, lightly synonym-spun) and a Q&A (a
+templated question before each fact-bearing sentence, shuffled, answers lightly spun). Three optional order-free
+signals were added to `detect/signals.py` (`OPTIONAL`, not used by the default verifier): the idf-weighted share of the
+suspect's names, numbers and quotes found in the candidate, the same share in the other direction, and the share of the
+suspect's fact-bearing sentences whose facts are mostly in the candidate. `python -m spintrace format-eval` scores
+format rewrites, SEO rewrites and summaries against facts-only articles and crawl hard negatives (test split, each
+refit and threshold on dev; `results/format_detection.csv`, `format_f1.png`):
+
+| verifier | listicle F1 | Q&A F1 | SEO F1 | summary F1 | FPR facts-only | FPR hard neg |
+| --- | --- | --- | --- | --- | --- | --- |
+| midterm, as shipped | 0.964 | 0.943 | 0.791 | 0.911 | 0.156 | 0.000 |
+| refit on dev, same signals | 0.941 | 0.941 | 0.819 | 0.871 | 0.256 | 0.006 |
+| refit on dev, plus the fact signals | 0.931 | 0.931 | 0.826 | 0.854 | 0.300 | 0.006 |
+| fact signals and rare-term cosine only | 0.886 | 0.886 | 0.759 | 0.719 | 0.511 | 0.018 |
+
+The shipped verifier already handles these rule-based formats: shuffling keeps most sentences aligned, so coverage
+stays high. Adding the fact signals lowers format F1 and raises the facts-only false-positive rate, because an article
+written from the original's fact sheet shares exactly those facts. The NewsGuard TopGolf.kr page (a reshaped deals
+list) still has its Wired source ranked first and verified by none of the four (p at most 0.001;
+`results/format_newsguard.csv`). The default verifier is unchanged.
+
 <!-- multisource:end -->
 
 ## Known weaknesses
