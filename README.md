@@ -21,6 +21,26 @@ index (index elimination), its quotes become positional phrase queries, and a pa
 only earlier articles. Classical IR finds the candidate sources; sentence embeddings only verify the
 few candidates IR returns.
 
+**Final project: what is different.** The mid-term system, like every copy detector we know of, assumes
+that a derivative shares wording with one original. Two kinds of derivative break that assumption, and
+both are what a content farm has most reason to produce:
+
+1. **Translations.** A Hindi (or Tamil, Telugu, Bengali) article translated from an English one shares
+   no words with it, so shingles, Jaccard, tf-idf and quote phrases all fail. SpinTrace traces it
+   through what survives translation: numbers, dates and names, with its own Indian-script
+   transliteration, a phonetic key and a k-gram name index, over the same inverted index. No translation
+   step and no embedding of the corpus; a multilingual sentence model only verifies the few candidates.
+2. **Mashups.** One article stitched from two or three originals has no single source, and a detector
+   that returns its best match finds one and stops. SpinTrace queries again with only the sentences
+   no source has explained yet, and reports every source with the share of the article it explains.
+
+What we claim is narrower than "new": cross-language plagiarism detection and finding all the sources
+of a suspicious document are established research areas (CL-ESA, cross-language n-grams, PAN source
+retrieval). The claim is that the premise "facts survive rewriting", run on a crawler's own positional
+inverted index for news, extends to both, and where it beats the obvious alternatives and where it does
+not is measured below (see the Cross-language and Multi-source sections and Known weaknesses). The
+report is `report/SpinTrace_final_report.tex`; the dataset is described in `results/dataset.md`.
+
 ## Pipeline
 
 ```
