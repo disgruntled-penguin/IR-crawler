@@ -38,14 +38,20 @@ HI_LEVELS = ["hi_translation", "hi_seo", "hi_summary"]
 OTHER_LEVELS = ["ta_translation", "te_translation", "bn_translation"]
 NEG_LEVELS = ["hi_facts_only", "source_absent"]
 BT_BASELINES = ["exact_hash", "minhash_jaccard", "tfidf_cosine", "bm25"]
+# Every method searches all earlier documents from other sites. The live system's 30-day window would
+# shrink that pool from about 9,000 to about 300 here (the crawl is mostly Sep-Oct 2026), which makes the
+# test easy, so the window is reported as its own variant instead.
+WINDOW = None
 VARIANTS = {
-    "full": xl.FULL,
-    "no_names": xl.Options(names=False),
-    "no_numbers": xl.Options(numbers=False),
-    "no_dates": xl.Options(dates=False),
-    "key_exact": xl.Options(fuzzy="key"),
-    "translit_exact": xl.Options(fuzzy="exact"),
-    "latin_only": xl.Options(names=False, numbers=False, dates=False),
+    "full": xl.Options(window_days=WINDOW),
+    "no_names": xl.Options(names=False, window_days=WINDOW),
+    "no_numbers": xl.Options(numbers=False, window_days=WINDOW),
+    "no_dates": xl.Options(dates=False, window_days=WINDOW),
+    "key_exact": xl.Options(fuzzy="key", window_days=WINDOW),
+    "translit_exact": xl.Options(fuzzy="exact", window_days=WINDOW),
+    "no_idf_check": xl.Options(idf_check=False, window_days=WINDOW),
+    "window_30d": xl.Options(),
+    "latin_only": xl.Options(names=False, numbers=False, dates=False, window_days=WINDOW),
 }
 BOOT = 1000
 
@@ -264,7 +270,7 @@ def run(variants=tuple(VARIANTS), log_every=20, raw=RAW, limit=None, fresh=False
             items[i] = old
             continue
         s = suspect(it)
-        mask = xl.allowed_mask(idx, ctx.lex, it["published"], it["site"], exclude_mask(idx, it))
+        mask = xl.allowed_mask(idx, ctx.lex, it["published"], it["site"], exclude_mask(idx, it), WINDOW)
         it["allowed"] = int(mask.sum())
         it["runs"] = {}
         full_anchors = None
@@ -523,7 +529,8 @@ def ablation_rows(dev, test, models):
     for v in models:
         add(v, xl_method(v, v, models[v]), v)
     groups = {"no_alignment_signals": [f for f in xl.FEATURES if f.startswith(("align", "ordered", "back"))],
-              "no_anchor_signals": ["number_overlap", "name_overlap", "date_overlap", "latin_overlap"],
+              "no_anchor_signals": ["number_overlap", "number_back", "name_overlap", "name_back", "date_overlap",
+                                    "latin_overlap"],
               "no_retrieval_score": ["xl_cos"]}
     dv = [it for it in dev if it["level"] in HI_LEVELS + NEG_LEVELS and "v_full" in it]
     for name, drop in groups.items():
@@ -548,7 +555,7 @@ def charts(det, rank, levels):
             (det, "f1", OUT / "crosslingual_f1_by_level.png", "Cross-language detection F1 by level (test split)", "F1"),
             (rank, "p@1", OUT / "crosslingual_p_at_1_by_level.png", "Original ranked first by level (test split)",
              "P@1")):
-        fig, ax = plt.subplots(figsize=(8.5, 4.8), dpi=150)
+        fig, ax = plt.subplots(figsize=(10, 4.8), dpi=150)
         for m in LABELS:
             ys = [next((r[key] for r in rows if r["method"] == m and r["level"] == l), np.nan) for l in levels]
             if all(np.isnan(y) for y in ys):
@@ -557,7 +564,7 @@ def charts(det, rank, levels):
                     color=COLORS[m], zorder=5 if m == "spintrace_xl" else 2, label=LABELS[m])
         ax.set_ylim(-0.02, 1.02)
         report._style(ax, title, "suspect level", ylabel)
-        ax.legend(frameon=False, fontsize=8, loc="lower left")
+        ax.legend(frameon=False, fontsize=8, loc="center left", bbox_to_anchor=(1.01, 0.5))
         fig.tight_layout()
         fig.savefig(path)
         plt.close(fig)
@@ -579,6 +586,12 @@ def main(raw=RAW):
         thr = threshold_for(m, dev)
         det += detection_rows(m, thr, test, levels)
         rank += ranking_rows(m, test, levels)
+        if m.name.startswith("bt_"):
+            # No Hindi dev item was back-translated, so these use the English dev thresholds; the threshold
+            # that is best on test itself is an upper bound on what any tuning could give them.
+            group = [it for it in test if m.applies(it) and it["level"] in HI_LEVELS + NEG_LEVELS]
+            oracle = report.best_threshold([m.score(it)[0] for it in group], [it["label"] for it in group])
+            det += [{**r, "method": m.name + "@oracle"} for r in detection_rows(m, oracle, test, levels)]
     abl = ablation_rows(dev, test, models)
     eff = efficiency_rows(test)
     OUT.mkdir(exist_ok=True)
