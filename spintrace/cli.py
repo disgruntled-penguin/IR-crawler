@@ -439,9 +439,12 @@ def cmd_eval_xl(args):
     from .eval import xl_eval
     if not args.report_only:
         xl_eval.run(fresh=args.fresh, limit=args.sample, use_dense=not args.no_dense)
-    det, rank, abl, eff, counts, model = xl_eval.main()
+    det, rank, abl, eff, counts, model, cv = xl_eval.main()
     print("eval sets:", json.dumps(counts))
-    print(f"verifier fit on Hindi dev: threshold={model['threshold']:.3f}")
+    for r in cv:
+        print(f"dev 5-fold CV, verifier features {r['features']:<20} macro F1={r['dev_cv_macro_f1']:.3f} "
+              f"FPR facts-only={r['dev_cv_fpr_facts_only']:.3f}")
+    print(f"verifier fit on Hindi dev with features '{model['feature_set']}': threshold={model['threshold']:.3f}")
     levels = xl_eval.HI_LEVELS + xl_eval.OTHER_LEVELS
     print("\nDetection F1 on test [95% bootstrap CI], by level; FPR on the negatives")
     print(f"{'method':<22}" + "".join(f"{l:>22}" for l in levels) + f"{'FPR facts':>11}{'FPR absent':>11}")

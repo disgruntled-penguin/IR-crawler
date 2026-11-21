@@ -74,6 +74,14 @@ python -m spintrace crawl-report            # politeness and correctness statist
 
 `scripts/run_all.sh` runs build, eval, scan, search-eval, crawl-report and export in that order.
 
+Cross-language tracing (Indian-language rewrites of English news; see the section below):
+
+```
+python -m spintrace build-xl --dense         # name k-gram lexicon over the index, and dense heads for the baseline
+python -m spintrace eval-xl                  # cross-language evaluation; tables and charts in results/crosslingual_*
+python -m spintrace live-xl --rebuild        # every crawled Indian-language page against the English crawl
+```
+
 Optional scale experiment (downloads one 1 GB CC-NEWS file): `python -m spintrace ccnews`, then
 `python -m spintrace build`, then `python -m spintrace scale`. The main index leaves CC-NEWS out unless
 `build --with-ccnews` is given, so the main results do not depend on it.
@@ -106,6 +114,9 @@ python -m spintrace suspect <doc_id|url>             # query terms, candidates, 
 python -m spintrace search "nobel prize physics"     # ranked results with relevance, g(d) and net score
 python -m spintrace search "nobel prize physics" --no-g
 python -m spintrace demo --seed 7                    # seeded random test cases, including a miss and a false alarm
+python -m spintrace kgram "नरेंद्र मोदी"               # transliteration, phonetic key, k-gram postings, matches
+python -m spintrace suspect-xl <rid|doc_id|url>      # numbers, names, query, candidates, alignment, verdict
+python -m spintrace suspect-xl <rid> --absent        # the same suspect with its true source masked out
 ```
 
 `pytest` runs the unit tests (frontier politeness and starvation, text pipeline, index, MinHash, candidate retrieval).
@@ -119,6 +130,8 @@ python -m spintrace demo --seed 7                    # seeded random test cases,
 | Synthetic rewrites (`evaldata/rewrites.jsonl`) | labelled evaluation set | Generated from the Wikinews originals; LLM levels (SEO rewrite, summary, English-German-English round trip, facts-only article) by Meta Llama 3.2 3B via Ollama |
 | NewsGuard August 2023 report | documented real farm rewrites (`evaldata/newsguard_pairs.csv`) | Farm copies and originals fetched from the Internet Archive Wayback Machine |
 | all-MiniLM-L6-v2 (sentence-transformers) | sentence embeddings for verification and the dense baseline | Apache 2.0 |
+| Cross-language rewrites (`evaldata/rewrites_xl.jsonl`) | Hindi translation, SEO rewrite, summary and facts-only article; Tamil, Telugu and Bengali translations; LLM back-translations of the test-split Hindi items | Generated from the Wikinews originals by Google Gemma 3 4B via Ollama (`spintrace/eval/xl_rewrites.py`); evaluation labels only |
+| paraphrase-multilingual-MiniLM-L12-v2 (sentence-transformers) | cross-language sentence alignment (verification) and the multilingual dense baseline | Apache 2.0 |
 | [Common Crawl CC-NEWS](https://commoncrawl.org/blog/news-dataset-available), one WARC file of 6 Oct 2026 | 3,645 English articles for the scale experiment only (`python -m spintrace ccnews`, `scale`) | Common Crawl terms of use; not committed |
 
 ## How IR is used, and where
@@ -136,6 +149,9 @@ python -m spintrace demo --seed 7                    # seeded random test cases,
 | Static quality g(d) and net score; zone weighting | `search.py`, `detect/scan.py` | Originals outrank their copies in search |
 | BM25, dense retrieval (out of syllabus) | `index.py`, `eval/run.py` | Baselines answering when sparse retrieval wins |
 | Precision, recall, F1, P@k, MRR, Recall@k | `eval/report.py` | Every evaluation |
+| Tokenisation for Indic scripts; number and date normalisation | `text_indic.py` | A translation keeps numbers and dates but writes them differently (`३.५ करोड़` = 35 million, `26 जुलाई`), so both sides are canonicalised before they meet in the index |
+| Tolerant retrieval: k-gram index, edit distance, phonetic keys | `kgram.py`, `translit.py` | A transliterated name never spells the English name exactly; the k-gram index over phonetic keys narrows the candidates through postings and Levenshtein distance confirms (IIR ch. 3) |
+| Cross-language anchor query | `detect/crosslingual.py` | Names, numbers and dates are the high-idf terms a translation keeps; the same lnc.ltc cosine and phrase queries find the English source |
 
 Libraries, in IR terms: `requests` is the HTTP fetcher; `trafilatura` performs boilerplate removal
 (deciding what the document is); `lxml` parses links, RSS, Atom and sitemaps; `urllib.robotparser`
@@ -148,7 +164,12 @@ Wikinews dump (deciding what the document is for originals); `warcio` reads reco
 
 Written ourselves: the frontier and politeness logic, URL normalisation, tokenisation, the
 positional zoned index, tf-idf and BM25, phrase queries, shingling, MinHash, LSH, candidate
-retrieval, the signals, provenance, the copy graph, search and the evaluation.
+retrieval, the signals, provenance, the copy graph, search and the evaluation. For the
+cross-language extension also the Indic tokeniser, digit and lakh/crore number bridge, the
+transliteration table and schwa deletion, the phonetic key, the k-gram index and Levenshtein
+distance, and the anchor query; no transliteration or Indic NLP library is used. The multilingual
+MiniLM model (sentence-transformers) maps a sentence and its translation to nearby vectors; it only
+verifies the five candidates the index returns, plus one head vector per document for the dense baseline.
 
 ## Design choices and why
 
@@ -172,6 +193,12 @@ retrieval, the signals, provenance, the copy graph, search and the evaluation.
 | g(d) | 1 - p(strongest source edge) | Originals keep g = 1; confirmed copies drop towards 0 |
 | Net score | relevance + lambda g(d), lambda from {0, 0.1, ..., 0.8} chosen on dev queries | Lets relevance dominate and g break near-ties between an original and its copies |
 | Splits | by original story (sha1 parity), dev about 50% / test about 50% | A story and all its rewrites fall on one side, so nothing leaks between dev and test |
+| Cross-language query | numbers, dates, Latin tokens and names; weight = anchor type (1, 0.5, 1, 1) x match confidence x idf; top 40 terms | A dev-only sweep: MRR plateaus at 40 terms (0.97 against 0.53 at 10); other type weights were within noise, so the defaults stayed |
+| Phonetic key | aspirates, ph/f, w/v, z/s, sh/s, 'ch' and English c folded, doubles collapsed, vowels and glides dropped after the first letter; voicing also folded for Tamil | `नरेंद्र मोदी` and `Narendra Modi` both give `nrndr md`; Tamil does not write voicing, but folding it everywhere would merge Biden with Putin |
+| k-gram lookup | k = 3 with `$` boundaries, Jaccard >= 0.3, then edit distance <= 2 (<= 1 for keys of 3 letters or fewer), 3 matches per word | Jaccard is cheap through postings; edit distance confirms; short keys need the tighter bound |
+| Name df check | drop a match when the Indic word is in >= 3 crawled pages of its script and the English term's idf is more than 1 higher | A name keeps roughly its document frequency across languages; रात (night) is not Rohit |
+| Cross-language alignment | sentence pair matches if multilingual cosine >= 0.6 | Translated sentences sit around 0.7-0.9 with this model, unrelated ones below 0.5 |
+| Time window | 30 days for live pages; none in the evaluation | Rewrites follow within days; in the evaluation the window would leave about 300 earlier documents (the crawl is mostly Sep-Oct 2026), so every method searches all ~9,000 earlier documents instead |
 | Evaluation sizes | 400 Wikinews originals, 4,000 distractors, 200 SEO-rewritten, 200 summarised, 100 round-trip translated, 200 facts-only; ~300 crawl hard negatives per split | Stable metrics at hackathon cost: a 1-point F1 change is a handful of items |
 
 ## Ethics
@@ -392,6 +419,52 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 | duplicate_rate | 0.0695 |
 <!-- results:end -->
 
+## Cross-language tracing: Indian-language rewrites of English news
+
+A content farm can translate an English article into Hindi, Tamil, Telugu or Bengali. The translation
+shares no word with its source, so exact hashing, shingles, Jaccard, tf-idf and quote phrases have
+nothing to match. What survives translation is what a paraphrase keeps: numbers, dates and names.
+SpinTrace-XL turns those into a query against the same English inverted index, and uses a multilingual
+sentence model only to verify the five candidates the index returns.
+
+```
+ Hindi / Tamil / Telugu / Bengali suspect
+        |  text_indic.py: NFC (vowel signs kept), Indic digits -> ASCII, danda-aware sentences
+        v
+ anchors  numbers   '3.5 करोड़' -> 35000000, '२२' -> 22, 'चार मिलियन' -> 4000000 ('35 million' on the English side)
+          dates     '26 जुलाई' -> (7, 26) -> month term + phrase queries 'july 26' / '26 july'
+          latin     tokens left in Latin script (UAE, ADF, Wedgetail)
+          names     translit.py: one ISCII-offset table for nine scripts, schwa deletion, nukta, anusvara
+                    -> phonetic key ('अल्बानेज़' -> albaanez -> albns = key('Albanese'))
+                    -> kgram.py: 3-gram index over the keys of every English name word,
+                       Jaccard >= 0.3, then Levenshtein <= 2 -> English index terms
+                    -> source-language df check: a word common in crawled Hindi pages is not a rare name
+        v
+ query    weight = anchor type x match confidence x idf, top 40 terms (index elimination), lnc.ltc cosine
+          over earlier documents from other sites; the shortlist is reranked by date and name-bigram phrase hits
+        v
+ verify   top 5: number, name, date and Latin overlap in both directions; multilingual sentence alignment
+          (paraphrase-multilingual-MiniLM-L12-v2) coverage, order and back coverage -> logistic, fit on Hindi dev
+        v
+ provenance  pipeline.provenance unchanged (earlier date, or coverage asymmetry when undated)
+```
+
+`pipeline.analyse` routes every document whose script is not Latin (the crawler now tags `meta.script`) to
+this path, so `scan` and the web app's Trace tab use it too; the English path is unchanged.
+
+**Evaluation.** Gemma 3 4B wrote, for Wikinews originals alternating dev and test, a Hindi translation, an
+"SEO-friendly" Hindi rewrite, a Hindi summary and a Hindi facts-only article (an independent article from the
+original's fact sheet: same event, same names and numbers, not derived), and translations into Tamil, Telugu and
+Bengali for a few originals. Each Hindi derivative is also scored a second time with its source (and the source's
+English rewrites) masked out of the index: a source-absent negative that must not be flagged. Every method searches
+all earlier English documents from other sites (about 9,000), splits are by original, the verifier and every
+threshold come from Hindi dev, and every number below is test, with 95% bootstrap intervals over items.
+Translate-then-detect runs the English methods on the LLM's back-translation of each test item; no dev item was
+back-translated, so those methods keep the thresholds they were given on the English dev split, and an oracle row
+(threshold chosen on test) bounds what tuning could add.
+
+<!-- xl-results -->
+
 ## Evaluation protocol
 
 - **Items.** Positives are synthetic rewrites of Wikinews originals at six intensities (exact copy, light edit,
@@ -511,4 +584,11 @@ The team used Claude Code (Anthropic, model Claude Opus 5.5) as a coding agent t
 - The team wrote the plan, the brief and the seed strategy, chose the track and claim, reviewed the code and results, and judges the live pairs, hard negatives and search results.
 - Synthetic SEO rewrites, summaries, round-trip translations and facts-only articles were generated by Meta Llama 3.2 3B run locally through Ollama (`spintrace/eval/rewrites.py`); they are evaluation data only.
 - all-MiniLM-L6-v2 (a pretrained sentence-embedding model) is used for verification signals and the dense baseline.
+- Cross-language extension (final project): Claude Code generated `text_indic.py`, `translit.py`, `kgram.py`,
+  `embed_xl.py`, `detect/crosslingual.py`, `eval/xl_eval.py`, `eval/xl_live.py`, the `build-xl`, `kgram`,
+  `suspect-xl`, `eval-xl` and `live-xl` commands, `tests/test_crosslingual.py`, `notes/critique_xl.md` and the
+  cross-language parts of this README. The Hindi, Tamil, Telugu and Bengali rewrites and the back-translations
+  were generated by Google Gemma 3 4B through Ollama (evaluation data only); paraphrase-multilingual-MiniLM-L12-v2
+  (pretrained) aligns sentences across languages. No AI system labelled the live cross-language pairs; they are
+  reported unjudged.
 - No AI system labelled evaluation data: synthetic labels come from construction, hard negatives from a rule-based miner, and live pairs are for human judges.
