@@ -413,11 +413,48 @@ def methods(models):
     return ms
 
 
-def fit_models(dev, variants):
+ANCHOR_SIGNALS = ["number_overlap", "number_back", "name_overlap", "name_back", "date_overlap", "latin_overlap"]
+FEATURE_SETS = {
+    "all": xl.FEATURES,
+    "no_anchor_signals": [f for f in xl.FEATURES if f not in ANCHOR_SIGNALS],
+    "no_retrieval_score": [f for f in xl.FEATURES if f != "xl_cos"],
+}
+
+
+def dev_cv(dev, features, key="v_full", folds=5, seed=358):
+    """Grouped k-fold cross-validation inside Hindi dev (groups are originals), so the verifier's feature
+    set is chosen without looking at test."""
+    items = [it for it in dev if key in it and it["level"] in HI_LEVELS + NEG_LEVELS]
+    groups = sorted({it["group"] for it in items})
+    random.Random(seed).shuffle(groups)
+    fold_of = {g: i % folds for i, g in enumerate(groups)}
+    f1s, fprs = [], []
+    for k in range(folds):
+        train = [it for it in items if fold_of[it["group"]] != k]
+        held = [it for it in items if fold_of[it["group"]] == k]
+        model = report.fit_model(train, features, key=key)
+        m = xl_method("cv", key[2:], model)
+        rows = detection_rows(m, threshold_for(m, train), held, HI_LEVELS)
+        f1s.append(macro(rows))
+        fprs += [r["f1"] for r in rows if r["level"] == "fpr_hi_facts_only"]
+    return float(np.nanmean(f1s)), float(np.mean(fprs)) if fprs else float("nan")
+
+
+def choose_features(dev):
+    """The feature set with the best dev cross-validated macro F1; ties go to the smaller set."""
+    rows = []
+    for name, feats in FEATURE_SETS.items():
+        f1, fpr = dev_cv(dev, feats)
+        rows.append({"features": name, "n_features": len(feats), "dev_cv_macro_f1": f1, "dev_cv_fpr_facts_only": fpr})
+    best = max(rows, key=lambda r: (round(r["dev_cv_macro_f1"], 3), -r["n_features"]))
+    return FEATURE_SETS[best["features"]], best["features"], rows
+
+
+def fit_models(dev, variants, features=xl.FEATURES):
     out = {}
     for v in variants:
         items = [it for it in dev if ("v_" + v) in it and it["level"] in HI_LEVELS + NEG_LEVELS]
-        out[v] = report.fit_model(items, xl.FEATURES, key="v_" + v)
+        out[v] = report.fit_model(items, features, key="v_" + v)
     return out
 
 
@@ -510,9 +547,9 @@ def macro(rows, levels=HI_LEVELS):
     return float(np.mean(fs)) if fs else float("nan")
 
 
-def ablation_rows(dev, test, models):
+def ablation_rows(dev, test, models, features):
     """One change at a time: each retrieval variant with its own verifier refit on dev, then the full
-    retrieval with one group of verifier signals removed."""
+    retrieval with one group of verifier signals removed (or added back, if dev CV left it out)."""
     out = []
 
     def add(name, m, variant):
@@ -528,14 +565,15 @@ def ablation_rows(dev, test, models):
 
     for v in models:
         add(v, xl_method(v, v, models[v]), v)
-    groups = {"no_alignment_signals": [f for f in xl.FEATURES if f.startswith(("align", "ordered", "back"))],
-              "no_anchor_signals": ["number_overlap", "number_back", "name_overlap", "name_back", "date_overlap",
-                                    "latin_overlap"],
-              "no_retrieval_score": ["xl_cos"]}
+    groups = {"alignment_signals": [f for f in xl.FEATURES if f.startswith(("align", "ordered", "back"))],
+              "anchor_signals": ANCHOR_SIGNALS, "retrieval_score": ["xl_cos"]}
     dv = [it for it in dev if it["level"] in HI_LEVELS + NEG_LEVELS and "v_full" in it]
-    for name, drop in groups.items():
-        model = report.fit_model(dv, [f for f in xl.FEATURES if f not in drop], key="v_full")
-        add(name, xl_method(name, "full", model), "full")
+    for name, group in groups.items():
+        if all(f in features for f in group):
+            label, feats = "no_" + name, [f for f in features if f not in group]
+        else:
+            label, feats = "plus_" + name, [f for f in xl.FEATURES if f in features or f in group]
+        add(label, xl_method(label, "full", report.fit_model(dv, feats, key="v_full")), "full")
     return out
 
 
@@ -576,7 +614,9 @@ def main(raw=RAW):
     dev = [it for it in items if it["split"] == "dev"]
     test = [it for it in items if it["split"] == "test"]
     variants = [v for v in list(VARIANTS) + ["dense_verify"] if any("v_" + v in it for it in dev)]
-    models = fit_models(dev, variants)
+    features, chosen, cv = choose_features(dev)
+    models = fit_models(dev, variants, features)
+    models["full"]["feature_set"] = chosen
     xl.save_model(models["full"])
     levels = HI_LEVELS + OTHER_LEVELS
     det, rank = [], []
@@ -592,9 +632,10 @@ def main(raw=RAW):
             group = [it for it in test if m.applies(it) and it["level"] in HI_LEVELS + NEG_LEVELS]
             oracle = report.best_threshold([m.score(it)[0] for it in group], [it["label"] for it in group])
             det += [{**r, "method": m.name + "@oracle"} for r in detection_rows(m, oracle, test, levels)]
-    abl = ablation_rows(dev, test, models)
+    abl = ablation_rows(dev, test, models, features)
     eff = efficiency_rows(test)
     OUT.mkdir(exist_ok=True)
+    report.write_csv(OUT / "crosslingual_dev_cv.csv", cv)
     report.write_csv(OUT / "crosslingual_detection.csv", det)
     report.write_csv(OUT / "crosslingual_ranking.csv", rank)
     report.write_csv(OUT / "crosslingual_ablations.csv", abl)
@@ -605,4 +646,4 @@ def main(raw=RAW):
     counts = {k: dict(v) for k, v in counts.items()}
     (OUT / "crosslingual_sets.json").write_text(json.dumps(counts, indent=2))
     charts(det, rank, HI_LEVELS)
-    return det, rank, abl, eff, counts, models["full"]
+    return det, rank, abl, eff, counts, models["full"], cv
