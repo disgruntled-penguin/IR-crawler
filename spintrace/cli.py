@@ -353,7 +353,8 @@ def cmd_kgram(args):
 
 
 def _xl_suspect(key, live, absent=False):
-    """A suspect dict and its exclusion mask from a rewrites_xl rid, or a crawled doc_id or URL."""
+    """(context, suspect, exclusion mask, ground truth, options) for a rewrites_xl rid (searched as in eval-xl,
+    without the time window) or a crawled doc_id or URL (searched as live pages are)."""
     import numpy as np
     from . import embed_xl
     from .detect import crosslingual as xl
@@ -372,7 +373,7 @@ def _xl_suspect(key, live, absent=False):
         it = items[-1] if absent else items[0]
         truth = (f"ground truth: {it['level']}, " + ("derived from " if it["label"] else "NOT derived; same event as ")
                  + ctx.row(it["orig"])["url"] + (" (source masked out)" if it["level"] == "source_absent" else ""))
-        return ctx, xl_eval.suspect(it), xl_eval.exclude_mask(ctx.idx, it), truth
+        return ctx, xl_eval.suspect(it), xl_eval.exclude_mask(ctx.idx, it), truth, xl_eval.VARIANTS["full"]
     con = embed_xl.connect_ro()
     r = con.execute("SELECT doc_id, url, site, title, text, published, meta FROM docs WHERE doc_id=? OR url=?",
                     (key, key)).fetchone()
@@ -381,16 +382,16 @@ def _xl_suspect(key, live, absent=False):
     excl = np.zeros(ctx.idx.N, dtype=bool)
     if r["doc_id"] in ctx.idx.doc_num:
         excl[ctx.idx.doc_num[r["doc_id"]]] = True
-    return ctx, dict(r), excl, f"live page ({xl.script_of_doc(dict(r))}), unjudged"
+    return ctx, dict(r), excl, f"live page ({xl.script_of_doc(dict(r))}), unjudged", xl.FULL
 
 
 def cmd_suspect_xl(args):
     """Trace an Indian-language suspect to an English source, printing every intermediate step."""
     from .detect import crosslingual as xl
-    ctx, s, excl, truth = _xl_suspect(args.key, args.live, args.absent)
+    ctx, s, excl, truth, opts = _xl_suspect(args.key, args.live, args.absent)
     print(f"SUSPECT {s['doc_id']} {s.get('site')} published={_when(s.get('published'))}  [{truth}]")
     print("  " + textwrap.shorten(s["text"], 200))
-    rep = xl.analyse_text(ctx, s, exclude=excl)
+    rep = xl.analyse_text(ctx, s, exclude=excl, opts=opts)
     a, st = rep["anchors"], rep["stats"]
     print(f"\n1. NUMBERS (canonical, Indic digits and lakh/crore/million resolved): {dict(a.numbers)}")
     print(f"   DATES (month, day): {a.dates}   WEEKDAYS: {dict(a.weekdays)}   LATIN TOKENS: {dict(a.latin)}")
@@ -405,10 +406,11 @@ def cmd_suspect_xl(args):
     print(f"\n3. QUERY to the English index: {len(st['query_terms'])} terms, earlier docs allowed={st['allowed']}"
           f"/{ctx.idx.N}, postings touched={st['postings_touched']}, {st['ms']:.0f} ms")
     print("   " + ", ".join(f"{t}[{kind}:{src} idf={idf}]" for t, idf, kind, src, w in st["query_terms"][:args.terms]))
-    print("\n4. CANDIDATES (anchor cosine + date phrase hits)")
+    print(f"\n4. CANDIDATES (anchor cosine, reranked by date phrases and name bigram phrases {a.name_pairs[:4]})")
     for i, c in enumerate(rep["candidates"][:10]):
         d = ctx.row(c["doc"])
-        print(f"   {i + 1:>2}. score={c['score']:.3f} cos={c['cos']:.3f} dates={c['date_frac']:.2f} {d['site']:<20} "
+        print(f"   {i + 1:>2}. score={c['score']:.3f} cos={c['cos']:.3f} dates={c['date_frac']:.2f} "
+              f"name_phrases={c.get('name_phrase', 0):.2f} {d['site']:<20} "
               f"{_when(d['published'])} {(d['title'] or d['url'])[:60]}")
     print("\n5. VERIFICATION of the top candidates")
     for v in rep["verified"]:

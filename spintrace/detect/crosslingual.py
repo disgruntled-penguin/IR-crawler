@@ -10,6 +10,7 @@ English index is built from those anchors:
            English name words, which are then index terms
 The ranked candidates are verified with anchor overlaps and a multilingual sentence alignment.
 """
+import json
 import math
 import time
 from collections import Counter
@@ -20,10 +21,13 @@ from .. import config, embed_xl, kgram, text as tx, text_indic as ti, translit a
 from . import candidates, pipeline, signals
 
 WEIGHTS = {"number": 1.0, "date": 0.5, "latin": 1.0, "name": 1.0, "weekday": 0.2}
-DATE_PHRASE_WEIGHT = 0.2
+DATE_PHRASE_WEIGHT = 0.1
+NAME_PHRASE_WEIGHT = 0.1
+RERANK = 3
 WINDOW_DAYS = 30
 TOP_K = 20
 VERIFY_TOP = 5
+QUERY_TERMS = 40
 NAME_MATCHES = 3
 TERMS_PER_KEY = 2
 EDIT_CONF = {0: 1.0, 1: 0.5, 2: 0.25}
@@ -32,9 +36,9 @@ IDF_GAP = 1.0
 MIN_SRC_DF = 3
 SCALES = [(1e3, "thousand"), (1e5, "lakh"), (1e6, "million"), (1e7, "crore"), (1e9, "billion")]
 MODEL_PATH = config.RESULTS / "verifier_xl.json"
-FEATURES = ["xl_cos", "number_overlap", "name_overlap", "date_overlap", "latin_overlap", "align_coverage",
-            "align_mean", "align_order", "ordered_coverage", "back_coverage"]
-DEFAULT = {"features": FEATURES, "weights": [2.0, 2.0, 2.0, 0.5, 0.5, 3.0, 2.0, 1.0, 3.0, 1.0], "bias": -7.0,
+FEATURES = ["xl_cos", "number_overlap", "number_back", "name_overlap", "name_back", "date_overlap", "latin_overlap",
+            "align_coverage", "align_mean", "align_order", "ordered_coverage", "back_coverage"]
+DEFAULT = {"features": FEATURES, "weights": [2.0, 2.0, 1.0, 1.0, 2.0, 0.5, 0.5, 3.0, 2.0, 1.0, 3.0, 1.0], "bias": -7.5,
            "threshold": 0.5, "source": "default"}
 NOT_NAMES = set(ti.MULTIPLIERS) | set(ti.NUMBER_WORDS) | set(ti.MONTH_WORDS) | set(ti.WEEKDAYS)
 
@@ -42,10 +46,12 @@ NOT_NAMES = set(ti.MULTIPLIERS) | set(ti.NUMBER_WORDS) | set(ti.MONTH_WORDS) | s
 class Options:
     """Switches for the ablations; the defaults are the full system."""
 
-    def __init__(self, names=True, numbers=True, dates=True, latin=True, fuzzy="kgram", idf_check=True):
+    def __init__(self, names=True, numbers=True, dates=True, latin=True, fuzzy="kgram", idf_check=True,
+                 window_days=WINDOW_DAYS):
         self.names, self.numbers, self.dates, self.latin = names, numbers, dates, latin
         self.fuzzy = fuzzy
         self.idf_check = idf_check
+        self.window_days = window_days
 
 
 FULL = Options()
@@ -62,6 +68,7 @@ class Anchors:
         self.latin = Counter(ti.latin_tokens(text)) if opts.latin else Counter()
         self.names = []
         self.toks = toks
+        self.keys = set()
         if opts.names:
             seen = {}
             for t in toks:
@@ -73,14 +80,20 @@ class Anchors:
                 fold = 0x0B80 <= ord(t[0]) < 0x0C00
                 latin = tr.word(t)
                 k = tr.key(latin, fold)
+                self.keys.add(k)
                 if len(k) < 2:
                     continue
                 src_idf, src_df = lex.source_idf(t) if opts.idf_check else (None, 0)
                 seen[t] = {"token": t, "translit": latin, "key": k, "fold": fold, "tf": 1, "src_idf": src_idf,
                            "src_df": src_df, "matches": match_name(lex, latin, k, fold, opts.fuzzy)}
             for n in seen.values():
-                n["matches"] = [m for m in n["matches"] if any(plausible(idx, n, t) for t, _ in m[3].most_common(TERMS_PER_KEY))]
+                n["matches"] = [m for m in n["matches"]
+                                if any(plausible(idx, n, t) for t, _ in m[3].most_common(TERMS_PER_KEY))]
             self.names = [n for n in seen.values() if n["matches"]]
+            self.keys |= {tr.key(t) for t in self.latin}
+        named = {n["token"]: n for n in self.names}
+        self.name_pairs = list(dict.fromkeys((a, b) for a, b in zip(toks, toks[1:]) if a in named and b in named))
+        self.named = named
 
     def counts(self):
         return {"numbers": len(self.numbers), "dates": len(self.dates), "latin": len(self.latin),
@@ -157,30 +170,51 @@ def build_query(idx, anchors):
                     continue
                 add(term, WEIGHTS["name"] * (1 + math.log10(n["tf"])) * conf / total, "name", n["token"])
     q = {t: w * float(idx.idf[t]) for t, w in raw.items()}
+    # Index elimination: only the highest-weight terms are scored, as in the English query.
+    q = dict(sorted(q.items(), key=lambda x: -x[1])[:QUERY_TERMS])
     norm = math.sqrt(sum(v * v for v in q.values())) or 1.0
     q = {t: v / norm for t, v in q.items()}
     shown = sorted(q, key=lambda t: -q[t])
     return q, [(idx.terms[t], round(float(idx.idf[t]), 3), why[t][0], why[t][1], round(q[t], 3)) for t in shown]
 
 
-def date_hits(idx, dates, allowed):
-    """Share of the suspect's dates each document contains as the phrase 'July 26' or '26 July'."""
+def phrase_hits(idx, phrases, allowed):
+    """For groups of alternative phrasings, the share of groups each document matches with at least one
+    exact phrase on the positional index. Returns ({doc: share}, postings touched)."""
     hits, touched = Counter(), 0
-    for m, d in dates:
+    for group in phrases:
         found = set()
-        for words in ([ti.MONTHS[m - 1], str(d)], [str(d), ti.MONTHS[m - 1]]):
+        for words in group:
             found |= idx.phrase(words)
-        touched += sum(len(p.docs) for p in (idx.postings(ti.MONTHS[m - 1]), idx.postings(str(d))) if p is not None)
+            touched += sum(len(p.docs) for p in (idx.postings(w) for w in words) if p is not None)
         for x in found:
             if allowed[x]:
                 hits[x] += 1
-    return {x: c / len(dates) for x, c in hits.items()}, touched
+    return ({x: c / len(phrases) for x, c in hits.items()} if phrases else {}), touched
+
+
+def date_phrases(anchors):
+    """'July 26' and '26 July' for each (month, day)."""
+    return [[[ti.MONTHS[m - 1], str(d)], [str(d), ti.MONTHS[m - 1]]] for m, d in anchors.dates]
+
+
+def name_phrases(anchors):
+    """Two adjacent transliterated names as English bigrams ('narendra modi'): a multiword name is far
+    rarer than either word, and the positional index can test it exactly."""
+    out = []
+    for a, b in anchors.name_pairs:
+        left = [t for m in anchors.named[a]["matches"][:2] for t, _ in m[3].most_common(1)]
+        right = [t for m in anchors.named[b]["matches"][:2] for t, _ in m[3].most_common(1)]
+        group = [[x, y] for x in left for y in right if x != y]
+        if group:
+            out.append(group)
+    return out
 
 
 def allowed_mask(idx, lex, published, site=None, exclude=None, window_days=WINDOW_DAYS):
     """Earlier English documents from other sites inside the time window; undated documents stay in."""
     mask = candidates.mask_before(idx, published, site) & lex.latin
-    if published is not None and not np.isnan(published) and window_days:
+    if published is not None and not np.isnan(published) and window_days is not None:
         pub = idx.meta["published"]
         mask &= np.isnan(pub) | (pub >= published - window_days * 86400)
     if exclude is not None:
@@ -189,21 +223,22 @@ def allowed_mask(idx, lex, published, site=None, exclude=None, window_days=WINDO
 
 
 def retrieve(idx, lex, text, published=None, site=None, exclude=None, k=TOP_K, opts=FULL, anchors=None):
-    """Return (candidates, stats, anchors); each candidate is dict(doc, cos, date_frac, score)."""
+    """Return (candidates, stats, anchors); each candidate is dict(doc, cos, date_frac, name_phrase, score)."""
     t0 = time.perf_counter()
     anchors = anchors or Anchors(text, lex, idx, opts)
-    allowed = allowed_mask(idx, lex, published, site, exclude)
+    allowed = allowed_mask(idx, lex, published, site, exclude, opts.window_days)
     qvec, shown = build_query(idx, anchors)
-    cos = dict(idx.cosine(qvec, allowed, k=k)) if qvec else {}
-    dh, d_touched = date_hits(idx, anchors.dates, allowed) if anchors.dates else ({}, 0)
-    docs = set(cos) | set(dh)
-    cands = [{"doc": d, "cos": cos.get(d, 0.0), "date_frac": dh.get(d, 0.0)} for d in docs]
+    # Phrase evidence reranks the cosine shortlist; alone it would let any 'July 26' story in.
+    cos = dict(idx.cosine(qvec, allowed, k=RERANK * k)) if qvec else {}
+    dh, d_touched = phrase_hits(idx, date_phrases(anchors), allowed)
+    nh, n_touched = phrase_hits(idx, name_phrases(anchors), allowed)
+    cands = [{"doc": d, "cos": c, "date_frac": dh.get(d, 0.0), "name_phrase": nh.get(d, 0.0)} for d, c in cos.items()]
     for c in cands:
-        c["score"] = c["cos"] + DATE_PHRASE_WEIGHT * c["date_frac"]
+        c["score"] = c["cos"] + DATE_PHRASE_WEIGHT * c["date_frac"] + NAME_PHRASE_WEIGHT * c["name_phrase"]
     cands.sort(key=lambda c: -c["score"])
-    touched = int(sum(len(idx.post["body"][t].docs) for t in qvec if t in idx.post["body"])) + d_touched
-    stats = {"anchors": anchors.counts(), "query_terms": shown, "postings_touched": touched,
-             "allowed": int(allowed.sum()), "ms": 1000 * (time.perf_counter() - t0)}
+    touched = int(sum(len(idx.post["body"][t].docs) for t in qvec if t in idx.post["body"])) + d_touched + n_touched
+    stats = {"anchors": {**anchors.counts(), "name_phrases": len(name_phrases(anchors))}, "query_terms": shown,
+             "postings_touched": touched, "allowed": int(allowed.sum()), "ms": 1000 * (time.perf_counter() - t0)}
     return cands[:k], stats, anchors
 
 
@@ -215,8 +250,9 @@ class CandidateFacts:
         self.numbers = set(ti.numbers(text, toks))
         self.dates = set(ti.dates(text, toks))
         self.tokens = set(tx.tokens(text))
-        words = kgram.name_words(text)
-        self.keys = {tr.key(w) for w in words} | {tr.key(w, True) for w in words}
+        words = set(kgram.name_words(text))
+        self.name_keys = [(tr.key(w), tr.key(w, True)) for w in words]
+        self.keys = {k for pair in self.name_keys for k in pair}
 
 
 class Pair:
@@ -254,13 +290,25 @@ def name_overlap(p):
     names = p.anchors.names
     if not names:
         return 0.0
-    hit = 0
-    for n in names:
-        k = n["key"]
-        if k in p.cf.keys or any(abs(len(k) - len(c)) <= 1 and kgram.levenshtein(k, c) <= 1 for c in p.cf.keys
-                                 if len(k) >= 4):
-            hit += 1
-    return hit / len(names)
+    def near(k):
+        if k in p.cf.keys:
+            return True
+        # Short keys get no edit: one edit turns 'md' into half the dictionary.
+        return len(k) >= 4 and any(abs(len(k) - len(c)) <= 1 and kgram.levenshtein(k, c) <= 1 for c in p.cf.keys)
+
+    return sum(near(n["key"]) for n in names) / len(names)
+
+
+def number_back(p):
+    """Share of the candidate's numbers the suspect repeats: a translation keeps nearly all of them."""
+    return len(p.cf.numbers & set(p.anchors.numbers)) / len(p.cf.numbers) if p.cf.numbers else 0.0
+
+
+def name_back(p):
+    """Share of the candidate's English names (reliable, from capitalisation) whose key some suspect word has."""
+    if not p.cf.name_keys or not p.anchors.keys:
+        return 0.0
+    return sum(a in p.anchors.keys or b in p.anchors.keys for a, b in p.cf.name_keys) / len(p.cf.name_keys)
 
 
 def date_overlap(p):
@@ -300,7 +348,8 @@ def back_coverage(p):
     return float(np.mean(sims.max(axis=0) >= ALIGN_THRESHOLD))
 
 
-SIGNALS = {"xl_cos": xl_cos, "number_overlap": number_overlap, "name_overlap": name_overlap,
+SIGNALS = {"xl_cos": xl_cos, "number_overlap": number_overlap, "number_back": number_back,
+           "name_overlap": name_overlap, "name_back": name_back,
            "date_overlap": date_overlap, "latin_overlap": latin_overlap, "align_coverage": align_coverage,
            "align_mean": align_mean, "align_order": align_order, "ordered_coverage": ordered_coverage,
            "back_coverage": back_coverage}
@@ -311,14 +360,12 @@ def compute(pair):
 
 
 def load_model():
-    import json
     if MODEL_PATH.exists():
         return json.loads(MODEL_PATH.read_text())
     return DEFAULT
 
 
 def save_model(model):
-    import json
     config.RESULTS.mkdir(exist_ok=True)
     MODEL_PATH.write_text(json.dumps(model, indent=2))
 
@@ -358,7 +405,8 @@ class Context:
 def verify(ctx, s, cands, anchors, k=VERIFY_TOP):
     """Signals and provenance for the top k candidates; s is a dict with doc_id, text, published."""
     top = cands[:k]
-    ctx.emb.prefetch([(s["doc_id"], s["text"])] + [(ctx.row(c["doc"])["doc_id"], ctx.row(c["doc"])["text"]) for c in top])
+    ctx.emb.prefetch([(s["doc_id"], s["text"])] + [(ctx.row(c["doc"])["doc_id"], ctx.row(c["doc"])["text"])
+                                                   for c in top])
     rows = []
     for c in top:
         cd = ctx.row(c["doc"])
@@ -430,7 +478,6 @@ def _context_for(pctx):
 
 def script_of_doc(d):
     """The script a stored document was tagged with at crawl time, or detected from its text."""
-    import json
     try:
         s = json.loads(d.get("meta") or "{}").get("script")
     except (TypeError, ValueError):
