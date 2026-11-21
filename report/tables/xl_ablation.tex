@@ -1,0 +1,18 @@
+\begin{tabularx}{\textwidth}{@{}lRRRR@{}}
+  \toprule
+  \hrow \hd{Variant (refit on dev)} & \hd{macro F1} & \hd{P@1} & \hd{FPR same event} & \hd{postings touched} \\
+  \midrule
+  \ours Full system & 0.843 & 0.993 & 0.100 & 68483 \\
+  No name anchors & 0.759 & 0.824 & 0.080 & 16849 \\
+  No number anchors & 0.844 & 0.966 & 0.080 & 68411 \\
+  No date anchors & 0.851 & 0.993 & 0.100 & 63177 \\
+  Exact phonetic key only & 0.843 & 0.993 & 0.100 & 41698 \\
+  Exact transliteration only (no fuzzy k-gram) & 0.791 & 0.865 & 0.060 & 17184 \\
+  No source-language df check & 0.727 & 0.703 & 0.040 & 112852 \\
+  30-day window instead of 7 & 0.855 & 0.993 & 0.040 & 68483 \\
+  Dense retrieval, our verifier & 0.829 & 0.980 & 0.100 & -- \\
+  No alignment signals & 0.408 & 0.966 & 0.960 & 68483 \\
+  Anchor-overlap signals added & 0.751 & 0.993 & 0.120 & 68483 \\
+  No retrieval score & 0.851 & 0.993 & 0.100 & 68483 \\
+  \bottomrule
+\end{tabularx}

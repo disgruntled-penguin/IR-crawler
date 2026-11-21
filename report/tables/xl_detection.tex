@@ -1,0 +1,14 @@
+\begin{tabularx}{\textwidth}{@{}lRRRRRRR@{}}
+  \toprule
+  \hrow \hd{Method} & \hd{transl.} & \hd{SEO} & \hd{summary} & \hd{FPR same event} & \hd{FPR same event, 100 words} & \hd{FPR source absent} & \hd{P@1} \\
+  \midrule
+  \ours SpinTrace (anchors, no translation) & 0.860 & 0.852 & 0.818 & 0.100 & 0.220 & 0.000 & 0.993 \\
+  Translate back, then SpinTrace & 0.906 & 0.771 & 0.753 & 0.060 & 0.120 & 0.000 & 0.993 \\
+  Translate back, then tf-idf & 0.897 & 0.800 & 0.427 & 0.100 & 0.100 & 0.000 & 1.000 \\
+  Translate back, then BM25 & 0.700 & 0.637 & 0.642 & 0.260 & 0.580 & 0.000 & 1.000 \\
+  Translate back, then MinHash & 0.000 & 0.000 & 0.000 & 0.000 & 0.000 & 0.000 & 0.000 \\
+  Translate back, then exact hash & 0.000 & 0.000 & 0.000 & 0.000 & 0.000 & 0.000 & 0.000 \\
+  Multilingual dense cosine & 0.410 & 0.383 & 0.385 & 0.720 & 0.700 & 0.209 & 0.926 \\
+  Latin-script tokens only & 0.327 & 0.381 & 0.163 & 0.820 & 0.720 & 0.290 & 0.480 \\
+  \bottomrule
+\end{tabularx}

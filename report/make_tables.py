@@ -286,6 +286,31 @@ def numbers():
     N["DenseTrans"], N["DenseSeo"], N["DenseSum"] = (d("dense_cosine", m) for m in ("hi_translation", "hi_seo", "hi_summary"))
     N["LatinSum"] = d("latin_only", "hi_summary")
     N["BtTfidfSum"], N["BtBmSum"] = d("bt_tfidf_cosine", "hi_summary"), d("bt_bm25", "hi_summary")
+    N["BtTfidfTrans"], N["BtTfidfSeo"] = d("bt_tfidf_cosine", "hi_translation"), d("bt_tfidf_cosine", "hi_seo")
+    N["BtBmTrans"], N["BtBmSeo"] = d("bt_bm25", "hi_translation"), d("bt_bm25", "hi_seo")
+    N["BtTfidfPone"] = r1("bt_tfidf_cosine")
+    length_path = RESULTS / "crosslingual_length_check.json"
+    if length_path.exists():
+        lc = json.loads(length_path.read_text())
+        N["LenSumMed"] = num(lc["median_words"]["test:hi_summary"], 0)
+        N["LenLongMed"] = num(lc["median_words"]["test:hi_facts_only"], 0)
+        N["LenShortMed"] = num(lc["median_words"]["test:hi_facts_short"], 0)
+        N["LenAucSum"] = num(lc["auc"]["test:hi_summary:vs_long"], 2)
+        N["LenAucTrans"] = num(lc["auc"]["test:hi_translation:vs_long"], 2)
+        N["LenAucSeo"] = num(1 - lc["auc"]["test:hi_seo:vs_long"], 2)
+        N["LenAucSumShort"] = num(lc["auc"]["test:hi_summary:vs_short"], 2)
+    crawl_path = RESULTS / "crawl_report.json"
+    if crawl_path.exists():
+        cr = json.loads(crawl_path.read_text())
+        fc = cr.get("final_crawl")
+        if fc:
+            for key, v in (("Req", "requests_page"), ("Robots", "requests_robots"), ("Hosts", "hosts"), ("Skips", "robots_skips"),
+                           ("Back", "backoffs"), ("Trap", "trap_guards_fired"), ("Docs", "docs_saved"),
+                           ("Disallowed", "disallowed_urls_fetched"), ("Under", "requests_under_floor")):
+                N["Crawl" + key] = f"{fc[v]:,}".replace(",", "{,}")
+            N["CrawlGap"] = num(fc["min_gap_seconds"], 1)
+        N["CrawlAudited"] = f"{cr['robots_audited_fetches']:,}".replace(",", "{,}")
+        N["CrawlAllReq"] = f"{cr['requests_page']:,}".replace(",", "{,}")
     N["XlPone"], N["DensePone"], N["BtSpinPone"] = r1("spintrace_xl"), r1("dense_cosine"), r1("bt_spintrace_en")
     for key, lvl in (("Same", "fpr_hi_facts_only"), ("Short", "fpr_hi_facts_short"), ("Absent", "fpr_source_absent")):
         N["XlFpr" + key] = d("spintrace_xl", lvl)
