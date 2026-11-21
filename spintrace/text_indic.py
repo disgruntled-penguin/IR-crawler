@@ -139,6 +139,8 @@ def numbers(text, toks=None):
                 v = float(t)
             except ValueError:
                 continue
+            if v == 0:
+                continue
             if mult:
                 out.append(canon(v * mult))
             elif len(t.replace(".", "")) >= 2:

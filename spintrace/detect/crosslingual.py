@@ -32,7 +32,8 @@ NAME_MATCHES = 3
 TERMS_PER_KEY = 2
 EDIT_CONF = {0: 1.0, 1: 0.5, 2: 0.25}
 ALIGN_THRESHOLD = 0.6
-IDF_GAP = 1.0
+# Chosen on dev (MRR 1.000 at 0.0, 0.962 at 0.5, 0.912 at 1.0; 66 Hindi dev positives).
+IDF_GAP = 0.0
 MIN_SRC_DF = 3
 SCALES = [(1e3, "thousand"), (1e5, "lakh"), (1e6, "million"), (1e7, "crore"), (1e9, "billion")]
 MODEL_PATH = config.RESULTS / "verifier_xl.json"
@@ -138,8 +139,8 @@ def number_forms(value):
 
 def plausible(idx, name, term):
     """A name keeps roughly its document frequency across languages. A word common in the source
-    language (seen in MIN_SRC_DF or more pages) that sounds like a much rarer English name is a common
-    word, not that name: रात (night) is not Rohit, प्रधान (prime) is not Pepperdine."""
+    language (seen in MIN_SRC_DF or more pages) that sounds like a rarer English name (idf higher by more
+    than IDF_GAP) is a common word, not that name: रात (night) is not Rohit, प्रधान (prime) is not Pepperdine."""
     if name["src_idf"] is None or name["src_df"] < MIN_SRC_DF:
         return True
     tid = idx.vocab.get(term)
