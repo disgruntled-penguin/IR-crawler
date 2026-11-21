@@ -50,3 +50,24 @@ final rerun; `notes/requirements_checklist.md` maps every requirement to its sta
 
 - `python -m spintrace judge-ui` (port 8765): blind judging page over the three label sheets.
 - `python -m spintrace app` (port 8766): Search with g(d), Trace and Site integrity tabs over the same index and detection code.
+
+## Clean-clone check (7 Oct evening)
+
+Fresh clone and virtual environment: `pip install -r requirements.txt`, 17 tests, `build --stem`, `postings`, `eval` and `demo --seed 7` all ran. `recrawl` (hours, live web) and the NewsGuard Wayback fetch were not rerun, so the clean clone's numbers differ from the README's, which come from the full crawl.
+
+## Final phase (21 Nov 2026, code and README due 22:00 IST)
+
+Plan: two problems the midterm cannot solve, because both break its assumption that a copy shares words with one original.
+
+1. Cross-language derivatives: English originals rewritten in Hindi (plus Tamil, Telugu and Bengali as a generality check), traced through numbers, dates and transliterated names (own transliteration, phonetic key and k-gram index).
+2. Multi-source mashups: one article stitched from two or three originals, recovered by iterative residual retrieval with per-source shares.
+3. Stretch: format changes (listicle, Q&A) through an order-free fact signal.
+
+Status at 15:50:
+- Data restored from the Trash to `data/` (43,463 docs); 18 tests pass.
+- Live crawl restarted at 15:33 for 6 h (`data/logs/crawl.log`) with 15 new Indian-language feeds (BBC Hindi, Aaj Tak, NDTV India, Amar Ujala, ABP, Bhaskar, TV9, India TV, BBC Marathi, Tamil, Telugu, Bengali, Gujarati, Punjabi). Each saved page records its script. Politeness proof lines: `ROBOTS_SKIP host=www.latestly.com ... disallowed by robots.txt`; BBC feed host gaps of 37-59 s.
+- Generation queue (`spintrace/eval/xl_rewrites.py`, gemma3:4b through ollama, 316 jobs) writes `evaldata/rewrites_xl.jsonl` (`data/logs/xl_rewrites.log`).
+- Two helper agents in worktrees: cross-language detection, and multi-source detection.
+- No human judging this round (the team is unavailable); live results are reported as unjudged counts with seeded-random examples.
+
+Blocked feeds: Navbharat Times, Jagran, Zee News Hindi and Patrika (404), News18 Hindi (403), Live Hindustan (503). Jansatta, DW Hindi and Prabhasakshi returned empty feeds.
