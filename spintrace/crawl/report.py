@@ -132,8 +132,43 @@ def examples(con=None, host="www.theguardian.com"):
     return out
 
 
-def write(con=None):
+def window(con, since):
+    """Politeness numbers for the fetches logged at or after `since` (epoch seconds): the final crawl on its own."""
+    fetches = con.execute("SELECT ts, host, url FROM fetch_log WHERE event='fetch' AND ts >= ? ORDER BY ts", (since,)).fetchall()
+    parsers = _parsers(con)
+    bad = 0
+    for ts, host, url in fetches:
+        versions = parsers.get(host)
+        if versions:
+            rp = versions[0][1]
+            for vts, vrp in versions:
+                if vts <= ts:
+                    rp = vrp
+            bad += not rp.can_fetch(config.ROBOTS_AGENT, url)
+    prev, gaps, under = {}, {}, 0
+    for host, ts in con.execute("SELECT host, ts FROM fetch_log WHERE event IN ('fetch','robots_fetched') AND ts >= ? "
+                                "ORDER BY host, ts", (since,)):
+        if host in prev:
+            gaps[host] = min(gaps.get(host, ts - prev[host]), ts - prev[host])
+            under += ts - prev[host] < config.DEFAULT_DELAY - 0.01
+        prev[host] = ts
+    ev = Counter(r[0] for r in con.execute("SELECT event FROM fetch_log WHERE ts >= ?", (since,)))
+    return {"from": datetime.datetime.fromtimestamp(since).isoformat(timespec="minutes"),
+            "hours": round((fetches[-1][0] - fetches[0][0]) / 3600, 2) if fetches else 0,
+            "requests_page": len(fetches), "requests_robots": ev.get("robots_fetched", 0),
+            "hosts": len({h for _, h, _ in fetches}), "disallowed_urls_fetched": bad,
+            "robots_skips": ev.get("robots_skip", 0),
+            "min_gap_seconds": round(min(gaps.values()), 2) if gaps else None,
+            "requests_under_floor": under,
+            "backoffs": ev.get("backoff", 0), "trap_guards_fired": ev.get("trap_guard", 0),
+            "docs_saved": con.execute("SELECT COUNT(*) FROM docs WHERE origin='crawl' AND fetched_at >= ?", (since,)).fetchone()[0]}
+
+
+def write(con=None, since=None):
+    con = con or store.connect()
     rep = build(con)
+    if since is not None:
+        rep["final_crawl"] = window(con, since)
     config.RESULTS.mkdir(exist_ok=True)
     (config.RESULTS / "crawl_report.json").write_text(json.dumps(rep, indent=2))
     return rep

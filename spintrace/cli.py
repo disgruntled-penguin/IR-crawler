@@ -381,7 +381,8 @@ def cmd_app(args):
 
 def cmd_crawl_report(args):
     from .crawl import report
-    rep = report.write()
+    since = dt.datetime.fromisoformat(args.since).timestamp() if args.since else None
+    rep = report.write(since=since)
     for k, v in rep.items():
         if k not in ("min_gap_seconds_by_host", "docs_by_site", "delay_violation_examples"):
             print(f"{k}: {v}")
@@ -721,6 +722,7 @@ def main(argv=None):
     c.set_defaults(fn=cmd_live_xl)
 
     c = sub.add_parser("crawl-report", help="politeness and correctness statistics of the crawl")
+    c.add_argument("--since", help="also report the fetches from this date on (YYYY-MM-DD), e.g. the final crawl")
     c.set_defaults(fn=cmd_crawl_report)
 
     args = p.parse_args(argv)
