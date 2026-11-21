@@ -161,9 +161,11 @@ def trace(ctx, sus, model=None, threshold=None, stop_share=None, cover=None, exc
     resid = np.ones(ns, dtype=bool)
     pairs = {}
     rounds = []
+    stop = f"{max_sources} sources found"
     for r in range(max_sources):
         share_left = float(resid.mean())
         if r > 0 and (share_left < stop_share or resid.sum() < MIN_NEW):
+            stop = f"unexplained share {share_left:.2f} below {stop_share:.2f}"
             break
         t0 = time.perf_counter()
         res_text = " ".join(s for s, keep in zip(sents, resid) if keep) if residual else sus.text
@@ -172,6 +174,7 @@ def trace(ctx, sus, model=None, threshold=None, stop_share=None, cover=None, exc
                                                 require_dates=require_dates)
         t_ret = time.perf_counter() - t0
         if not cands:
+            stop = "no candidates retrieved"
             break
         top = cands[:k_verify]
         ctx.emb.prefetch([(ctx.doc(c["doc"])["doc_id"], ctx.doc(c["doc"])["text"]) for c in top])
@@ -194,18 +197,23 @@ def trace(ctx, sus, model=None, threshold=None, stop_share=None, cover=None, exc
         close = [v for v in verified if v["prob"] >= best["prob"] - TIE_MARGIN]
         chosen = min(close, key=lambda v: v["published"] if v["published"] is not None
                      and not (isinstance(v["published"], float) and math.isnan(v["published"])) else float("inf"))
-        bsim = pairs[chosen["doc"]].alignment()[0].astype(np.float32)
+        bsim, barg, _ = pairs[chosen["doc"]].alignment()
+        bsim = bsim.astype(np.float32)
         new = resid & (bsim >= cover)
         rounds.append({"round": r + 1, "share_left": share_left, "residual_sents": int(resid.sum()),
                        "query_terms": stats["query_terms"], "postings_touched": stats["postings_touched"],
                        "n_quotes": stats["n_quotes"], "candidates": cands, "verified": verified,
                        "chosen": chosen, "prob": best["prob"], "new_covered": np.nonzero(new)[0].tolist(),
-                       "sims": bsim, "t_retrieve": t_ret, "t_round": time.perf_counter() - t0})
-        if best["prob"] < threshold or new.sum() < MIN_NEW:
+                       "sims": bsim, "arg": barg, "t_retrieve": t_ret, "t_round": time.perf_counter() - t0})
+        if best["prob"] < threshold:
+            stop = f"best candidate p={best['prob']:.3f} below threshold {threshold:.2f}"
+            break
+        if new.sum() < MIN_NEW:
+            stop = f"best candidate covers {int(new.sum())} new sentences (< {MIN_NEW})"
             break
         resid &= ~new
         excl[chosen["doc"]] = True
-    return {"suspect": sus.doc_id, "n_sents": ns, "sents": sents, "rounds": rounds,
+    return {"suspect": sus.doc_id, "n_sents": ns, "sents": sents, "rounds": rounds, "stop": stop,
             "params": {"threshold": threshold, "stop_share": stop_share, "cover": cover}}
 
 

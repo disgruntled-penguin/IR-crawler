@@ -20,8 +20,12 @@ CREATE TABLE IF NOT EXISTS edges (
 """
 
 
-def run(ctx, where="1=1", log_every=200):
-    """Analyse each matching document and keep its verified edges above threshold."""
+def run(ctx, where="1=1", log_every=200, multi=False):
+    """Analyse each matching document and keep its verified edges above threshold.
+
+    multi=True also runs the multi-source pass and adds an edge for every further verified source (verdict
+    'multi_source', its sentence share in why), so a mashup points at each original it was stitched from.
+    """
     con = ctx.con
     con.executescript(SCHEMA)
     ids = [r[0] for r in con.execute(f"SELECT doc_id FROM docs WHERE {where}")]
@@ -37,6 +41,15 @@ def run(ctx, where="1=1", log_every=200):
             v = rep["source"]
             con.execute("INSERT OR REPLACE INTO edges VALUES (?,?,?,?,?,?)",
                         (doc_id, v["doc_id"], v["prob"], v["verdict"], v["why"], json.dumps(v["signals"])))
+        if multi:
+            _, fin = pipeline.analyse_multi(ctx, ctx.num(doc_id))
+            single = rep["source"]["doc_id"] if rep["flagged"] else None
+            for src in fin["sources"]:
+                if src["doc_id"] != single:
+                    con.execute("INSERT OR REPLACE INTO edges VALUES (?,?,?,?,?,?)",
+                                (doc_id, src["doc_id"], src["prob"], "multi_source",
+                                 f"share {src['share']:.2f} of sentences, round {src['round']}",
+                                 json.dumps({"share": src["share"], "round": src["round"]})))
         if (i + 1) % 20 == 0:
             con.commit()
         if (i + 1) % log_every == 0:
@@ -93,9 +106,14 @@ def domain_report(con):
     total = Counter(r[0] for r in con.execute("SELECT site FROM docs WHERE origin='crawl'"))
     flagged = Counter()
     sources = defaultdict(Counter)
-    for ssite, osite in con.execute("""SELECT s.site, o.site FROM edges e JOIN docs s ON s.doc_id=e.suspect
-                                       JOIN docs o ON o.doc_id=e.source WHERE s.origin='crawl'"""):
-        flagged[ssite] += 1
+    seen = set()
+    for suspect, ssite, osite in con.execute("""SELECT e.suspect, s.site, o.site FROM edges e
+                                                JOIN docs s ON s.doc_id=e.suspect JOIN docs o ON o.doc_id=e.source
+                                                WHERE s.origin='crawl'"""):
+        # A suspect with several source edges (multi-source scan) counts once.
+        if suspect not in seen:
+            seen.add(suspect)
+            flagged[ssite] += 1
         sources[ssite][osite] += 1
     rows = []
     for site, n in total.most_common():

@@ -171,6 +171,73 @@ def cmd_suspect(args):
     ctx.emb.save()
 
 
+def cmd_sources(args):
+    """Every source of one suspect, round by round: residual query, candidates, verification, coverage, shares."""
+    import numpy as np
+    from .detect import multisource
+    from .eval import ms_eval
+    ctx = ms_eval.context()
+    sus, gold, excl, note = ms_eval.suspect_for_key(ctx, args.doc, args.xl)
+    model = ctx.ms_model
+    print(f"SUSPECT {sus.doc_id} {sus.site} published={_when(sus.published)}{note}")
+    if sus.url:
+        print(f"  {sus.url}\n  {sus.title}")
+    for g, share in (gold or {}).items():
+        d = ctx.doc(g)
+        print(f"  true source: {d['doc_id']} {d['site']} share={share if share is None else round(share, 2)} "
+              f"{(d['title'] or d['url'])[:70]}")
+    tr = multisource.trace(ctx, sus, exclude=excl)
+    sents = tr["sents"]
+    print(f"  {tr['n_sents']} sentences; round verifier from {model['source']}: threshold={tr['params']['threshold']:.2f} "
+          f"stop below {tr['params']['stop_share']:.2f} unexplained, cover at sim >= {tr['params']['cover']:.2f}")
+    covered = np.zeros(tr["n_sents"], dtype=bool)
+    for rd in tr["rounds"]:
+        print(f"\nROUND {rd['round']}: unexplained {rd['residual_sents']}/{tr['n_sents']} sentences ({rd['share_left']:.0%})")
+        if covered.any():
+            print(f"   covered so far: s{', s'.join(str(i) for i in np.nonzero(covered)[0])}")
+        print(f"   residual query: {len(rd['query_terms'])} rarest terms, quotes={rd['n_quotes']}, "
+              f"postings touched={rd['postings_touched']}")
+        print("   " + ", ".join(f"{t}({w})" for t, w in rd["query_terms"]))
+        print("   candidates (rare-term cosine + quote phrase hits):")
+        for i, c in enumerate(rd["candidates"][:args.k]):
+            d = ctx.doc(c["doc"])
+            mark = " <- true source" if gold and c["doc"] in gold else ""
+            print(f"   {i + 1:>2}. score={c['score']:.3f} cos={c['rare_cos']:.3f} quotes={c['quote_frac']:.2f} "
+                  f"{d['site']:<20} {_when(d['published'])} {(d['title'] or d['url'])[:50]}{mark}")
+        print("   verification against the unexplained sentences:")
+        for v in rd["verified"]:
+            sig = " ".join(f"{k.replace('res_', '')}={x:.2f}" for k, x in v["signals"].items())
+            print(f"     p={v['prob']:.3f} {v['site']:<20} {sig}")
+        c = rd["chosen"]
+        ok = rd["prob"] >= tr["params"]["threshold"] and len(rd["new_covered"]) >= multisource.MIN_NEW
+        print(f"   {'CHOSEN' if ok else 'REJECTED'}: {c['doc_id']} {c['site']} p={c['prob']:.3f}, "
+              f"covers {len(rd['new_covered'])} unexplained sentences")
+        cs, _ = ctx.emb.doc(c["doc_id"], ctx.doc(c["doc"])["text"])
+        for i in rd["new_covered"][:args.sentences]:
+            print(f"      == s{i} -> c{rd['arg'][i]} sim={rd['sims'][i]:.2f}\n         S: {textwrap.shorten(sents[i], 100)}"
+                  f"\n         C: {textwrap.shorten(cs[rd['arg'][i]], 100)}")
+        if ok:
+            covered[rd["new_covered"]] = True
+    print(f"\nSTOP: {tr['stop']}")
+    fin = multisource.finalize(tr)
+    print("FINAL SHARES (each sentence goes to the found source it aligns to best):")
+    for s in fin["sources"]:
+        mark = "" if not gold else (" (true source)" if s["doc"] in gold else " (not a true source)")
+        print(f"   {s['share']:.0%}  round {s['round']}  p={s['prob']:.3f}  {s['site']:<20} {s['url']}{mark}")
+    print(f"   {fin['unexplained']:.0%}  unexplained")
+    ctx.emb.save()
+
+
+def cmd_eval_multi(args):
+    from pathlib import Path
+    from .eval import ms_eval
+    xl = Path(args.xl) if args.xl else None
+    if args.live:
+        ms_eval.live(args.sample, xl)
+    else:
+        ms_eval.main(fresh=args.fresh, xl=xl, ablations=not args.no_ablations, smoke=args.smoke)
+
+
 def cmd_demo(args):
     """Trace randomly drawn test cases (seeded, never hand-picked), including a miss and a false alarm if any."""
     import random
@@ -201,7 +268,7 @@ def cmd_demo(args):
 def cmd_scan(args):
     from .detect import pipeline, scan
     ctx = pipeline.Context()
-    n, flagged = scan.run(ctx, args.where)
+    n, flagged = scan.run(ctx, args.where, multi=args.multi)
     print(f"scanned {n} docs, flagged {flagged}")
     print(f"live pairs for judging: {scan.export_flagged(ctx.con)} -> {scan.FLAGGED}")
     for r in scan.domain_report(ctx.con)[:15]:
@@ -363,6 +430,22 @@ def main(argv=None):
     c.add_argument("--stem", action="store_true")
     c.set_defaults(fn=cmd_suspect)
 
+    c = sub.add_parser("sources", help="every source of a mashup, round by round, with sentence shares")
+    c.add_argument("doc", help="doc_id, URL, mashup id (mash:...) or LLM mashup id (mashllm:...)")
+    c.add_argument("-k", type=int, default=8, help="candidates to print per round")
+    c.add_argument("--sentences", type=int, default=4, help="covered sentences to print per round")
+    c.add_argument("--xl", help="path of rewrites_xl.jsonl, for LLM mashups")
+    c.set_defaults(fn=cmd_sources)
+
+    c = sub.add_parser("eval-multi", help="multi-source evaluation: mashups, controls, baselines, ablations")
+    c.add_argument("--fresh", action="store_true", help="recompute every cached pass")
+    c.add_argument("--no-ablations", action="store_true")
+    c.add_argument("--smoke", type=int, help="run on this many random items per split only")
+    c.add_argument("--xl", help="path of rewrites_xl.jsonl, for LLM mashups")
+    c.add_argument("--live", action="store_true", help="trace the flagged live articles instead")
+    c.add_argument("--sample", type=int, default=300, help="live articles to trace")
+    c.set_defaults(fn=cmd_eval_multi)
+
     c = sub.add_parser("demo", help="trace seeded random test cases, including a miss and a false alarm")
     c.add_argument("--seed", type=int, default=7)
     c.add_argument("--sentences", type=int, default=4)
@@ -370,6 +453,7 @@ def main(argv=None):
 
     c = sub.add_parser("scan", help="run detection over the corpus and store the copy graph")
     c.add_argument("--where", default="origin='crawl'")
+    c.add_argument("--multi", action="store_true", help="also add an edge for every further verified source")
     c.set_defaults(fn=cmd_scan)
 
     c = sub.add_parser("search", help="ranked search with originality g(d)")
