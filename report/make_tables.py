@@ -94,6 +94,59 @@ def xl_other():
     write("xl_other", ["Measure"] + [l for _, l in langs], body, "@{}l" + "R" * len(langs) + "@{}")
 
 
+def xlm_tables():
+    det, ctrl = rows("xlmulti_detection.csv"), rows("xlmulti_controls.csv")
+    names = [("passage tracing", "Passage tracing (blocks, merged)"), ("whole text, one source (dev threshold)",
+             "Whole text, one source (dev threshold)"), ("whole text, shipped threshold", "Whole text, one source (shipped threshold)")]
+    body = []
+    for key, label in names:
+        cells = [label]
+        for st in ("all", "mash_translation", "mash_seo"):
+            r = find(det, method=key, set=st)
+            cells += [num(r["precision"]), num(r["recall"]), num(r["f1"])] if r else ["--"] * 3
+        r = find(det, method=key, set="all")
+        cells.append(num(r["exact_set"]) if r else "--")
+        body.append(cells)
+    write("xlm_detection", ["Method", "P", "R", "F1", "P transl.", "R transl.", "F1 transl.", "P SEO", "R SEO", "F1 SEO",
+                            "exact set"], body, "@{}l" + "R" * 10 + "@{}")
+    body = []
+    for key, label in names:
+        cells = [label]
+        for lv in ("hi_translation", "hi_seo", "hi_summary"):
+            r = find(ctrl, method=key, level=lv)
+            cells.append(num(r["extra_source_rate"]) if r else "--")
+        for lv in ("hi_summary",):
+            r = find(ctrl, method=key, level=lv)
+            cells.append(num(r["source_found"]) if r else "--")
+        for lv in ("hi_facts_only", "hi_facts_short"):
+            r = find(ctrl, method=key, level=lv)
+            cells.append(num(r["false_source_rate"]) if r else "--")
+        body.append(cells)
+    write("xlm_controls", ["Method", "extra: transl.", "extra: SEO", "extra: summary", "summary found",
+                           "false: same event", "false: 100 words"], body, "@{}l" + "R" * 6 + "@{}")
+    N = {}
+    for key, tag in (("passage tracing", "Xlm"), ("whole text, shipped threshold", "XlmWhole")):
+        r = find(det, method=key, set="all")
+        N[tag + "F"], N[tag + "Recall"], N[tag + "Prec"] = (num(r["f1"]), num(r["recall"]), num(r["precision"])) if r else ("--",) * 3
+        r = find(ctrl, method=key, level="hi_facts_only")
+        N[tag + "FalseSame"] = num(r["false_source_rate"]) if r else "--"
+        r = find(ctrl, method=key, level="hi_facts_short")
+        N[tag + "FalseShort"] = num(r["false_source_rate"]) if r else "--"
+        r = find(ctrl, method=key, level="hi_summary")
+        N[tag + "SummaryFound"] = num(r["source_found"]) if r else "--"
+    r = find(det, method="passage tracing", set="all")
+    N["XlmExact"], N["XlmN"] = (num(r["exact_set"]), r["n"]) if r else ("--", "--")
+    pj = RESULTS / "xlmulti_params.json"
+    if pj.exists():
+        pr = json.loads(pj.read_text())
+        N["XlmBlock"] = str(pr["methods"]["passage tracing"]["block_size"])
+        N["XlmMs"] = num(pr["cost_ms"]["ms_blocks"], 0)
+    extra = "".join(f"\\newcommand{{\\n{k}}}{{{v}}}\n" for k, v in sorted(N.items()))
+    OUT.mkdir(exist_ok=True)
+    with (OUT / "numbers.tex").open("a") as f:
+        f.write(extra)
+
+
 def xl_ablation():
     ab = rows("crosslingual_ablations.csv")
     names = {"full": "Full system", "no_names": "No name anchors", "no_numbers": "No number anchors",
@@ -303,6 +356,6 @@ def numbers():
 
 
 if __name__ == "__main__":
-    for fn in (numbers, xl_detection, xl_other, xl_ablation, ms_detection, ms_by_rank, ms_ablation, ms_controls, dataset):
+    for fn in (numbers, xl_detection, xl_other, xl_ablation, ms_detection, ms_by_rank, ms_ablation, ms_controls, dataset, xlm_tables):
         fn()
     print("tables in", OUT)

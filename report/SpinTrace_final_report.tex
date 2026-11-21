@@ -407,6 +407,32 @@ The explain-away step is a smaller part of the result than we expected. Replacin
 
 On the controls (Table~\ref{tab:msctrl}) SpinTrace never adds an extra source to a single-source rewrite, and names a false source for \nMsFalseSame\ of the same-story articles against \nMsFalseSameMid\ for the mid-term verifier as shipped. It loses on splices of LLM-paraphrased blocks, where its recall of single sources (64\% of SEO rewrites, 80\% of summaries) is below the mid-term verifier's, because the per-round criterion is stricter. It costs \nMsMs\,ms per suspect. On the crawl, 13 of 174 articles flagged by the single-source pipeline get two or more verified sources and none of 300 unflagged ones get any; in 6 of those 13 the two sources are one wire text printed by two outlets, which the output marks. These live results are unjudged.
 
+\subsection{Mashups across languages: a prototype}
+\label{sec:xlm}
+
+The two new problems compose: a Hindi article stitched from two English originals. We tried the simplest thing that uses only parts we already have. The Hindi suspect is cut into blocks of \nXlmBlock\ sentences, about the size of the Hindi summaries the cross-language verifier was built for; each block is traced to an English source through the anchors; blocks that name the same source are merged, and a source's share is the fraction of sentences in its blocks. The explain-away rounds of Section~\ref{sec:ms} need a verifier fit on partial coverage of English sentences, which we have not built for Hindi. The block size and the probability threshold are tuned on dev under a 10\% false-source bar. The \nXlmN\ test items are Hindi splices of the translations and SEO rewrites of two originals from one split, so the sources and shares are exact.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Hindi splices, test split: source-set precision (P), recall (R) and F1 for all splices and by how the Hindi blocks were produced. Whole-text tracing can name at most one source.}
+  \label{tab:xlm}
+  \footnotesize
+  \setlength{\tabcolsep}{2.5pt}
+  \input{tables/xlm_detection}
+\end{table}
+
+\begin{table}[t]
+  \centering\small
+  \caption{Controls for Hindi passage tracing, test split: extra sources named for single-source derivatives, the share of Hindi summaries whose source is found, and sources named for same-event articles of full and 100-word length (a correct answer is none).}
+  \label{tab:xlmctl}
+  \footnotesize
+  \setlength{\tabcolsep}{3pt}
+  \input{tables/xlm_controls}
+\end{table}
+
+% VERIFY the direction of each claim below against Tables tab:xlm and tab:xlmctl after the final run
+Passage tracing recovers \nXlmRecall\ of the sources at precision \nXlmPrec\ (F1 \nXlmF), against \nXlmWholeRecall\ for tracing the whole text as one article (F1 \nXlmWholeF): a whole-text verifier does not pass an article that is only half copied, as in the English case. It is not a reliable detector, and the weaknesses come first. The exact source set is right for only \nXlmExact\ of the mashups. It names a false source for \nXlmFalseSame\ of the same-event articles, against \nXlmWholeFalseSame\ for the whole text; the dev rate was under the 10\% bar, so a threshold tuned at the edge of the bar did not carry over to test, on small sets. And it finds the source of fewer Hindi summaries (\nXlmSummaryFound against \nXlmWholeSummaryFound), because a three-sentence block of a summary carries too few anchors. We report it as a prototype showing that the two features compose, not as a result to build on; it costs about \nXlmMs\,ms per suspect.
+
 \subsection{Format changes: a negative result}
 
 We also tried the third kind of derivative the mid-term failed on, an article recast as a listicle or a question-and-answer page, where no sentences line up. We added order-free fact signals (idf-weighted overlap of names, numbers, dates and quotes, and fact-to-sentence coverage) and refit on dev. They did not help. The shipped verifier already handles rule-based listicles (F1 0.964) and Q\&As (0.943), because our reformattings keep whole sentences, and refitting with the fact signals lowers both to 0.931 and raises the false-positive rate on same-story articles from 0.156 to 0.300. The NewsGuard TopGolf.kr page, which motivated the experiment, is still retrieved first and still not verified by any variant. We report it as a negative result: a real format change by an LLM, with sentences rewritten, was not tested.

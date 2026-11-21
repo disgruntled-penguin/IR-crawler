@@ -18,6 +18,7 @@ run() {
 run $PY -m spintrace eval-multi                 # mashups, controls, baselines, ablations, LLM mashups
 run $PY -m spintrace eval-multi --live          # multi-source pass over flagged live articles
 run $PY -m spintrace eval-xl --fresh            # Hindi levels, negatives, baselines, ablations, other scripts
+run $PY -m spintrace.eval.xl_multi_eval --show 3   # Hindi mashups: passage tracing against whole-text tracing
 run $PY -m spintrace live-xl --rebuild          # Indian-language crawl against the English crawl
 run $PY -m spintrace live-xl --same-site        # diagnostic: bilingual outlets against their own English pages
 run $PY -m spintrace.eval.dataset_stats         # results/dataset.md
