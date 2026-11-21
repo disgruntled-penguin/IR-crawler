@@ -107,6 +107,17 @@ def test_later_articles_are_never_sources():
     assert "b" not in srcs and "a" in srcs
 
 
+def test_fact_signals_ignore_order_and_stay_out_of_the_default_set():
+    from spintrace.detect import signals
+    ctx = ToyContext()
+    reordered = {"doc_id": "s", "text": "\n".join(f"{i}. {s}" for i, s in enumerate(reversed(A), 1))}
+    pair = signals.Pair(reordered, ctx.doc(0), ctx.feats, ctx.emb, idx=ctx.idx)
+    other = signals.Pair(reordered, ctx.doc(1), ctx.feats, ctx.emb, idx=ctx.idx)
+    assert signals.fact_idf_overlap(pair) > 0.9 and signals.fact_idf_overlap(other) < 0.2
+    assert signals.fact_sentence_coverage(pair) == 1.0
+    assert not set(signals.OPTIONAL) & set(signals.SIGNALS)
+
+
 def test_finalize_matches_an_early_stopping_run():
     ctx = ToyContext()
     sus = multisource.Suspect("s", " ".join(A[:3] + B[:3]), 500.0, "farm.example")
