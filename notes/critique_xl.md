@@ -15,8 +15,8 @@ a separate variant row. Changed the design, not the wording.
 English names by sound: रात (night) became Rohit, प्रधान (prime) became Pepperdine, बचाव (rescue) Bechev.
 *Builder:* the true source still ranked first because it collects many anchors at once. *Resolution:*
 a cross-language document-frequency check. A name keeps roughly its document frequency across
-languages; a word seen in 3 or more crawled Hindi pages whose English match is ten times rarer (idf gap
-above 1) is a common word. Measured as the `no_idf_check` ablation. Short keys (two consonants) get no
+languages; a word seen in 3 or more crawled Hindi pages whose English match is much rarer (idf gap
+above 1 at first, 0 after the round 2 dev sweep) is a common word. Measured as the `no_idf_check` ablation. Short keys (two consonants) get no
 edits.
 
 **Reviewer: a date phrase alone pulled unrelated stories in.** Any 'July 26' story scored 0.2 with no
@@ -91,3 +91,18 @@ measures, in order of effect:
 The window and date filter are not what limits recall: the window is 30 days and the flagged lags were
 1-16 hours. The name anchors are too loose rather than too strict on long live pages (median 131 matched
 name tokens per page against about 50 on the synthetic items), which costs postings, not recall.
+
+*Same-site diagnostic* (`live-xl --same-site`, 237 pages of BBC's language services and HT Bangla/Telugu,
+allowed to match their own outlet): retrieval put the outlet's own English article first for 6 of 112 BBC
+pages and 8 of 125 HT pages; one was flagged, a BBC Hindi article traced to its BBC News original 3.5 h
+earlier (p = 0.90), and its Marathi sibling scored 0.73 (below threshold). BBC's language services adapt
+rather than translate and HT's regional sites mostly run their own stories, so real full translations are
+rare in this crawl; the diagnostic shows the path works on real pages, not a recall figure.
+
+**Reviewer: the name check still lets common words through.** `suspect-xl` on a test rewrite showed भारी
+(heavy; in 112 of 844 crawled Hindi pages) becoming 'bureau', the top-weighted query term, because the idf
+gap allowed 1.0. *Resolution:* the gap and the minimum source df were swept on dev only (66 Hindi dev
+positives): MRR 0.846 at gap 1.5, 0.912 at 1.0, 0.962 at 0.5, 1.000 at 0, with fewer postings touched, so the
+gap is now 0 (a source word seen in 3 or more pages cannot map to an English term rarer than itself). The
+cost, stated in the README: a name far more common in Hindi news than in our English crawl (मोदी) is no
+longer an anchor. Also fixed: '8:00' produced the number 0 as an anchor.
