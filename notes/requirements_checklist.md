@@ -56,3 +56,26 @@ Status as of 7 Oct evening, after judging. "Team" marks the items that are human
 | --- | --- |
 | Blind judging web page, judge pack and label merge for a remote judge | `spintrace/ui/judge_*`, `eval/judgepack.py` |
 | Demo web app: search with g(d), trace view, site integrity | `python -m spintrace app` |
+
+## Final phase (21 to 22 Nov 2026)
+
+Statuses as of 22 Nov 03:15 IST. The final brief itself is not in the repository, so these are checked against the
+mid-term assignment, CLAUDE.md and the team's stated needs (dataset description, project report, presentation on 25 Nov).
+
+| Item | Status | Where |
+| --- | --- | --- |
+| Translations traced to their English source (Hindi, verified end to end) | Done, on synthetic Hindi; live results unjudged | `text_indic.py`, `translit.py`, `kgram.py`, `detect/crosslingual.py`, README "Cross-language tracing" |
+| Tamil, Telugu, Bengali | Partly: anchors retrieve the source, verification does not transfer (sentence model coverage); reported as a negative result | `results/crosslingual_*`, report Section 6.1 |
+| Mashups traced to all their sources with shares | Done | `detect/multisource.py`, README "Multi-source mashups" |
+| Format changes (listicle, Q&A) | Done as a negative result: the fact signals did not help | `results/format_*` |
+| Baselines with their best dev threshold, ablations, confidence intervals | Done for both features | `results/crosslingual_*`, `results/multisource_*` |
+| Hard negatives, and a check that length does not separate the classes | Done: length artefact found and length-matched negatives added | `notes/critique_final.md` |
+| Inspectable commands | Done | `suspect-xl`, `kgram`, `sources` |
+| Critique rounds | Done: per feature and cross-cutting | `notes/critique_xl.md`, `critique_multisource.md`, `critique_final.md` |
+| Dataset described | Done | `results/dataset.md`, README "Data and credits", report Section 5 |
+| Project report | Draft written; numbers come from the result files; page limit unknown | `report/SpinTrace_final_report.tex` |
+| Presentation on 25 Nov | Team: format not yet confirmed | |
+| Judged labels for the final's live results | Not done (no judging time); reported as unjudged counts | README, report Section 7 |
+| Tests | 32 pass | `tests/` |
+| Crawler politeness in the final crawl | Checked with `crawl-report` after the crawl ends | `results/crawl_report.json` |
+| README commands from a clean clone | Partly checked: see PROGRESS.md for what was run | PROGRESS.md |
