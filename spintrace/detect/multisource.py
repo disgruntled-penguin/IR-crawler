@@ -176,7 +176,8 @@ def trace(ctx, sus, model=None, threshold=None, stop_share=None, cover=None, exc
     for r in range(max_sources):
         share_left = float(resid.mean())
         if r > 0 and (share_left < stop_share or resid.sum() < MIN_NEW):
-            stop = f"unexplained share {share_left:.2f} below {stop_share:.2f}"
+            stop = (f"unexplained share {share_left:.2f} below {stop_share:.2f}" if share_left < stop_share
+                    else f"fewer than {MIN_NEW} unexplained sentences left")
             break
         t0 = time.perf_counter()
         res_text = " ".join(s for s, keep in zip(sents, resid) if keep) if residual else sus.text
