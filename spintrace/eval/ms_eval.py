@@ -30,7 +30,7 @@ CACHE = config.DATA / "eval"
 EMB = config.INDEX_DIR / "ms_emb.pkl"
 CONTROL_SAMPLE = {"light": 40, "synonym": 40, "seo": None, "summary": None, "facts_only": None}
 HARDNEG_SAMPLE = 60
-COVERS = [0.5, 0.56, 0.62]
+COVERS = [0.56, 0.62]
 METHODS = ["spintrace", "midterm", "oneshot", "minhash", "containment"]
 # The midterm at the threshold it ships with (tuned for whole-document rewrites), as a reference row only.
 REFERENCE = ["midterm_shipped"]
@@ -160,8 +160,15 @@ def midterm_rows(ctx, sus, cands):
     return rows
 
 
+def midterm_scorer(ctx):
+    """The midterm's whole-document verifier as the round criterion (ablation): it ignores what is explained."""
+    def fn(pair, _):
+        return verify.score(signals.compute(pair), ctx.model)
+    return fn
+
+
 def run_pass(ctx, items, model, cover, residual=True, use_facts=True, use_quotes=True, midterm=False, log_every=100,
-             label=""):
+             label="", scorer=None):
     out = {}
     t_all = time.time()
     for i, it in enumerate(items):
@@ -171,7 +178,7 @@ def run_pass(ctx, items, model, cover, residual=True, use_facts=True, use_quotes
         t_emb = time.perf_counter() - t
         tr = multisource.trace(ctx, sus, model, threshold=0.0, stop_share=0.0, cover=cover,
                                exclude=exclusion(ctx, it), residual=residual, use_facts=use_facts,
-                               use_quotes=use_quotes)
+                               use_quotes=use_quotes, scorer=scorer)
         rec = compact(tr)
         rec["t_embed"] = t_emb
         if midterm:
@@ -282,15 +289,36 @@ def boot(items, values, fn, b=1000, seed=358):
     return float(np.percentile(stats, 2.5)), float(np.percentile(stats, 97.5))
 
 
-def tune(method, items, recs, base, grid):
-    """Parameters maximising micro source-set F1 over all dev items (mashups and controls together)."""
-    best = (-1.0, None)
+def false_rate(items, preds):
+    """Share of the no-source items (facts-only articles, hard negatives) given any source."""
+    v = [len(pr) > 0 for it, pr in zip(items, preds) if it["kind"] == "none"]
+    return float(np.mean(v)) if v else 0.0
+
+
+def tune(method, items, recs, base, grid, cap=None):
+    """Parameters maximising micro source-set F1 over all dev items (mashups and controls together).
+
+    With cap, only parameters whose false-source rate on the dev no-source items is at most cap qualify (the
+    strictest one if none does): same story is not the same as copied."""
+    best, strict = (-1.0, None), (float("inf"), None)
     for p in grid:
-        c = counts(items, [predict(method, recs[it["id"]], base.get(it["id"]), p) for it in items])
-        f = f1_of(c)[2]
+        preds = [predict(method, recs[it["id"]], base.get(it["id"]), p) for it in items]
+        f = f1_of(counts(items, preds))[2]
+        if cap is not None:
+            fr = false_rate(items, preds)
+            if fr < strict[0]:
+                strict = (fr, p)
+            if fr > cap:
+                continue
         if f > best[0]:
             best = (f, p)
-    return best[1], best[0]
+    return (best[1], best[0]) if best[1] is not None else (strict[1], 0.0)
+
+
+def shipped_cap(items, recs):
+    """The shipped midterm verifier's false-source rate on the dev no-source items: the bar every method must meet."""
+    thr = verify.load()["threshold"]
+    return false_rate(items, [predict("midterm_shipped", recs[it["id"]], None, {"threshold": thr}) for it in items])
 
 
 def score_grid(values, n=60):
@@ -302,8 +330,9 @@ def score_grid(values, n=60):
 
 def method_grid(method, items, recs, base):
     if method == "spintrace":
-        return [{"threshold": t, "stop_share": s, "cover": recs["_cover"]}
-                for t in np.round(np.linspace(0.05, 0.95, 19), 2).tolist() for s in (0.0, 0.1, 0.15, 0.2, 0.25, 0.3)]
+        ts = np.round(np.linspace(0.05, 0.95, 19), 2).tolist() + [0.96, 0.97, 0.98, 0.99, 0.995]
+        return [{"threshold": t, "stop_share": s, "cover": recs["_cover"]} for t in ts
+                for s in (0.0, 0.1, 0.15, 0.2, 0.25, 0.3)]
     if method in ("midterm", "oneshot"):
         return score_grid([v["prob"] for it in items for v in recs[it["id"]].get("midterm", [])])
     return score_grid([s for it in items for _, s in base[it["id"]][method]])
@@ -368,22 +397,24 @@ def run(fresh=False, xl=None, ablations=True, smoke=None):
     for cv in COVERS:
         dev_runs[cv] = cached(f"dev_c{cv}", lambda cv=cv: run_pass(ctx, dev, model, cv, midterm=(cv == COVERS[-1]),
                                                                    label=f"dev cover {cv}"), fresh)
+    cap = shipped_cap(dev, dev_runs[COVERS[-1]])
     best = (-1, None, None)
     for cv, recs in dev_runs.items():
         recs = dict(recs, _cover=cv)
-        p, f = tune("spintrace", dev, recs, base, method_grid("spintrace", dev, recs, base))
-        print(f"dev cover={cv} best F1={f:.3f} {p}", flush=True)
+        p, f = tune("spintrace", dev, recs, base, method_grid("spintrace", dev, recs, base), cap)
+        print(f"dev cover={cv} best F1={f:.3f} with false-source rate <= {cap:.3f}: {p}", flush=True)
         if f > best[0]:
             best = (f, cv, p)
     _, cover, params = best
-    model.update(threshold=params["threshold"], stop_share=params["stop_share"], cover=cover)
+    model.update(threshold=params["threshold"], stop_share=params["stop_share"], cover=cover, false_source_cap=cap)
     multisource.MODEL_PATH.parent.mkdir(exist_ok=True)
     multisource.MODEL_PATH.write_text(json.dumps(model, indent=2))
     tst = cached(f"test_c{cover}", lambda: run_pass(ctx, test, model, cover, midterm=True, label="test"), fresh)
     out = {"items": items, "base": base, "model": model, "dev": dev_runs[cover], "dev_mid": dev_runs[COVERS[-1]],
-           "test": tst, "cover": cover, "ablations": {}}
+           "test": tst, "cover": cover, "cap": cap, "ablations": {}}
     if ablations:
-        for name, kw in (("no_residual", {"residual": False}), ("no_facts_quotes", {"use_facts": False, "use_quotes": False})):
+        for name, kw in (("no_residual", {"residual": False}), ("no_facts_quotes", {"use_facts": False, "use_quotes": False}),
+                         ("midterm_verifier_in_rounds", {"scorer": midterm_scorer(ctx)})):
             d = cached(f"dev_{name}", lambda kw=kw: run_pass(ctx, dev, model, cover, label=f"dev {name}", **kw), fresh)
             t = cached(f"test_{name}", lambda kw=kw: run_pass(ctx, test, model, cover, label=f"test {name}", **kw), fresh)
             out["ablations"][name] = (d, t)
@@ -498,6 +529,22 @@ def share_rows(items, preds):
     return rows
 
 
+def retrieval_rows(items, recs, preds):
+    """Where each true source sits in the round-1 (whole-text) candidate list, by its share rank, against how often
+    the explain-away rounds find it: what the residual query adds over one query for the whole suspect."""
+    rows = []
+    for k in (2, 3):
+        sub = [(it, pr) for it, pr in zip(items, preds) if it["kind"] == "splice" and it["n_sources"] == k]
+        for rank in range(k):
+            r1 = [[d for d, *_ in recs[it["id"]]["round1"]] for it, _ in sub]
+            g = [it["gold_rank"][rank] for it, _ in sub]
+            rows.append({"n_sources": k, "source_rank": rank + 1, "n": len(sub),
+                         "round1_top5": float(np.mean([x in l[:multisource.K_VERIFY] for x, l in zip(g, r1)])),
+                         "round1_top20": float(np.mean([x in l for x, l in zip(g, r1)])),
+                         "found_by_rounds": float(np.mean([x in {d for d, _ in pr} for x, (_, pr) in zip(g, sub)]))})
+    return rows
+
+
 def cost_rows(items, recs, base_times, params):
     ms, rounds, touched, emb = [], [], [], []
     for it in items:
@@ -575,10 +622,16 @@ def evaluate(out):
     items, base, model = out["items"], out["base"], out["model"]
     dev = [it for it in items if it["split"] == "dev"]
     test = [it for it in items if it["split"] == "test"]
+    cap = out["cap"]
     params = {"spintrace": {"threshold": model["threshold"], "stop_share": model["stop_share"], "cover": model["cover"]}}
+    free = {}
+    dev_sp = dict(out["dev"], _cover=model["cover"])
+    free["spintrace"], _ = tune("spintrace", dev, dev_sp, base, method_grid("spintrace", dev, dev_sp, base))
     for m in ("midterm", "oneshot", "minhash", "containment"):
-        params[m], _ = tune(m, dev, out["dev_mid"], base, method_grid(m, dev, out["dev_mid"], base))
-    params["midterm_shipped"] = {"threshold": verify.load()["threshold"]}
+        grid = method_grid(m, dev, out["dev_mid"], base)
+        params[m], _ = tune(m, dev, out["dev_mid"], base, grid, cap)
+        free[m], _ = tune(m, dev, out["dev_mid"], base, grid)
+    params["midterm_shipped"] = free["midterm_shipped"] = {"threshold": verify.load()["threshold"]}
     preds = {m: [predict(m, out["test"][it["id"]], base[it["id"]], params[m]) for it in test] for m in METHODS + REFERENCE}
     det, rank, ctrl, allr = [], [], [], []
     by_n = {}
@@ -607,19 +660,17 @@ def evaluate(out):
     variants = [("full", out["dev"], out["test"])] + [(k, d, t) for k, (d, t) in out["ablations"].items()]
     for name, d, t in variants:
         d = dict(d, _cover=model["cover"])
-        p, f_dev = tune("spintrace", dev, d, base, method_grid("spintrace", dev, d, base))
+        p, f_dev = tune("spintrace", dev, d, base, method_grid("spintrace", dev, d, base), cap)
         pr = [predict("spintrace", t[it["id"]], None, p) for it in test]
-        row = {"variant": name, "dev_f1": f_dev, "threshold": p["threshold"], "stop_share": p["stop_share"]}
-        for r in set_rows(name, test, pr, MASH_GROUPS[:1] + ALL_GROUP):
-            row[f"F1 {r['group']}"] = r["f1"]
-        for r in rank_rows(name, test, pr):
-            if r["source_rank"] > 1:
-                row[f"recall {r['n_sources']} src rank {r['source_rank']}"] = r["recall"]
-        for r in control_rows(name, test, pr):
-            key = "false_source_rate" if "false_source_rate" in r else "extra_source_rate"
-            row[f"{r['level']} {key}"] = r[key]
-        abl.append(row)
+        abl.append(dict({"variant": name, "dev_f1": f_dev, "threshold": p["threshold"], "stop_share": p["stop_share"]},
+                        **summary_row(name, test, pr)))
+    maxf1 = []
+    for m in METHODS + REFERENCE:
+        pr = [predict(m, out["test"][it["id"]], base[it["id"]], free[m]) for it in test]
+        maxf1.append(dict({"method": m, "threshold": free[m]["threshold"]}, **summary_row(m, test, pr)))
+    tradeoff_chart(test, out["test"], base, dev_sp, params)
     cost = cost_rows(test, out["test"], base.get("_times", {}), params["spintrace"])
+    retr = retrieval_rows(test, out["test"], preds["spintrace"])
     OUT.mkdir(exist_ok=True)
     write_csv(OUT / "multisource_detection.csv", det + allr)
     write_csv(OUT / "multisource_by_rank.csv", rank)
@@ -627,15 +678,66 @@ def evaluate(out):
     write_csv(OUT / "multisource_shares.csv", shares)
     write_csv(OUT / "multisource_ablations.csv", abl)
     write_csv(OUT / "multisource_cost.csv", cost)
+    write_csv(OUT / "multisource_retrieval.csv", retr)
+    write_csv(OUT / "multisource_maxf1.csv", maxf1)
     sizes = defaultdict(int)
     for it in items:
         sizes[f"{it['split']} {it['kind']} {it['level']}"] += 1
     (OUT / "multisource_params.json").write_text(json.dumps(
-        {"params": params, "items": sizes, "llm_items": len(out["llm"][0]) if out.get("llm") else 0}, indent=2,
-        sort_keys=True))
+        {"params": params, "params_max_f1": free, "false_source_cap": cap, "items": sizes,
+         "llm_items": len(out["llm"][0]) if out.get("llm") else 0}, indent=2, sort_keys=True))
     charts(rank, by_n, scatter)
     return {"det": det, "all": allr, "rank": rank, "ctrl": ctrl, "shares": shares, "abl": abl, "cost": cost,
-            "params": params}
+            "retr": retr, "params": params, "maxf1": maxf1, "cap": cap}
+
+
+def summary_row(name, test, pr):
+    """One line per variant: F1 on splices and on everything, recall of minor sources, control error rates."""
+    row = {}
+    for r in set_rows(name, test, pr, MASH_GROUPS[:1] + [MASH_GROUPS[4]] + ALL_GROUP):
+        row[f"F1 {r['group']}"] = r["f1"]
+    for r in rank_rows(name, test, pr):
+        if r["source_rank"] > 1:
+            row[f"recall {r['n_sources']} src rank {r['source_rank']}"] = r["recall"]
+    for r in control_rows(name, test, pr):
+        key = "false_source_rate" if "false_source_rate" in r else "extra_source_rate"
+        row[f"{r['level']} {key}"] = r[key]
+    return row
+
+
+def tradeoff_chart(test, recs, base, dev_sp, params):
+    """Source recall on test splices against the false-source rate on test no-source items, sweeping each method's
+    threshold (a curve, like a PR curve; the dots are the dev-tuned operating points)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from .report import _style
+    splice = [it for it in test if it["kind"] == "splice"]
+    none = [it for it in test if it["kind"] == "none"]
+
+    def point(m, p):
+        ps = [predict(m, recs[it["id"]], base[it["id"]], p) for it in splice]
+        pn = [predict(m, recs[it["id"]], base[it["id"]], p) for it in none]
+        return false_rate(none, pn), f1_of(counts(splice, ps))[1]
+
+    fig, ax = plt.subplots(figsize=(7, 5), dpi=150)
+    for m in METHODS:
+        grid = method_grid(m, test, dict(recs, _cover=params["spintrace"]["cover"]) if m == "spintrace" else recs, base)
+        if m == "spintrace":
+            grid = [g for g in grid if g["stop_share"] == params["spintrace"]["stop_share"]]
+        pts = sorted(point(m, p) for p in grid)
+        ax.plot([x for x, _ in pts], [y for _, y in pts], linewidth=2.5 if m == "spintrace" else 1.8, color=COLORS[m],
+                label=LABELS[m], zorder=5 if m == "spintrace" else 2)
+        x, y = point(m, params[m])
+        ax.plot([x], [y], marker="o", markersize=8, color=COLORS[m], zorder=6)
+    ax.set_xlim(-0.01, 1.01)
+    ax.set_ylim(-0.01, 1.01)
+    _style(ax, "Sources found against false sources (test)", "false-source rate on facts-only and hard negatives",
+           "recall of true sources in splices")
+    ax.legend(frameon=False, fontsize=8, loc="lower right")
+    fig.tight_layout()
+    fig.savefig(OUT / "multisource_tradeoff.png")
+    plt.close(fig)
 
 
 def _fmt(r):
@@ -650,16 +752,108 @@ def print_tables(res):
               f"sources/item={r['mean_sources_predicted']:.2f}")
     for title, key in (("Recall by source rank (test splices)", "rank"), ("Controls (test)", "ctrl"),
                        ("Shares (SpinTrace, test splices)", "shares"), ("Ablations (tuned on dev, test numbers)", "abl"),
-                       ("Cost", "cost")):
+                       ("Where the true sources are retrieved (test splices)", "retr"), ("Cost", "cost")):
         print(f"\n{title}")
         for r in res[key]:
             print("  " + _fmt(r))
     print(f"\nparameters: {json.dumps(res['params'])}")
 
 
+def _t(header, rows):
+    return "\n".join(["| " + " | ".join(header) + " |", "| " + " | ".join("---" for _ in header) + " |"]
+                     + ["| " + " | ".join(str(x) for x in r) + " |" for r in rows])
+
+
+def _ci(r, k, lo, hi):
+    return f"{r[k]:.3f} [{r[lo]:.2f}, {r[hi]:.2f}]"
+
+
+def markdown(res):
+    """README tables, written to results/multisource_summary.md."""
+    names = METHODS + REFERENCE
+    lab = dict(LABELS, midterm_shipped="Midterm, shipped threshold")
+    groups = ["splice (all)"] + [f"splice {lv}" for lv in mashups.ALL_LEVELS] + ["splice hard", "splice 3 sources",
+                                                                                "LLM mashups (all)", "LLM mashups (test split)"]
+    out = [f"Operating point: every method takes its best dev source-set F1 among the thresholds that name a source "
+           f"for at most {res['cap']:.1%} of the dev facts-only articles and hard negatives, the shipped midterm "
+           f"verifier's own rate there (same story is not the same as copied).\n",
+           "**Source-set F1 on test mashups** (micro over true sources; 95% bootstrap interval over mashups):\n"]
+    rows = []
+    for m in names:
+        cells = [lab[m]]
+        for g in groups:
+            r = next((r for r in res["det"] if r["method"] == m and r["group"] == g), None)
+            cells.append(_ci(r, "f1", "f1_lo", "f1_hi") if r else "-")
+        rows.append(cells)
+    out.append(_t(["method"] + [g.replace("splice ", "") if g != "splice (all)" else "all splices" for g in groups], rows))
+    out.append("\n**Exact source set and recall by share rank** (test splices):\n")
+    rows = []
+    for m in names:
+        r = next(r for r in res["det"] if r["method"] == m and r["group"] == "splice (all)")
+        rk = {(x["n_sources"], x["source_rank"]): x for x in res["rank"] if x["method"] == m}
+        rows.append([lab[m], _ci(r, "exact_set", "exact_lo", "exact_hi"), f"{r['mean_sources_predicted']:.2f}"]
+                    + [_ci(rk[k], "recall", "lo", "hi") for k in ((2, 1), (2, 2), (3, 1), (3, 2), (3, 3))])
+    out.append(_t(["method", "exact set", "sources per item", "2 src: largest", "2 src: second", "3 src: largest",
+                   "3 src: second", "3 src: third"], rows))
+    out.append("\n**Controls** (test): extra-source rate on single-source rewrites (any source besides the true one), "
+               "false-source rate on facts-only articles and crawl hard negatives (any source at all):\n")
+    levels = ["light", "synonym", "seo", "summary", "facts_only", "hard_negative"]
+    rows = []
+    for m in names:
+        c = {r["level"]: r for r in res["ctrl"] if r["method"] == m}
+        cells = [lab[m]]
+        for lv in levels:
+            r = c.get(lv)
+            k = "false_source_rate" if lv in ("facts_only", "hard_negative") else "extra_source_rate"
+            cells.append(_ci(r, k, "lo", "hi") if r else "-")
+        cells += [f"{c[lv]['source_found']:.3f}" if lv in c else "-" for lv in ("seo", "summary")]
+        rows.append(cells)
+    out.append(_t(["method", "extra: light", "extra: synonym", "extra: seo", "extra: summary", "false: facts-only",
+                   "false: hard neg", "source found: seo", "source found: summary"], rows))
+    out.append("\n**Shares** (SpinTrace, test splices; a missed source counts as share 0):\n")
+    out.append(_t(["level", "mashups", "true sources", "share MAE", "MAE, found sources", "unexplained (est.)",
+                   "unexplained (true)"],
+                  [[r["level"], r["items"], r["gold_sources"], f"{r['share_mae']:.3f}",
+                    f"{r['share_mae_found_only']:.3f}" if r["share_mae_found_only"] is not None else "-",
+                    f"{r['unexplained_predicted']:.3f}", f"{r['unexplained_gold']:.3f}"] for r in res["shares"]]))
+    out.append("\n**Where the true sources are retrieved** (test splices): in the round-1 candidates of one query for "
+               "the whole suspect, against found by the explain-away rounds:\n")
+    out.append(_t(["sources", "share rank", "mashups", "round-1 top 5", "round-1 top 20", "found by rounds"],
+                  [[r["n_sources"], r["source_rank"], r["n"], f"{r['round1_top5']:.3f}", f"{r['round1_top20']:.3f}",
+                    f"{r['found_by_rounds']:.3f}"] for r in res["retr"]]))
+    keys = ["F1 splice (all)", "F1 splice splice_seo", "F1 all items (mashups and controls)", "recall 2 src rank 2",
+            "recall 3 src rank 3", "seo extra_source_rate", "summary extra_source_rate", "facts_only false_source_rate",
+            "hard_negative false_source_rate"]
+    head = ["F1 splices", "F1 splice_seo", "F1 all items", "2nd of 2", "3rd of 3", "extra: seo", "extra: summary",
+            "false: facts-only", "false: hard neg"]
+    out.append("\n**Ablations** (each variant's threshold and stopping share re-tuned on dev under the same false-source "
+               "bar; test numbers):\n")
+    out.append(_t(["variant"] + head, [[r["variant"]] + [f"{r[k]:.3f}" if k in r else "-" for k in keys]
+                                       for r in res["abl"]]))
+    out.append("\n**Without the false-source bar** (each method at its max dev F1 over all items; test numbers). This "
+               "is the operating point a source-set F1 alone would pick; it buys recall with false sources on "
+               "independent articles:\n")
+    out.append(_t(["method", "threshold"] + head, [[lab[r["method"]], f"{r['threshold']:.3f}"]
+                                                   + [f"{r[k]:.3f}" if k in r else "-" for k in keys]
+                                                   for r in res["maxf1"]]))
+    c = res["cost"][0]
+    out.append(f"\n**Cost** (test): {c['ms_per_suspect']:.0f} ms per suspect for retrieval and verification over "
+               f"{c['rounds_per_suspect']:.2f} rounds ({c['postings_touched_per_round']:.0f} postings touched per round, "
+               f"{multisource.K_VERIFY} candidates verified per round), plus {c['ms_embed_suspect']:.0f} ms to embed "
+               "the suspect's sentences.")
+    p = res["params"]
+    out.append(f"\nTuned on dev: round threshold {p['spintrace']['threshold']}, stop below "
+               f"{p['spintrace']['stop_share']} unexplained, cover at sentence similarity {p['spintrace']['cover']}; "
+               + "; ".join(f"{lab[m]} threshold {p[m]['threshold']:.3f}" for m in names if m != "spintrace") + ".")
+    text = "\n".join(out) + "\n"
+    (OUT / "multisource_summary.md").write_text(text)
+    return text
+
+
 def main(fresh=False, xl=None, ablations=True, smoke=None):
     res = evaluate(run(fresh, xl, ablations, smoke))
     print_tables(res)
+    markdown(res)
     return res
 
 
@@ -706,8 +900,10 @@ def suspect_for_key(ctx, key, xl=None):
 LIVE = config.ROOT / "evaldata" / "live_multisource.csv"
 
 
-def live(sample=300, xl=None, seed=358, examples=5):
-    """The multi-source pass over crawled articles the single-source scan flagged. Unjudged: counts and seeded examples."""
+def live(sample=300, xl=None, seed=358, examples=5, unflagged=300):
+    """The multi-source pass over crawled articles the single-source scan flagged, plus a seeded sample of crawled
+    articles it did not flag (a mashup's whole-document score can stay under the midterm threshold). Unjudged:
+    counts and seeded examples only."""
     ctx = context()
     edges = {}
     for r in ctx.con.execute("""SELECT e.suspect, e.source, e.prob FROM edges e JOIN docs s ON s.doc_id=e.suspect
@@ -716,18 +912,22 @@ def live(sample=300, xl=None, seed=358, examples=5):
             edges[r["suspect"]] = (r["source"], r["prob"])
     ids = sorted(edges)
     pick = random.Random(seed).sample(ids, min(sample, len(ids))) if sample else ids
-    print(f"flagged crawled articles in the index: {len(ids)}; tracing {len(pick)}", flush=True)
+    crawl = sorted(d for d, o in zip(ctx.idx.doc_ids, ctx.idx.meta["origin"]) if o == "crawl" and d not in edges)
+    rest = random.Random(seed).sample(crawl, min(unflagged, len(crawl)))
+    print(f"flagged crawled articles in the index: {len(ids)}; tracing {len(pick)} flagged and {len(rest)} unflagged",
+          flush=True)
     rows, t0 = [], time.time()
-    for i, doc_id in enumerate(pick):
+    for i, doc_id in enumerate(pick + rest):
         n = ctx.idx.doc_num[doc_id]
         tr = multisource.trace(ctx, multisource.Suspect.from_index(ctx, n))
         fin = multisource.finalize(tr)
         d = ctx.doc(n)
-        src, prob = edges[doc_id]
+        src, prob = edges.get(doc_id, ("", None))
         row = {"suspect": doc_id, "suspect_url": d["url"], "suspect_site": d["site"], "n_sentences": fin["n_sents"],
-               "midterm_source": src, "midterm_source_url": ctx.doc(ctx.idx.doc_num[src])["url"]
-               if src in ctx.idx.doc_num else "", "midterm_prob": round(prob, 3), "n_sources": len(fin["sources"]),
-               "first_source_is_midterm_source": bool(fin["sources"] and fin["sources"][0]["doc_id"] == src),
+               "flagged_by_midterm": doc_id in edges, "midterm_source": src,
+               "midterm_source_url": ctx.doc(ctx.idx.doc_num[src])["url"] if src in ctx.idx.doc_num else "",
+               "midterm_prob": round(prob, 3) if prob is not None else "", "n_sources": len(fin["sources"]),
+               "first_source_is_midterm_source": bool(src and fin["sources"] and fin["sources"][0]["doc_id"] == src),
                "unexplained": round(fin["unexplained"], 3)}
         for j, s in enumerate(fin["sources"][:multisource.MAX_SOURCES], 1):
             row.update({f"source{j}": s["doc_id"], f"source{j}_url": s["url"], f"source{j}_site": s["site"],
@@ -737,37 +937,42 @@ def live(sample=300, xl=None, seed=358, examples=5):
             ctx.emb.save()
             print(f"live {i + 1}/{len(pick)} {time.time() - t0:.0f}s", flush=True)
     ctx.emb.save()
-    keys = ["suspect", "suspect_url", "suspect_site", "n_sentences", "midterm_source", "midterm_source_url",
-            "midterm_prob", "n_sources", "first_source_is_midterm_source", "unexplained"]
+    keys = ["suspect", "suspect_url", "suspect_site", "n_sentences", "flagged_by_midterm", "midterm_source",
+            "midterm_source_url", "midterm_prob", "n_sources", "first_source_is_midterm_source", "unexplained"]
     keys += [f"source{j}{k}" for j in range(1, multisource.MAX_SOURCES + 1)
              for k in ("", "_url", "_site", "_share", "_prob")]
     with LIVE.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=keys)
         w.writeheader()
         w.writerows(rows)
-    by_n = defaultdict(int)
-    for r in rows:
-        by_n[r["n_sources"]] += 1
+    summary = []
+    for name, keep in (("flagged", True), ("unflagged sample", False)):
+        part = [r for r in rows if r["flagged_by_midterm"] == keep]
+        by_n = defaultdict(int)
+        for r in part:
+            by_n[r["n_sources"]] += 1
+        summary.append({"set": name, "measure": "articles traced", "value": len(part)})
+        summary += [{"set": name, "measure": f"with {k} verified sources", "value": by_n[k]} for k in sorted(by_n)]
+        many = sum(v for k, v in by_n.items() if k >= 2)
+        summary += [{"set": name, "measure": "with >= 2 verified sources", "value": many},
+                    {"set": name, "measure": "share with >= 2 verified sources", "value": round(many / max(1, len(part)), 3)},
+                    {"set": name, "measure": "median unexplained share",
+                     "value": round(float(np.median([r["unexplained"] for r in part])), 3) if part else ""}]
+        if keep and part:
+            summary.append({"set": name, "measure": "first source equals the midterm source",
+                            "value": round(float(np.mean([r["first_source_is_midterm_source"] for r in part])), 3)})
     multi = [r for r in rows if r["n_sources"] >= 2]
     pairs = defaultdict(int)
     for r in multi:
         pairs[" + ".join(sorted({r[f"source{j}_site"] for j in range(1, r["n_sources"] + 1)}))] += 1
-    summary = [{"measure": "flagged crawled articles in the index", "value": len(ids)},
-               {"measure": "traced", "value": len(rows)}]
-    summary += [{"measure": f"articles with {k} verified sources", "value": by_n[k]} for k in sorted(by_n)]
-    summary += [{"measure": "articles with >= 2 verified sources", "value": len(multi)},
-                {"measure": "share with >= 2 verified sources", "value": round(len(multi) / max(1, len(rows)), 3)},
-                {"measure": "first source equals the midterm source",
-                 "value": round(float(np.mean([r["first_source_is_midterm_source"] for r in rows])), 3) if rows else 0},
-                {"measure": "median unexplained share", "value": round(float(np.median([r["unexplained"] for r in rows])), 3)
-                 if rows else 0}]
-    summary += [{"measure": f"source sites: {k}", "value": v} for k, v in sorted(pairs.items(), key=lambda x: -x[1])[:8]]
+    summary += [{"set": "all", "measure": f"source sites: {k}", "value": v}
+                for k, v in sorted(pairs.items(), key=lambda x: -x[1])[:8]]
     write_csv(OUT / "multisource_live.csv", summary)
     for s in summary:
-        print(f"  {s['measure']}: {s['value']}")
+        print(f"  {s['set']}: {s['measure']}: {s['value']}")
     print(f"\n{examples} seeded-random articles with >= 2 verified sources (unjudged):")
     for r in random.Random(seed + 1).sample(multi, min(examples, len(multi))):
-        print(f"  {r['suspect_url']}  unexplained={r['unexplained']}")
+        print(f"  {r['suspect_url']}  flagged by midterm={r['flagged_by_midterm']}  unexplained={r['unexplained']}")
         for j in range(1, r["n_sources"] + 1):
             print(f"     {r[f'source{j}_share']:.0%} p={r[f'source{j}_prob']} {r[f'source{j}_url']}")
     print(f"written to {LIVE} and {OUT / 'multisource_live.csv'}")
