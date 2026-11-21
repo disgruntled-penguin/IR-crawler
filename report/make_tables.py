@@ -79,17 +79,19 @@ def xl_detection():
 
 
 def xl_other():
-    det = rows("crosslingual_detection.csv")
+    det, rank = rows("crosslingual_detection.csv"), rows("crosslingual_ranking.csv")
     langs = [("ta_translation", "Tamil"), ("te_translation", "Telugu"), ("bn_translation", "Bengali"),
-             ("hi_translation", "Hindi (for comparison)")]
+             ("hi_translation", "Hindi, for comparison")]
+    spec = [("P@1, SpinTrace anchors", "spintrace_xl", "rank"), ("P@1, multilingual dense", "dense_cosine", "rank"),
+            ("P@1, Latin tokens only", "latin_only", "rank"), ("F1, SpinTrace verified as derived", "spintrace_xl", "det")]
     body = []
-    for key, label in XL_METHODS[:1] + [m for m in XL_METHODS if m[0] in ("dense_cosine", "latin_only")]:
+    for label, key, kind in spec:
         cells = [label]
         for lv, _ in langs:
-            r = find(det, method=key, level=lv)
-            cells.append(num(r["f1"]) if r else "--")
+            r = find(rank, method=key, level=lv) if kind == "rank" else find(det, method=key, level=lv)
+            cells.append(num(r["p@1" if kind == "rank" else "f1"]) if r else "--")
         body.append(cells)
-    write("xl_other", ["Method"] + [l for _, l in langs], body, "@{}l" + "R" * len(langs) + "@{}")
+    write("xl_other", ["Measure"] + [l for _, l in langs], body, "@{}l" + "R" * len(langs) + "@{}")
 
 
 def xl_ablation():
@@ -242,10 +244,21 @@ def numbers():
     N["XlRetMs"] = num(e["ms_retrieve"], 0) if e else "--"
     N["XlPostings"] = num(e["postings_touched"], 0) if e else "--"
     N["BtLlmSec"] = num(b["llm_seconds"], 1) if b else "--"
+    N["DenseMs"] = num(find(eff, method="dense_cosine")["ms_per_suspect"], 0) if find(eff, method="dense_cosine") else "--"
+    N["XlTestN"] = str(find(det, method="spintrace_xl", level="hi_translation")["n_pos"]) if find(det, method="spintrace_xl", level="hi_translation") else "--"
+    cold_path = RESULTS / "crosslingual_cold_cost.json"
+    cold = json.loads(cold_path.read_text()) if cold_path.exists() else None
+    N["XlColdMs"] = num(cold["ms_per_suspect_cold"], 0) if cold else "--"
     try:
-        N["Speedup"] = num((float(b["llm_seconds"]) * 1000 + float(b["ms_per_suspect"])) / float(e["ms_per_suspect"]), 0)
+        N["Speedup"] = num(float(b["ms_per_suspect"]) / float(cold["ms_per_suspect_cold"]), 0)
     except (TypeError, ValueError, KeyError):
         N["Speedup"] = "--"
+    for lang, lv in (("Ta", "ta_translation"), ("Te", "te_translation"), ("Bn", "bn_translation")):
+        N[lang + "F"] = d("spintrace_xl", lv)
+        r = find(rank, method="spintrace_xl", level=lv)
+        N[lang + "Pone"] = num(r["p@1"]) if r else "--"
+        r = find(rank, method="dense_cosine", level=lv)
+        N["Dense" + lang + "Pone"] = num(r["p@1"]) if r else "--"
     for key, v in (("Full", "full"), ("NoNames", "no_names"), ("NoNumbers", "no_numbers"), ("NoDates", "no_dates"),
                    ("TranslitExact", "translit_exact"), ("NoDf", "no_idf_check"), ("DenseVerify", "dense_verify"),
                    ("NoAlign", "no_alignment_signals")):
@@ -255,6 +268,8 @@ def numbers():
     N["MsSyn"], N["MsSynCont"] = g("spintrace", "splice splice_synonym"), g("containment", "splice splice_synonym")
     N["MsSeo"], N["MsSeoCont"] = g("spintrace", "splice splice_seo"), g("containment", "splice splice_seo")
     N["MsLlm"], N["MsLlmCont"] = g("spintrace", "LLM mashups (both sources test)"), g("containment", "LLM mashups (both sources test)")
+    r = find(msd, method="spintrace", group="LLM mashups (both sources test)")
+    N["MsLlmPrec"], N["MsLlmRecall"] = (num(r["precision"]), num(r["recall"])) if r else ("--", "--")
     N["MsSecondSpin"], N["MsSecondMid"] = k("spintrace", "2", "2"), k("midterm", "2", "2")
     N["MsThirdSpin"], N["MsThirdMid"] = k("spintrace", "3", "3"), k("midterm", "3", "3")
     for key, v in (("Full", "full"), ("NoResid", "no_residual")):
@@ -268,7 +283,15 @@ def numbers():
     live = RESULTS / "crosslingual_live.json"
     if live.exists():
         lj = json.loads(live.read_text())
-        N["XlLiveSuspects"], N["XlLiveFlagged"] = str(lj.get("suspects", "--")), str(lj.get("flagged", "--"))
+        N["XlLiveSuspects"], N["XlLiveFlagged"] = f"{lj.get('suspects', 0):,}".replace(",", "{,}"), str(lj.get("flagged", "--"))
+        N["XlLiveDeva"] = f"{lj.get('by_script', {}).get('deva', {}).get('suspects', 0):,}".replace(",", "{,}")
+        N["XlLiveLag"] = num(lj.get("median_lag_hours"), 1)
+        N["XlLiveCredit"] = str(lj.get("flagged_crediting_source", "--"))
+        N["XlLiveAgency"] = str(lj.get("flagged_naming_agency", "--"))
+    ss = RESULTS / "crosslingual_live_same_site.json"
+    if ss.exists():
+        sj = json.loads(ss.read_text())
+        N["SameSiteSuspects"], N["SameSiteFlagged"] = str(sj.get("suspects", "--")), str(sj.get("flagged", "--"))
     ds = RESULTS / "dataset.json"
     if ds.exists():
         dj = json.loads(ds.read_text())
