@@ -73,8 +73,8 @@ def _toy():
     ]
     idx = index.Index().build(docs)
     con = sqlite3.connect(":memory:")
-    con.execute("CREATE TABLE docs (doc_id TEXT, text TEXT, origin TEXT)")
-    con.executemany("INSERT INTO docs VALUES (?,?,?)", [(d["doc_id"], d["text"], d["origin"]) for d in docs])
+    con.execute("CREATE TABLE docs (doc_id TEXT, text TEXT, origin TEXT, fetched_at REAL)")
+    con.executemany("INSERT INTO docs VALUES (?,?,?,?)", [(d["doc_id"], d["text"], d["origin"], 0.0) for d in docs])
     con.row_factory = sqlite3.Row
     return idx, kgram.build(idx, con, path=_tmp_path())
 

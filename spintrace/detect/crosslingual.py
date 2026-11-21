@@ -106,13 +106,21 @@ def match_name(lex, latin, k, fold, mode="kgram"):
     mode 'kgram' is the full tolerant lookup; 'key' keeps only exact key matches; 'exact' needs the
     transliteration itself to be an English name word (the no-fuzzy ablation).
     """
+    memo = (id(lex), latin, k, fold, mode)
+    if memo in _matches:
+        return _matches[memo]
     if mode == "exact":
         c = lex.exact.get(latin)
-        return [(latin, 1.0, 0, Counter({latin: c}))] if c else []
-    hits = lex.lookup(k, fold=fold, limit=NAME_MATCHES)
-    if mode == "key":
-        hits = [h for h in hits if h[2] == 0]
+        hits = [(latin, 1.0, 0, Counter({latin: c}))] if c else []
+    else:
+        hits = lex.lookup(k, fold=fold, limit=NAME_MATCHES)
+        if mode == "key":
+            hits = [h for h in hits if h[2] == 0]
+    _matches[memo] = hits
     return hits
+
+
+_matches = {}
 
 
 def number_forms(value):

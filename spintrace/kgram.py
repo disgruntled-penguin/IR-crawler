@@ -17,6 +17,7 @@ K = 3
 MIN_JACCARD = 0.3
 MAX_EDIT = 2
 MIN_INDIC_DOCS = 50
+INDIC_DF_BEFORE = 1795285800  # 2026-11-22 00:00 IST
 PATH = config.INDEX_DIR / "xl_kgram.pkl"
 
 
@@ -67,7 +68,7 @@ class KGramIndex:
         """
         gq = grams(q)
         overlap = Counter()
-        for g in gq:
+        for g in sorted(gq):
             for kid in self.post.get(g, ()):
                 overlap[kid] += 1
         max_edit = min(max_edit, 1 if len(q) <= 3 else 2)
@@ -79,7 +80,7 @@ class KGramIndex:
             ed = levenshtein(q, self.keys[kid])
             if ed <= max_edit:
                 out.append((self.keys[kid], jac, ed, self.terms[kid]))
-        out.sort(key=lambda x: (x[2], -x[1], -sum(x[3].values())))
+        out.sort(key=lambda x: (x[2], -x[1], -sum(x[3].values()), x[0]))
         return out[:limit]
 
     def postings(self, gram):
@@ -90,7 +91,7 @@ def name_words(text):
     """Single-word name parts from text.facts, the strings a translation has to transliterate."""
     names, _ = tx.facts(text)
     out = []
-    for n in names:
+    for n in sorted(names):
         for w in tx.tokens(n):
             if not w[0].isdigit() and len(w) >= 2 and w not in tx.STOPWORDS:
                 out.append(w)
@@ -124,12 +125,13 @@ class Lexicon:
         return float(np.log10((n + 1) / (df + 1))), df
 
 
-def indic_df(lex, con):
+def indic_df(lex, con, before=INDIC_DF_BEFORE):
     """Document frequency of every word in the crawled Indic-script pages, per script: a word that is
-    common in Hindi news is a common word, whatever English name it happens to sound like."""
+    common in Hindi news is a common word, whatever English name it happens to sound like. Only pages
+    fetched before a fixed time count, so a rebuild gives the same table while the crawl goes on."""
     dfs, ns = defaultdict(Counter), Counter()
-    for (text,) in con.execute("SELECT text FROM docs WHERE origin='crawl'"):
-        if not any("ऀ" <= ch <= "ൿ" for ch in text[:400]):
+    for (text,) in con.execute("SELECT text FROM docs WHERE origin='crawl' AND fetched_at < ?", (before,)):
+        if not any("\u0900" <= ch <= "\u0d7f" for ch in text[:400]):
             continue
         script = tx.script_of(text)
         if script == "latn":
