@@ -106,3 +106,15 @@ positives): MRR 0.846 at gap 1.5, 0.912 at 1.0, 0.962 at 0.5, 1.000 at 0, with f
 gap is now 0 (a source word seen in 3 or more pages cannot map to an English term rarer than itself). The
 cost, stated in the README: a name far more common in Hindi news than in our English crawl (मोदी) is no
 longer an anchor. Also fixed: '8:00' produced the number 0 as an anchor.
+
+**Open (not fixed): name noise on long live pages.** `suspect-xl --live` on the flagged BBC Hindi page shows
+170 matched name tokens, most of them rare Hindi words that sound like rare English names (जगाई as 'jaggi');
+the df check cannot judge words seen in fewer than 3 pages. The true source had cosine 0.05 and came first
+only through the shared date phrase. Anchors still work on the synthetic items (about 50 names each), but on
+long real pages names add postings and noise more than evidence. Candidates for the course project: keep
+only exact-key matches (the `key_exact` ablation lost nothing in round 1), or cap name anchors by the
+suspect's own idf; either needs a dev run before it is adopted.
+
+**State of the committed numbers.** The tables in the README and results/ come from the 44-original run
+scored before the round 2 fixes (deterministic lexicon, df cutoff, gap 0). The final run is
+`eval-xl --fresh` on the extended rewrite set (the cache predates those fixes) and `live-xl --rebuild`.
