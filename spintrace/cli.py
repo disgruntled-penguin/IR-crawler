@@ -238,6 +238,11 @@ def cmd_eval_multi(args):
         ms_eval.main(fresh=args.fresh, xl=xl, ablations=not args.no_ablations, smoke=args.smoke)
 
 
+def cmd_format_eval(args):
+    from .eval import formats
+    formats.main(fresh=args.fresh)
+
+
 def cmd_demo(args):
     """Trace randomly drawn test cases (seeded, never hand-picked), including a miss and a false alarm if any."""
     import random
@@ -445,6 +450,10 @@ def main(argv=None):
     c.add_argument("--live", action="store_true", help="trace the flagged live articles instead")
     c.add_argument("--sample", type=int, default=300, help="live articles to trace")
     c.set_defaults(fn=cmd_eval_multi)
+
+    c = sub.add_parser("format-eval", help="format changes (listicle, Q&A): midterm verifier against refits on dev")
+    c.add_argument("--fresh", action="store_true", help="rescore every item instead of using the cached run")
+    c.set_defaults(fn=cmd_format_eval)
 
     c = sub.add_parser("demo", help="trace seeded random test cases, including a miss and a false alarm")
     c.add_argument("--seed", type=int, default=7)
