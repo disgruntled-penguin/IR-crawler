@@ -1,0 +1,24 @@
+set,measure,value
+flagged,articles traced,174
+flagged,with 0 verified sources,8
+flagged,with 1 verified sources,153
+flagged,with 2 verified sources,12
+flagged,with 3 verified sources,1
+flagged,with >= 2 verified sources,13
+flagged,share with >= 2 verified sources,0.0750
+flagged,median unexplained share,0.1090
+flagged,first source equals the midterm source,0.8790
+unflagged sample,articles traced,300
+unflagged sample,with 0 verified sources,300
+unflagged sample,with >= 2 verified sources,0
+unflagged sample,share with >= 2 verified sources,0.0000
+unflagged sample,median unexplained share,1.0000
+all,multi-source articles whose sources share >= 50% of shingles (one text printed twice),6
+all,source sites: devdiscourse.com + indiatimes.com,3
+all,source sites: devdiscourse.com,2
+all,source sites: hindustantimes.com + socialnews.xyz,1
+all,source sites: hindustantimes.com + indianexpress.com,1
+all,source sites: devdiscourse.com + theguardian.com,1
+all,source sites: indiatimes.com + theprint.in,1
+all,source sites: hindustantimes.com + indiatimes.com,1
+all,source sites: indianexpress.com + socialnews.xyz,1

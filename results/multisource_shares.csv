@@ -1,0 +1,6 @@
+level,items,gold_sources,share_mae,share_mae_found_only,unexplained_predicted,unexplained_gold
+splice,96,240,0.0003,0.0003,0.0007,0.0000
+splice_light,96,240,0.0044,0.0000,0.0731,0.0670
+splice_synonym,96,240,0.0461,0.0105,0.1100,0.0000
+splice_seo,94,234,0.3142,0.0944,0.7821,0.0000
+all,382,954,0.0898,0.0090,0.2386,0.0168

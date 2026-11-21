@@ -1,0 +1,38 @@
+{
+  "features": [
+    "rare_cos",
+    "res_coverage",
+    "res_ordered",
+    "res_run",
+    "res_mean",
+    "res_word_overlap",
+    "res_fact_overlap",
+    "res_quote",
+    "res_containment",
+    "back_coverage",
+    "res_rest_sim",
+    "res_related"
+  ],
+  "weights": [
+    0.7195955517839399,
+    0.029277658850412502,
+    3.5455835509407576,
+    1.3029709276755446,
+    -2.200739590754569,
+    5.42536135632074,
+    3.1234005138974315,
+    0.9001072734295512,
+    -0.8372359566911727,
+    3.521923024959413,
+    -2.4865357528246532,
+    -2.127372230009053
+  ],
+  "bias": -3.0763228476454385,
+  "threshold": 0.95,
+  "cover": 0.62,
+  "stop_share": 0.0,
+  "source": "dev split",
+  "n_pairs": 8305,
+  "n_pos": 1860,
+  "false_source_cap": 0.10588235294117647
+}

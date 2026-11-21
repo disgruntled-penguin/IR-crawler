@@ -1,0 +1,35 @@
+{
+  "features": [
+    "rare_cos",
+    "shingle_containment",
+    "align_coverage",
+    "align_mean",
+    "align_order",
+    "back_coverage",
+    "ordered_coverage",
+    "aligned_word_overlap",
+    "quote_overlap",
+    "fact_overlap",
+    "fact_idf_overlap",
+    "fact_back_overlap",
+    "fact_sentence_coverage"
+  ],
+  "weights": [
+    0.7601536054586124,
+    2.271462418921155,
+    1.7931873253873383,
+    1.9678802199184653,
+    0.4218315858482631,
+    1.5900397790931313,
+    2.7069924049196263,
+    3.5372556290247883,
+    -0.5964368547766629,
+    3.242312624515979,
+    3.340201865767654,
+    1.7663442643231329,
+    1.7195433788302552
+  ],
+  "bias": -12.439459920046554,
+  "threshold": 0.778468345043349,
+  "source": "dev split"
+}
