@@ -316,7 +316,7 @@ Two of four NewsGuard-documented pairs loaded from the Wayback Machine; for the 
 \subsection{Tracing translations}
 \label{sec:xl}
 
-A Hindi suspect has to be traced to its English source among all earlier English documents from other sites (about 8{,}800 on average, out of 20{,}900 in the English index); the source is among them unless the item is a source-absent negative. We report F1 for three derivative levels with the negatives pooled, and the false-positive rate (FPR) on three negative sets: an independent Hindi article on the same event, its 100-word version, and a derivative whose true source has been removed from the index. Thresholds are tuned on dev. Each baseline gets its best dev threshold: translate the suspect back to English with the LLM and run exact hash, MinHash, tf-idf, BM25 and the English SpinTrace on the result; multilingual dense cosine over every document; and retrieval from the suspect's Latin-script tokens alone, which shows whether the number, date and name bridge is needed.
+A Hindi suspect has to be traced to its English source among all earlier English documents from other sites (about 8{,}200 on average, out of 20{,}860 in the English index); the source is among them unless the item is a source-absent negative. We report F1 for three derivative levels with the negatives pooled, and the false-positive rate (FPR) on three negative sets: an independent Hindi article on the same event, its 100-word version, and a derivative whose true source has been removed from the index. Thresholds are tuned on dev. Each baseline gets its best dev threshold: translate the suspect back to English with the LLM and run exact hash, MinHash, tf-idf, BM25 and the English SpinTrace on the result; multilingual dense cosine over every document; and retrieval from the suspect's Latin-script tokens alone, which shows whether the number, date and name bridge is needed.
 
 \begin{table}[t]
   \centering\small
@@ -334,7 +334,7 @@ A Hindi suspect has to be traced to its English source among all earlier English
   \label{fig:xl}
 \end{figure}
 
-SpinTrace on anchors reaches F1 \nXlTrans, \nXlSeo and \nXlSum on translations, SEO rewrites and summaries, and ranks the true source first for \nXlPone of all Hindi derivatives; the sets are small (\nXlTestN\ test originals per level), so the intervals in the CSV matter. Translating back and then running the English SpinTrace reaches \nBtSpinTrans, \nBtSpinSeo and \nBtSpinSum: a little lower, with overlapping intervals, so skipping the translation costs no accuracy on this set. Tf-idf and BM25 on the back-translation are weaker, most clearly on summaries (\nBtTfidfSum and \nBtBmSum), where a short brief shares less wording with its source after the round trip. Exact hash and MinHash score zero, as they must: a translation shares no shingles with its source. The embedding-only baselines are the weak ones: multilingual dense cosine reaches \nDenseTrans, \nDenseSeo and \nDenseSum and flags \nDenseFprSame of the same-event articles, and retrieval from Latin-script tokens alone reaches only \nLatinSum on summaries, so the bridge through numbers, dates and transliterated names does the work.
+SpinTrace on anchors reaches F1 \nXlTrans, \nXlSeo and \nXlSum on translations, SEO rewrites and summaries, and ranks the true source first for \nXlPone of all Hindi derivatives; the sets are small (\nXlTestN\ test originals per level), so the intervals in the CSV matter. Translating back and then running the English SpinTrace reaches \nBtSpinTrans, \nBtSpinSeo and \nBtSpinSum: better on literal translations, worse on SEO rewrites and summaries, and every interval overlaps ours, so on this set neither route is more accurate. Plain tf-idf on the back-translation is as strong as either on translations (\nBtTfidfTrans) and on SEO rewrites (\nBtTfidfSeo), and with BM25 it ranks the true source first for \nBtTfidfPone of all derivatives; translate-then-detect is therefore a strong baseline, and we do not claim an accuracy win over it. It falls apart on summaries (\nBtTfidfSum for tf-idf, \nBtBmSum for BM25), where a short brief shares little wording with its source after the round trip. Exact hash and MinHash score zero, as they must: a translation shares no shingles with its source. The embedding-only baselines are the weak ones: multilingual dense cosine reaches \nDenseTrans, \nDenseSeo and \nDenseSum and flags \nDenseFprSame of the same-event articles, and retrieval from Latin-script tokens alone reaches only \nLatinSum on summaries, so the bridge through numbers, dates and transliterated names does the work.
 
 Where SpinTrace wins is cost, not accuracy, and the cost needs care. Retrieval takes about \nXlRetMs\,ms over about \nXlPostings\ postings with no LLM call and no embedding of the corpus. Verification then embeds the suspect's sentences and those of five candidates; with those embeddings cached a suspect costs \nXlMs\,ms in total, and with a cold cache about \nXlColdMs\,ms (measured separately on an idle machine; see \code{results/crosslingual\_cold\_cost.json}). Translating back costs about \nBtLlmSec\,s of LLM time per suspect before any detection, roughly \nSpeedup\ times more than our cold cost. Multilingual dense cosine is cheap per query (\nDenseMs\,ms) but needs every document embedded first, which took about fifteen minutes for the 20{,}860 English documents and grows with the corpus; the inverted index already exists.
 
@@ -350,10 +350,10 @@ Removing one thing at a time (Table~\ref{tab:xlabl}) shows which parts carry wei
 
 \paragraph{Length is not a shortcut}
 \label{sec:length}
-A hostile reading of Table~\ref{tab:xl} is that the negatives differ from the summaries in length rather than in derivation. We checked, and the worry is half right. Word count alone separates the Hindi summaries (median 117 to 120 words) from the same-event negatives (median 218 to 230 words) perfectly, with an AUC of 1.00 on both dev and test; translations (AUC 0.52) and SEO rewrites (0.76) are mostly not separable by length. So we generated a second same-event negative of about 100 words for every test original, and report the false-positive rate on both. SpinTrace flags \nXlFprShort of the short negatives against \nXlFprSame of the long ones: a small rise on 22 items with overlapping intervals. So the length gap did not decide the result, but the summary level is where it could have helped, and the zero on the long negatives should not be read as a guarantee. The short negatives are a test-only diagnostic: a threshold tuned on dev against the long negatives is exposed if it lets short ones through.
+A hostile reading of Table~\ref{tab:xl} is that the negatives differ from the summaries in length rather than in derivation. We checked, and the worry is half right. Word count alone separates the Hindi summaries (median \nLenSumMed\ words) from the same-event negatives (median \nLenLongMed) almost perfectly, with an AUC of \nLenAucSum\ on test; translations (AUC \nLenAucTrans) are not separable by length, and SEO rewrites (\nLenAucSeo, because they are longer) only in part (\code{results/crosslingual\_length\_check.json}). So we generated a second same-event negative of about \nLenShortMed\ words for every test original, and report the false-positive rate on both. SpinTrace flags \nXlFprShort\ of the short negatives against \nXlFprSame\ of the long ones, on 50 items each with overlapping intervals; the translate-back SpinTrace flags \nBtSpinFprShort\ and \nBtSpinFprSame. The rise is in the direction the worry predicts: with the length cue taken away the verifier names a false source more often, so part of the precision on summaries was length. The short negatives still leave a smaller cue against summaries (AUC \nLenAucSumShort), so the true rate lies between the two figures. The short negatives are a test-only diagnostic: a threshold tuned on dev against the long negatives is exposed if it lets short ones through.
 
-\paragraph{Other scripts: retrieval transfers, verification does not}
-The same code, with the same dev thresholds and the multilingual sentence model, was tried on Tamil, Telugu and Bengali translations of 12 test originals each (Table~\ref{tab:xlother}). The generality check half failed, and the reason is informative. The anchors still retrieve the source: it is ranked first for \nTaPone, \nTePone and \nBnPone of the Tamil, Telugu and Bengali items, against \nDenseTaPone, \nDenseTePone and \nDenseBnPone for dense retrieval, which has no coverage of these scripts. Verification fails (F1 \nTaF, \nTeF and \nBnF), because the multilingual sentence model, to our knowledge, was not trained on these three languages, so sentence alignment carries no signal; we did not check the model card in this session. Where an embedding model does not cover a language, the index is the only part of the system that still works. These sets are tiny and are a negative generality result, not a benchmark.
+\paragraph{Other scripts: retrieval transfers unevenly, verification does not}
+The same code, with the same dev thresholds and the multilingual sentence model, was tried on Tamil, Telugu and Bengali translations of 12 test originals each (Table~\ref{tab:xlother}). The generality check half failed, and the reason is informative. The anchors still retrieve the source in part: it is ranked first for \nTaPone, \nTePone and \nBnPone of the Tamil, Telugu and Bengali items, against \nDenseTaPone, \nDenseTePone and \nDenseBnPone for dense retrieval, which has no coverage of these scripts. Verification fails (F1 \nTaF, \nTeF and \nBnF), because the multilingual sentence model, to our knowledge, was not trained on these three languages, so sentence alignment carries no signal; we did not check the model card in this session. Where an embedding model does not cover a language, the index is the only part of the system that still works. These sets are tiny and are a negative generality result, not a benchmark.
 
 \begin{table}[t]
   \centering\small
@@ -364,7 +364,7 @@ The same code, with the same dev thresholds and the multilingual sentence model,
 \end{table}
 
 \paragraph{Live pages}
-On the crawl itself we traced \nXlLiveSuspects\ Indian-language pages (\nXlLiveDeva\ in Devanagari) against English pages from the same days and earlier, and \nXlLiveFlagged\ were flagged, all Devanagari, a median \nXlLiveLag\ hours after the English page. Two of them are BBC Hindi articles traced to BBC News articles on another BBC domain, with the source credited: a bilingual outlet translating its own English reporting, which is the cross-language case in the wild. Others point to stories from the Times of India, The Independent and ThePrint, and one names the agency PTI; \nXlLiveCredit\ of the flagged pages credit their source. The flag rate is low for structural reasons: most Hindi stories have no English source in our crawl, outlets translating their own stories are filtered by the other-site rule, and same-event coverage is correctly rejected. A diagnostic that lets bilingual outlets match their own English pages (\nSameSiteSuspects\ pages of BBC and Hindustan Times in several scripts) flags \nSameSiteFlagged. Nobody has judged any of these, so we claim no live precision.
+On the crawl itself we traced \nXlLiveSuspects\ Indian-language pages (\nXlLiveDeva\ in Devanagari) against English pages from the same days and earlier, and \nXlLiveFlagged\ were flagged, all Devanagari, a median \nXlLiveLag\ hours after the English page. Two of them are BBC Hindi articles traced to BBC News articles on another BBC domain, with the source credited: a bilingual outlet translating its own English reporting, which is the cross-language case in the wild. The others point to English stories from Devdiscourse (four), ThePrint (three), the Times of India (two), The Hindu (two), The Independent and the Hindustan Times, and one names the agency PTI; \nXlLiveCredit\ of the flagged pages credit their source. The flag rate is low for structural reasons: most Hindi stories have no English source in our crawl, outlets translating their own stories are filtered by the other-site rule, and same-event coverage is correctly rejected. A diagnostic that lets bilingual outlets match their own English pages (\nSameSiteSuspects\ pages of BBC and Hindustan Times in several scripts) flags \nSameSiteFlagged. Nobody has judged any of these, so we claim no live precision.
 
 \subsection{Tracing mashups}
 \label{sec:ms}
@@ -380,7 +380,6 @@ A mashup has to be traced to all of its sources. We score the predicted source s
   \input{tables/ms_detection}
 \end{table}
 
-% VERIFY direction of every comparison below against Tables tab:ms, tab:msrank, tab:msabl, tab:msctrl after the final run
 SpinTrace recovers the source sets with F1 \nMsAll over all splices, against \nMsContAll for shingle containment and \nMsMidAll for the mid-term method, which cannot name more than one source and is capped well below that. On plain copy-and-paste splices shingle containment does about as well as we do (\nMsPlainCont against \nMsPlain) and is far cheaper; the gap opens when the blocks are reworded: \nMsSyn against \nMsSynCont for synonym-spun blocks and \nMsSeo against \nMsSeoCont for blocks taken from SEO rewrites. The one-shot baseline equals the mid-term one for a reason worth stating: a whole-document verifier passes a candidate only if it explains most of the suspect, and in a mashup of two or three sources at most one can, so one-shot almost never adds a second source. Recall of the second of two sources is \nMsSecondSpin for SpinTrace and \nMsSecondMid for the mid-term method, and of the third of three \nMsThirdSpin and \nMsThirdMid (Table~\ref{tab:msrank}). On the LLM mashups SpinTrace reaches F1 \nMsLlm against \nMsLlmCont for shingles; this set is small and its shares are unknown. Its precision there is \nMsLlmPrec\ but its recall only \nMsLlmRecall: under the false-source bar it names few of the sources, and those it names are right.
 
 \begin{table}[t]
@@ -444,7 +443,6 @@ The two new problems compose: a Hindi article stitched from two English original
   \input{tables/xlm_controls}
 \end{table}
 
-% VERIFY the direction of each claim below against Tables tab:xlm and tab:xlmctl after the final run
 Passage tracing recovers \nXlmRecall\ of the sources at precision \nXlmPrec\ (F1 \nXlmF), against \nXlmWholeRecall\ for tracing the whole text as one article (F1 \nXlmWholeF): a whole-text verifier does not pass an article that is only half copied, as in the English case. It is not a reliable detector, and the weaknesses come first. The exact source set is right for only \nXlmExact\ of the mashups. It names a false source for \nXlmFalseSame\ of the same-event articles, against \nXlmWholeFalseSame\ for the whole text; the dev rate was under the 10\% bar, so a threshold tuned at the edge of the bar did not carry over to test, on small sets. And it finds the source of fewer Hindi summaries (\nXlmSummaryFound against \nXlmWholeSummaryFound), because a three-sentence block of a summary carries too few anchors. We report it as a prototype showing that the two features compose, not as a result to build on; it costs about \nXlmMs\,ms per suspect.
 
 \subsection{Format changes: a negative result}
@@ -456,7 +454,7 @@ We also tried the third kind of derivative the mid-term failed on, an article re
 
 \begin{table}[t]
   \centering\small
-  \caption{Crawl statistics from \code{crawl-report}. Every fetched URL is re-checked against the stored robots.txt.}
+  \caption{Mid-term crawl (October 2026), from \code{crawl-report}. Every fetched URL is re-checked against the stored robots.txt.}
   \label{tab:crawl}
   \begin{tabularx}{\textwidth}{@{}Xr@{\hspace{2.2em}}Xr@{}}
     \toprule
@@ -475,6 +473,25 @@ We also tried the third kind of derivative the mid-term failed on, an article re
 \end{table}
 
 Table~\ref{tab:crawl} summarises the crawl. No disallowed URL was fetched among 43,674 audited fetches, and 512 URLs were skipped because robots.txt disallowed them. The delay floor was not perfect: 9 requests came less than 5\,s after the previous one to the same host, the closest 0.29\,s apart. The last of them was at 23:45 on 6 October; the crawl report had exposed a race in the politeness check, which we fixed at 23:46.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Final crawl (from 21 November 2026, with the Indian-language feeds), from \code{crawl-report --since 2026-11-21}. The first run ended at 17:47 on a dropped connection and the crawler was restarted after the fix, so the span of the log is longer than the time spent crawling.}
+  \label{tab:crawl2}
+  \begin{tabularx}{\textwidth}{@{}Xr@{\hspace{2.2em}}Xr@{}}
+    \toprule
+    \hrow \hd{Measure} & \hd{Value} & \hd{Measure} & \hd{Value} \\
+    \midrule
+    Page requests & \nCrawlReq & Disallowed URLs fetched & \nCrawlDisallowed \\
+    robots.txt requests & \nCrawlRobots & URLs skipped by robots.txt & \nCrawlSkips \\
+    Hosts & \nCrawlHosts & Smallest gap to one host (s) & \nCrawlGap \\
+    Documents saved & \nCrawlDocs & Requests under the 5\,s floor & \nCrawlUnder \\
+    Backoffs & \nCrawlBack & Trap guards fired & \nCrawlTrap \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+The final crawl, run overnight for the Indian-language feeds and fresh English pages, kept to the same rules: of \nCrawlReq\ page requests none was disallowed by robots.txt, none came less than 5\,s after the previous request to its host (the closest pair was \nCrawlGap\,s apart), and the crawler backed off \nCrawlBack\ times. Over both crawls \nCrawlAudited\ fetches were audited against the stored robots.txt with no disallowed fetch. The crawler also saves some listing pages (category archives with a date in the markup) as articles; they act as extra distractors and we did not filter them out.
 
 \section{Limitations and next steps}
 \label{sec:limits}
