@@ -55,9 +55,9 @@ Is the midterm claim intact? Yes: the English single-source path is unchanged (c
 
 ## Actions from this round
 
-1. Reword the cross-language claim (accuracy parity, cost and no-translation win) in the README and report. Not done yet.
-2. Related-work paragraph with the prior art in the report. Not done yet.
-3. Length-matched negatives (`hi_facts_short`) generated and scored on test. Generation running; result goes here after the final run. If the short-negative false-positive rate is far above the long one, the summary level's precision claim is withdrawn and the verifier is refit with short negatives in dev.
+1. Reword the cross-language claim (comparable accuracy, cost and no-translation win) in the README and report. Done; reworded again after round 2 (below).
+2. Related-work paragraph with the prior art in the report. Done.
+3. Length-matched negatives (`hi_facts_short`) generated and scored on test. Done: 22% against 10% for the long negatives (round 2).
 4. Keep the `@oracle` rows and the both-sources-in-test subset in the tables (already in the agents' output).
 
 ## Addendum: Hindi mashups (prototype added 22 Nov, 03:15)
@@ -69,3 +69,25 @@ Attack 2. The method names a false source for 28% of long same-event articles on
 Attack 3. Splices are an easy mashup: contiguous blocks of whole translated sentences with no stitching. Real farm mashups interleave and paraphrase. The SEO-derived splices are the harder variant and score lower. No live Hindi mashup was tested.
 
 Survived: the claim is only that the two features compose (passage tracing recovers about half the sources where whole-text tracing recovers under a third), with the false-source rate stated beside it.
+
+## Round 2: after the rerun on the full sets (22 Nov, 05:20)
+
+The Hindi set grew from 22 to 49-50 test originals per level, so every claim was rechecked against the new tables before the report was rebuilt.
+
+Attack 1. The overnight headline (F1 0.957 / 0.933 / 0.884, ahead of translate-then-detect) did not survive. On 49-50 items SpinTrace-XL scores 0.860 / 0.852 / 0.818 and the back-translated English SpinTrace 0.906 / 0.771 / 0.753; plain tf-idf on the back-translation reaches 0.897 on translations and ranks the source first for every derivative. All intervals overlap. Fixed: the report and README no longer claim parity or a lead on accuracy; they say neither route is more accurate, that translate-then-detect is a strong baseline, and that the win is cost (17.4 s of LLM time per suspect against 65 ms cached and 483 ms cold, 36 times). The cold figure was measured on 30 suspects with the encoder warm; it excludes model load.
+
+Attack 2. Precision is only about 0.75 at every level because the same-event false-positive rate is 10% on long negatives and 22% on 100-word ones. The earlier "0.000 / 0.091" were small-sample luck. Fixed: the numbers are in the text and the length paragraph now says the rise is in the direction the length worry predicts, so part of the summary-level precision was length; the short negatives still leave an AUC of 0.72 against summaries, so the truth lies between the two rates.
+
+Attack 3. The length-AUC figures in the report were typed by hand from an earlier, smaller set. Fixed: `spintrace/eval/xl_length_check.py` writes them to `results/crosslingual_length_check.json` and the report reads them as macros. Same for the cold cost (`xl_cold_cost.py`). Both are in `scripts/final_run.sh`.
+
+Attack 4. Hindi mashups on the full set: passage tracing F1 0.765 (recall 0.62, precision 1.00) against 0.528 for the whole text, but it names a false source for 30% and 28% of same-event articles although its dev rate was at most 10%. The block size also moved to 3 (it was 4 on the first run), which shows the setting is not stable on small sets. Stated as a prototype in the report, as before.
+
+Attack 5. Other scripts: retrieval is uneven (P@1 0.42 Tamil, 0.67 Telugu, 0.92 Bengali) not simply "transfers". Reworded. Verification failure is unchanged; the sentence model's language coverage is still not checked against its model card.
+
+Attack 6. The crawler stores category archive pages with a date in the markup as articles (for example "Health Archives", 368 words). They are extra distractors, not positives or negatives, so no result depends on them, but they inflate the document count. Left in and disclosed in the crawler section.
+
+Attack 7. Do the logs prove politeness for the final crawl? `crawl-report --since 2026-11-21` now reports the final crawl alone: 0 disallowed fetches, 0 requests under the 5 s floor, closest pair 20 s apart. The 39 delay violations in the cumulative report are all from 6 and 7 October.
+
+Survived: the novelty claim (translations and mashups need retrieval machinery the midterm lacks) with the honest result that accuracy is comparable to translate-then-detect and the gain is cost and inspectability. Nothing found in this round invalidates the midterm path.
+
+Not done: no live result is judged; the dense baseline was never given the anchors' time window, which would only help it; the cost figures are one machine and a 20k-document index.
