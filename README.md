@@ -421,6 +421,207 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 - **Real cases.** NewsGuard-documented pairs (Wayback Machine), flagged live pairs and live search results for
   the two judges (`python -m spintrace judge ...`); agreement is reported as Cohen's kappa.
 
+<!-- multisource:start -->
+## Multi-source mashups (final project)
+
+**Problem.** AI content farms often stitch one article from two or three originals. The midterm pipeline keeps the
+strongest verified source and stops, so the second source hides behind the first: its sentences are a minority of the
+suspect, its rare terms are outweighed in the one query, and its whole-document verification score is low because it
+explains only part of the suspect. **Claim:** explain-away retrieval recovers every source of a mashup and its share of
+the text, while still giving exactly one source for a single-source rewrite and none for an independent article.
+
+**Method** (`spintrace/detect/multisource.py`). Each round builds the candidate query only from the suspect's sentences
+that no found source explains yet: their 30 highest tf-idf terms (names and numbers boosted, df >= 2), their quotes as
+positional phrase queries, the earlier-only date filter, and the sources already found excluded. The top 5 candidates
+are verified against those unexplained sentences, the best one is kept (the earliest of near-ties, as in the midterm),
+and the suspect sentences it aligns to (MiniLM cosine >= the tuned cover value) are marked explained. Rounds stop when
+the best candidate's probability is under the tuned threshold, when it explains fewer than 2 new sentences, when the
+unexplained share falls under the tuned stop share, or after 4 sources. Each sentence is finally assigned to the found
+source it aligns to best; the rest is the unexplained share (boilerplate, the farm's own filler).
+
+**A per-round verifier.** The midterm verifier was fit on whole-document pairs, where a true source covers most of the
+suspect; a 30% source of a mashup cannot pass it. The round verifier is a logistic regression over signals measured
+against the *unexplained* sentences only: coverage, in-order chain (LIS) and longest contiguous in-order run of aligned
+sentences, mean similarity, content-word overlap of aligned pairs, idf-free fact overlap, quote overlap, shingle
+containment, back coverage, and the residual query's rare-term cosine. After the 70% source is explained, a 30% source
+covers nearly all of what is left. Partial coverage alone cannot tell a mashup's source from the original of an article
+written independently from the same facts, so two signals look at the rest of the suspect: the mean similarity of the
+unexplained sentences the candidate does *not* align (`res_rest_sim`) and the share of them that are related but not
+aligned (`res_related`). In an independent same-story article those sentences are still about the candidate's story
+(median similarity 0.50 on dev); in a mashup they belong to another story (0.22-0.30). The verifier is fit on dev rounds
+(a candidate is positive if it is a true source not yet found), with dev mashups and dev controls together. The
+threshold, stop share and cover value are tuned on dev for micro source-set F1 over all dev items, under the
+false-source bar described below. Because an early-stopping run is a prefix of a run with threshold 0, each dev pass is
+run once and truncated for every grid point.
+
+**Evaluation data** (`spintrace/eval/mashups.py`, `evaldata/mashups.jsonl`, deterministic, Wikinews text under CC BY):
+each mashup splices one contiguous block of sentences from each of 2 or 3 originals in known proportions (50/50, 70/30,
+40/30/30, 50/25/25), blocks in random order. Easy mashups combine random originals; hard ones combine originals
+published within 7 days that share at least 3 moderately rare terms (in at most 200 of the 4,400 Wikinews articles),
+drawn from the 400 originals and the Wikinews distractors. Wikinews rarely covers one event twice, so "hard" means
+same-week, related-topic sources, not same-event sources. Levels: the splice as is; a light edit (the midterm's word
+swaps and sentence drops, plus its boilerplate opening and closing line); a WordNet synonym spin; and `splice_seo`,
+which splices blocks of the committed LLM SEO rewrites of the originals (a paraphrase the shingle checks miss; the
+sources are the originals). Every source of a mashup is in the same split (by the first source's story). Controls come
+from the index: single-source rewrites (light, synonym, SEO, summary; answer: exactly one source), facts-only articles
+and crawl hard negatives (answer: no source). LLM mashups (gemma3:4b, two originals, `evaldata/rewrites_xl.jsonl`) are
+read at run time; their source set is the label and their shares are unknown. Synthetic rewrites of a mashup's sources
+are hidden from retrieval so a copy cannot stand in for the original.
+
+**Baselines**, each with its best dev threshold for the same objective and bar: the midterm single-source pipeline (at most one
+source; also shown at its shipped threshold), one-shot multi (every round-1 candidate the midterm verifier accepts, no
+residual), MinHash LSH (every LSH candidate above a Jaccard estimate), and shingle containment against every earlier
+document (every document holding more than a share of the suspect's 5-gram shingles).
+
+**Results** (test split; every threshold tuned on dev). The operating point matters, so it is fixed in advance: every
+method takes its best dev source-set F1 among the thresholds that name a source for at most 10.6% of the dev
+facts-only articles and hard negatives, which is the shipped midterm verifier's own rate there. Without that bar,
+source-set F1 alone picks thresholds that give a false source to about half of the facts-only articles (last table).
+All tables are in `results/multisource_summary.md` and `results/multisource_*.csv`; charts:
+`results/multisource_recall_by_n.png` (source recall by number of sources mixed, one line per method),
+`multisource_recall_by_rank.png`, `multisource_share_scatter.png` and `multisource_tradeoff.png` (sources found
+against false sources, sweeping each method's threshold).
+
+**Source-set F1 on test mashups** (micro over true sources; 95% bootstrap interval over mashups):
+
+| method | all splices | splice | splice_light | splice_synonym | splice_seo | hard | 3 sources |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| SpinTrace multi-source | 0.870 [0.84, 0.90] | 1.000 [1.00, 1.00] | 0.992 [0.98, 1.00] | 0.938 [0.90, 0.97] | 0.329 [0.25, 0.41] | 0.863 [0.81, 0.90] | 0.839 [0.78, 0.88] |
+| Midterm single-source | 0.116 [0.08, 0.15] | 0.209 [0.15, 0.27] | 0.182 [0.12, 0.24] | 0.057 [0.02, 0.10] | 0.000 [0.00, 0.00] | 0.085 [0.04, 0.13] | 0.024 [0.01, 0.05] |
+| One-shot multi | 0.116 [0.08, 0.15] | 0.209 [0.15, 0.27] | 0.182 [0.12, 0.24] | 0.057 [0.02, 0.10] | 0.000 [0.00, 0.00] | 0.085 [0.04, 0.13] | 0.024 [0.01, 0.05] |
+| MinHash LSH | 0.188 [0.15, 0.22] | 0.384 [0.31, 0.45] | 0.292 [0.23, 0.35] | 0.008 [0.00, 0.03] | 0.000 [0.00, 0.00] | 0.184 [0.13, 0.23] | 0.100 [0.07, 0.13] |
+| Shingle containment | 0.742 [0.71, 0.77] | 0.981 [0.97, 0.99] | 0.970 [0.96, 0.99] | 0.582 [0.52, 0.64] | 0.050 [0.02, 0.09] | 0.746 [0.69, 0.79] | 0.694 [0.64, 0.74] |
+| Midterm, shipped threshold | 0.147 [0.11, 0.19] | 0.242 [0.18, 0.30] | 0.215 [0.15, 0.28] | 0.088 [0.05, 0.14] | 0.025 [0.00, 0.06] | 0.130 [0.08, 0.19] | 0.028 [0.01, 0.05] |
+
+**LLM mashups** (gemma3:4b asked to combine two originals into one article; the source set is the label, shares unknown; never used for tuning; small n, so the intervals are wide):
+
+| method | set | mashups | precision | recall | F1 [95% CI] | exact set | sources per item |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| SpinTrace multi-source | (all) | 34 | 1.000 | 0.338 | 0.505 [0.34, 0.65] | 0.235 | 0.68 |
+| Midterm single-source | (all) | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| One-shot multi | (all) | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| MinHash LSH | (all) | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| Shingle containment | (all) | 34 | 1.000 | 0.015 | 0.029 [0.00, 0.08] | 0.000 | 0.03 |
+| Midterm, shipped threshold | (all) | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| SpinTrace multi-source | (both sources test) | 23 | 1.000 | 0.391 | 0.562 [0.36, 0.72] | 0.261 | 0.78 |
+| Midterm single-source | (both sources test) | 23 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| One-shot multi | (both sources test) | 23 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| MinHash LSH | (both sources test) | 23 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| Shingle containment | (both sources test) | 23 | 1.000 | 0.022 | 0.043 [0.00, 0.12] | 0.000 | 0.04 |
+| Midterm, shipped threshold | (both sources test) | 23 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| SpinTrace multi-source | (all), max-F1 thresholds without the bar | 34 | 1.000 | 0.971 | 0.985 [0.96, 1.00] | 0.941 | 1.94 |
+| Midterm single-source | (all), max-F1 thresholds without the bar | 34 | 0.931 | 0.397 | 0.557 [0.47, 0.63] | 0.000 | 0.85 |
+| One-shot multi | (all), max-F1 thresholds without the bar | 34 | 0.985 | 0.941 | 0.962 [0.93, 0.99] | 0.853 | 1.91 |
+| MinHash LSH | (all), max-F1 thresholds without the bar | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| Shingle containment | (all), max-F1 thresholds without the bar | 34 | 1.000 | 0.559 | 0.717 [0.63, 0.80] | 0.235 | 1.12 |
+
+**Exact source set and recall by share rank** (test splices):
+
+| method | exact set | sources per item | 2 src: largest | 2 src: second | 3 src: largest | 3 src: second | 3 src: third |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| SpinTrace multi-source | 0.741 [0.69, 0.79] | 1.93 | 0.875 [0.82, 0.92] | 0.812 [0.75, 0.87] | 0.742 [0.66, 0.81] | 0.721 [0.63, 0.79] | 0.705 [0.62, 0.77] |
+| Midterm single-source | 0.000 [0.00, 0.00] | 0.15 | 0.234 [0.15, 0.31] | 0.036 [0.01, 0.08] | 0.037 [0.01, 0.07] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] |
+| One-shot multi | 0.000 [0.00, 0.00] | 0.15 | 0.234 [0.15, 0.31] | 0.036 [0.01, 0.08] | 0.037 [0.01, 0.07] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] |
+| MinHash LSH | 0.018 [0.00, 0.04] | 0.26 | 0.260 [0.19, 0.33] | 0.099 [0.06, 0.15] | 0.116 [0.07, 0.16] | 0.021 [0.01, 0.04] | 0.021 [0.01, 0.04] |
+| Shingle containment | 0.484 [0.43, 0.53] | 1.48 | 0.729 [0.65, 0.80] | 0.630 [0.55, 0.70] | 0.653 [0.57, 0.72] | 0.484 [0.42, 0.54] | 0.458 [0.40, 0.51] |
+| Midterm, shipped threshold | 0.000 [0.00, 0.00] | 0.20 | 0.312 [0.23, 0.40] | 0.042 [0.01, 0.08] | 0.042 [0.01, 0.08] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] |
+
+**Controls** (test): extra-source rate on single-source rewrites (any source besides the true one), false-source rate on facts-only articles and crawl hard negatives (any source at all):
+
+| method | extra: light | extra: synonym | extra: seo | extra: summary | false: facts-only | false: hard neg | source found: seo | source found: summary |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| SpinTrace multi-source | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.078 [0.02, 0.14] | 0.033 [0.00, 0.08] | 0.644 | 0.800 |
+| Midterm single-source | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.111 [0.06, 0.18] | 0.017 [0.00, 0.05] | 0.700 | 0.956 |
+| One-shot multi | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.111 [0.06, 0.18] | 0.017 [0.00, 0.05] | 0.700 | 0.956 |
+| MinHash LSH | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.033 [0.00, 0.08] | 0.000 [0.00, 0.00] | 0.011 | 0.000 |
+| Shingle containment | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.178 [0.10, 0.27] | 0.000 [0.00, 0.00] | 0.189 | 0.556 |
+| Midterm, shipped threshold | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.000 [0.00, 0.00] | 0.156 [0.08, 0.23] | 0.017 [0.00, 0.05] | 0.756 | 0.967 |
+
+**Ablations** (each variant's threshold and stopping share re-tuned on dev under the same false-source bar; test numbers):
+
+| variant | F1 splices | F1 splice_seo | F1 all items | 2nd of 2 | 3rd of 3 | extra: seo | extra: summary | false: facts-only | false: hard neg |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| full | 0.870 | 0.329 | 0.871 | 0.812 | 0.705 | 0.000 | 0.000 | 0.078 | 0.033 |
+| no_residual | 0.844 | 0.323 | 0.850 | 0.771 | 0.637 | 0.000 | 0.000 | 0.111 | 0.033 |
+| no_facts_quotes | 0.867 | 0.304 | 0.869 | 0.807 | 0.700 | 0.000 | 0.000 | 0.078 | 0.033 |
+| midterm_verifier_in_rounds | 0.118 | 0.000 | 0.383 | 0.036 | 0.000 | 0.000 | 0.000 | 0.111 | 0.017 |
+
+**Without the false-source bar** (each method at its max dev F1 over all items; test numbers). This is the operating point a source-set F1 alone would pick; it buys recall with false sources on independent articles:
+
+| method | threshold | F1 splices | F1 splice_seo | F1 all items | 2nd of 2 | 3rd of 3 | extra: seo | extra: summary | false: facts-only | false: hard neg |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| SpinTrace multi-source | 0.500 | 0.972 | 0.894 | 0.954 | 0.927 | 0.942 | 0.011 | 0.000 | 0.522 | 0.117 |
+| Midterm single-source | 0.046 | 0.513 | 0.362 | 0.621 | 0.219 | 0.063 | 0.000 | 0.000 | 0.922 | 0.133 |
+| One-shot multi | 0.009 | 0.856 | 0.670 | 0.817 | 0.776 | 0.547 | 0.067 | 0.156 | 0.978 | 0.400 |
+| MinHash LSH | 0.102 | 0.188 | 0.000 | 0.216 | 0.099 | 0.021 | 0.000 | 0.000 | 0.033 | 0.000 |
+| Shingle containment | 0.044 | 0.917 | 0.599 | 0.893 | 0.865 | 0.837 | 0.011 | 0.033 | 0.467 | 0.233 |
+| Midterm, shipped threshold | 0.804 | 0.147 | 0.025 | 0.404 | 0.042 | 0.000 | 0.000 | 0.000 | 0.156 | 0.017 |
+
+What the numbers say:
+
+- **The second source no longer hides.** SpinTrace finds the second of two sources in 81% of test splices and the
+  third of three in 71%; the midterm finds 4% and 0%. Its exact source set is right for 74% of splices.
+- **The midterm single-source pipeline and one-shot multi are structurally capped, and come out identical.** Both
+  score the round-1 candidates with the midterm's whole-document verifier and, under the bar, land on the same
+  threshold (0.854). A whole-document verifier passes a candidate only if it explains most of the suspect; in a 2- or
+  3-source mashup at most one source can, and usually none does (the midterm finds even the larger of two sources in
+  only 23% of 2-source splices). So no second candidate ever clears the threshold and one-shot never adds a source.
+  Without the bar one-shot reaches splice F1 0.856, but gives a source to 98% of facts-only articles.
+- **The main gain is the per-round verification criterion, not the residual query.** Putting the midterm's
+  whole-document verifier inside the same rounds gives splice F1 0.118. Querying only the unexplained sentences adds
+  2.6 points of splice F1 over re-querying the whole suspect each round (0.844 to 0.870), raises recall of the second
+  of two sources from 0.771 to 0.812 and of the third of three from 0.637 to 0.705, and lowers the facts-only
+  false-source rate from 0.111 to 0.078. It adds little because one rare-term query for the whole suspect already
+  retrieves the second source in its top 5 for 91% of 2-source splices (85% for the third of three); the residual
+  query helps for the rest. Dropping names, numbers and quotes from the residual query costs 0.3 points.
+- **Against shingles, the gain is on paraphrase only.** Shingle containment against every earlier document scores
+  0.981 on verbatim splices and 0.970 on light edits, as well as SpinTrace and about 60 times cheaper (1.5 ms against
+  99 ms per suspect), and 0.742 over all splices. SpinTrace's lead is on synonym-spun splices (0.938 against 0.582)
+  and SEO-rewrite splices (0.329 against 0.050). On copy-level mashups the textbook check is enough.
+- **LLM mashups** (34 when this ran; more are being generated, and `eval-multi` reads whatever rows exist): under the
+  bar SpinTrace finds 34% of their sources with no wrong source (F1 0.505), shingle containment 1.5% and the
+  midterm, one-shot and MinHash none. Without the bar every method does far better (SpinTrace 0.985, one-shot 0.962,
+  containment 0.717, midterm 0.557): gemma3:4b keeps much of each original's sentences when it combines two, and here
+  too one query for the whole suspect already holds both sources. The bar, set by the facts-only articles, is what
+  costs recall on these items.
+- **Shares** are near exact for copy-level splices (mean absolute error 0.000-0.046 of the suspect) and poor for
+  SEO-rewrite splices (0.314, counting missed sources as 0): most paraphrased sentences fall under the 0.62 alignment
+  cut and stay unexplained.
+- **Cost:** about 99 ms per suspect for retrieval and verification over 1.66 rounds (about 10,000 postings touched
+  per round, 5 candidates verified), plus about 0.1 s to embed a new suspect's sentences on this CPU.
+
+**Live pass** (`eval-multi --live`, unjudged; `evaldata/live_multisource.csv` holds URLs, shares and probabilities
+only). Of the 174 crawled articles the single-source scan flagged, 153 keep one verified source, 13 (7.5%) get two or
+more and 8 get none at the stricter round threshold; the first source equals the midterm's source for 88%. None of a
+seeded sample of 300 unflagged crawled articles gets any source. In 6 of the 13 multi-source articles the two
+sources share at least half their shingles, so they are one wire text printed by two outlets (the Sitharaman GST
+op-ed in both the Hindustan Times and the Economic Times), not a mashup; the CSV's `max_source_overlap` column marks
+them. The seeded examples the command prints include a NewsX Djokovic report traced 88% to Devdiscourse and 12% to
+the Times of India, both agency-based. Nobody has judged these pairs, so they are counts and seeded examples, not
+precision.
+
+**Where multi-source tracing loses.**
+
+- LLM-paraphrased blocks: splice_seo F1 is 0.329 under the bar (0.894 without it, at a 52% facts-only false-source
+  rate). At the residual level an LLM paraphrase of part of an original and an article written independently from
+  the original's fact sheet look alike; the two rest-of-suspect signals separate them only partly.
+- Single-source paraphrases: the strict round threshold (0.95) finds the source of 64% of SEO rewrites and 80% of
+  summaries, against 76% and 97% for the shipped midterm. In a crawler the midterm pass should stay first and the
+  multi-source pass add further sources.
+- False sources: 7.8% of facts-only articles and 3.3% of crawl hard negatives get a source (shipped midterm 15.6% and
+  1.7%).
+- Hard mashups are same-week, related-topic sources (Wikinews rarely covers one event twice), not same-event ones;
+  only the LLM mashups and the live pass test mixing within one event.
+- Two found sources can be copies of one wire story; they are reported as two sources (marked by overlap).
+- Undated documents pass the earlier-only filter and the rounds make no further provenance check; mashup dates are
+  synthetic.
+- The false-source problem was first seen in the test numbers of the first run (59% of facts-only articles got a
+  source at the max-F1 threshold). The diagnosis, the two new signals and the bar used dev only, and the bar is the
+  shipped midterm's dev rate rather than a tuned value, but the decision to fix it was informed by a test number
+  (`notes/critique_multisource.md`).
+
+<!-- multisource:end -->
+
 ## Known weaknesses
 
 - **Where SpinTrace loses.** On exact copies and light edits, exact hashing and MinHash are better (F1 0.99-1.00
@@ -478,6 +679,7 @@ Works, end to end on live data:
 - Candidate retrieval from rare (fact-boosted) terms and quote phrases with an earlier-only filter; verification by sentence alignment, order, quotes, names/numbers and shingle containment; provenance by date or, when undated, by coverage asymmetry; copy graph and originality g(d); search with net score.
 - Evaluation: synthetic graded rewrites, same-site distractors, mined hard negatives, six baselines with dev-tuned thresholds, ablations, stemming and query variants, undated provenance, search with and without g(d), crawl statistics.
 - `suspect`, `pair` and `postings` print every intermediate step for the demo; the web app shows the same steps for any indexed article.
+- Multi-source tracing (final phase): explain-away rounds with a per-round verifier, sentence shares, `sources` inspect command (mashup id, indexed article or `--file`), optional multi-source edges in `scan --multi` (off by default), rule-based and LLM mashup evaluation against four baselines with ablations, and an unjudged live pass.
 
 Partial:
 
@@ -515,6 +717,10 @@ Tracks announced 12:00 on 6 Oct 2026; planning 12:00 to 21:00; build from 21:00.
 | 02:00-02:30 | Final run; critique round 3 (dev cross-validation adds aligned word overlap) |
 | 02:20-02:50 | CC-NEWS scale experiment; the crawler died on a database lock held by the loader, fixed and restarted |
 | 02:55-04:30 | Round-trip translation level generated; full rerun of every experiment with it |
+| 21 Nov 15:50-16:15 | Final phase, multi-source: explain-away rounds, rule-based mashups, first smoke run |
+| 16:15-16:40 | Multi-source evaluation with baselines; first run names a source for 59% of facts-only articles |
+| 16:40-17:05 | Dev diagnosis, rest-of-suspect signals and the false-source bar; full rerun (17 min), live pass |
+| 22 Nov 02:00-02:15 | LLM mashups added to the evaluation; critique notes |
 
 ## AI-use log
 
