@@ -327,6 +327,13 @@ A Hindi suspect has to be traced to its English source among all earlier English
   \input{tables/xl_detection}
 \end{table}
 
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{figures/xl_f1_by_level.pdf}
+  \caption{Hindi to English, test split: F1 at each derivative level, one line per method. The back-translation methods use the LLM's translation of every suspect; SpinTrace uses none. Intervals are in the CSV.}
+  \label{fig:xl}
+\end{figure}
+
 SpinTrace on anchors reaches F1 \nXlTrans, \nXlSeo and \nXlSum on translations, SEO rewrites and summaries, and ranks the true source first for \nXlPone of all Hindi derivatives; the sets are small (\nXlTestN\ test originals per level), so the intervals in the CSV matter. Translating back and then running the English SpinTrace reaches \nBtSpinTrans, \nBtSpinSeo and \nBtSpinSum: a little lower, with overlapping intervals, so skipping the translation costs no accuracy on this set. Tf-idf and BM25 on the back-translation are weaker, most clearly on summaries (\nBtTfidfSum and \nBtBmSum), where a short brief shares less wording with its source after the round trip. Exact hash and MinHash score zero, as they must: a translation shares no shingles with its source. The embedding-only baselines are the weak ones: multilingual dense cosine reaches \nDenseTrans, \nDenseSeo and \nDenseSum and flags \nDenseFprSame of the same-event articles, and retrieval from Latin-script tokens alone reaches only \nLatinSum on summaries, so the bridge through numbers, dates and transliterated names does the work.
 
 Where SpinTrace wins is cost, not accuracy, and the cost needs care. Retrieval takes about \nXlRetMs\,ms over about \nXlPostings\ postings with no LLM call and no embedding of the corpus. Verification then embeds the suspect's sentences and those of five candidates; with those embeddings cached a suspect costs \nXlMs\,ms in total, and with a cold cache about \nXlColdMs\,ms (measured separately on an idle machine; see \code{results/crosslingual\_cold\_cost.json}). Translating back costs about \nBtLlmSec\,s of LLM time per suspect before any detection, roughly \nSpeedup\ times more than our cold cost. Multilingual dense cosine is cheap per query (\nDenseMs\,ms) but needs every document embedded first, which took about fifteen minutes for the 20{,}860 English documents and grows with the corpus; the inverted index already exists.
@@ -384,6 +391,13 @@ SpinTrace recovers the source sets with F1 \nMsAll over all splices, against \nM
   \setlength{\tabcolsep}{3pt}
   \input{tables/ms_by_rank}
 \end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{figures/ms_recall_by_rank.pdf}
+  \caption{Mashups, test splices: the share of true sources found, by the source's rank in the mashup. The mid-term method and one-shot retrieval find the largest source and almost never the others.}
+  \label{fig:ms}
+\end{figure}
 
 \begin{table}[t]
   \centering\small
