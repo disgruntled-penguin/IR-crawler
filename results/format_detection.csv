@@ -1,0 +1,25 @@
+model,level,n_pos,precision,recall,f1,source_correct,threshold,fpr,n_neg
+midterm verifier (as shipped),listicle,190,0.9314,1.0000,0.9645,1.0000,0.8044,,
+midterm verifier (as shipped),qa,190,0.9286,0.9579,0.9430,0.9579,0.8044,,
+midterm verifier (as shipped),seo,90,0.8293,0.7556,0.7907,0.7556,0.8044,,
+midterm verifier (as shipped),summary,90,0.8614,0.9667,0.9110,0.9667,0.8044,,
+midterm verifier (as shipped),fpr_facts_only,0,,,,,0.8044,0.1556,90
+midterm verifier (as shipped),fpr_hard_negative,0,,,,,0.8044,0.0000,167
+"refit on dev, same signals",listicle,190,0.8879,1.0000,0.9406,1.0000,0.8165,,
+"refit on dev, same signals",qa,190,0.8879,1.0000,0.9406,1.0000,0.8165,,
+"refit on dev, same signals",seo,90,0.7670,0.8778,0.8187,0.8778,0.8165,,
+"refit on dev, same signals",summary,90,0.7857,0.9778,0.8713,0.9778,0.8165,,
+"refit on dev, same signals",fpr_facts_only,0,,,,,0.8165,0.2556,90
+"refit on dev, same signals",fpr_hard_negative,0,,,,,0.8165,0.0060,167
+"refit on dev, + order-free fact signals",listicle,190,0.8716,1.0000,0.9314,1.0000,0.7785,,
+"refit on dev, + order-free fact signals",qa,190,0.8716,1.0000,0.9314,1.0000,0.7785,,
+"refit on dev, + order-free fact signals",seo,90,0.7477,0.9222,0.8259,0.9222,0.7785,,
+"refit on dev, + order-free fact signals",summary,90,0.7586,0.9778,0.8544,0.9778,0.7785,,
+"refit on dev, + order-free fact signals",fpr_facts_only,0,,,,,0.7785,0.3000,90
+"refit on dev, + order-free fact signals",fpr_hard_negative,0,,,,,0.7785,0.0060,167
+fact signals and rare_cos only,listicle,190,0.7950,1.0000,0.8858,1.0000,0.7992,,
+fact signals and rare_cos only,qa,190,0.7950,1.0000,0.8858,1.0000,0.7992,,
+fact signals and rare_cos only,seo,90,0.6343,0.9444,0.7589,0.9444,0.7992,,
+fact signals and rare_cos only,summary,90,0.6142,0.8667,0.7189,0.8556,0.7992,,
+fact signals and rare_cos only,fpr_facts_only,0,,,,,0.7992,0.5111,90
+fact signals and rare_cos only,fpr_hard_negative,0,,,,,0.7992,0.0180,167

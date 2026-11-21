@@ -1,0 +1,9 @@
+pair,model,rank_of_original,p_original,threshold,flagged,traced_to_original
+topgolf_wired_deals,midterm verifier (as shipped),1,0.0003,0.8044,False,False
+topgolf_wired_deals,"refit on dev, same signals",1,0.0013,0.8165,False,False
+topgolf_wired_deals,"refit on dev, + order-free fact signals",1,0.0003,0.7785,False,False
+topgolf_wired_deals,fact signals and rare_cos only,1,0.0005,0.7992,False,False
+gvs_waller,midterm verifier (as shipped),1,0.9990,0.8044,True,True
+gvs_waller,"refit on dev, same signals",1,1.0000,0.8165,True,True
+gvs_waller,"refit on dev, + order-free fact signals",1,1.0000,0.7785,True,True
+gvs_waller,fact signals and rare_cos only,1,0.9753,0.7992,True,True
