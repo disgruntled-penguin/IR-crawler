@@ -71,3 +71,5 @@ Status at 15:50:
 - No human judging this round (the team is unavailable); live results are reported as unjudged counts with seeded-random examples.
 
 Blocked feeds: Navbharat Times, Jagran, Zee News Hindi and Patrika (404), News18 Hindi (403), Live Hindustan (503). Jansatta, DW Hindi and Prabhasakshi returned empty feeds.
+
+16:00: the Mac restarted. The database passed `PRAGMA integrity_check` (44,295 docs) and nothing was lost: the crawler resumed from its stored frontier (285,431 queued, with the one-delay restart guard) for 20 h, the generation queue resumed from its cache (41 rows done), and both agents resumed from their worktrees. The deadline moved to 22 Nov, and a project report is due as well.
