@@ -15,23 +15,23 @@ Operating point: every method takes its best dev source-set F1 among the thresho
 
 | method | set | mashups | precision | recall | F1 [95% CI] | exact set | sources per item |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| SpinTrace multi-source | (all) | 34 | 1.000 | 0.338 | 0.505 [0.34, 0.65] | 0.235 | 0.68 |
-| Midterm single-source | (all) | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
-| One-shot multi | (all) | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
-| MinHash LSH | (all) | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
-| Shingle containment | (all) | 34 | 1.000 | 0.015 | 0.029 [0.00, 0.08] | 0.000 | 0.03 |
-| Midterm, shipped threshold | (all) | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
-| SpinTrace multi-source | (both sources test) | 23 | 1.000 | 0.391 | 0.562 [0.36, 0.72] | 0.261 | 0.78 |
-| Midterm single-source | (both sources test) | 23 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
-| One-shot multi | (both sources test) | 23 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
-| MinHash LSH | (both sources test) | 23 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
-| Shingle containment | (both sources test) | 23 | 1.000 | 0.022 | 0.043 [0.00, 0.12] | 0.000 | 0.04 |
-| Midterm, shipped threshold | (both sources test) | 23 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
-| SpinTrace multi-source | (all), max-F1 thresholds without the bar | 34 | 1.000 | 0.971 | 0.985 [0.96, 1.00] | 0.941 | 1.94 |
-| Midterm single-source | (all), max-F1 thresholds without the bar | 34 | 0.931 | 0.397 | 0.557 [0.47, 0.63] | 0.000 | 0.85 |
-| One-shot multi | (all), max-F1 thresholds without the bar | 34 | 0.985 | 0.941 | 0.962 [0.93, 0.99] | 0.853 | 1.91 |
-| MinHash LSH | (all), max-F1 thresholds without the bar | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
-| Shingle containment | (all), max-F1 thresholds without the bar | 34 | 1.000 | 0.559 | 0.717 [0.63, 0.80] | 0.235 | 1.12 |
+| SpinTrace multi-source | (all) | 48 | 1.000 | 0.281 | 0.439 [0.29, 0.57] | 0.188 | 0.56 |
+| Midterm single-source | (all) | 48 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| One-shot multi | (all) | 48 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| MinHash LSH | (all) | 48 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| Shingle containment | (all) | 48 | 1.000 | 0.021 | 0.041 [0.00, 0.10] | 0.000 | 0.04 |
+| Midterm, shipped threshold | (all) | 48 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| SpinTrace multi-source | (both sources test) | 28 | 1.000 | 0.339 | 0.507 [0.33, 0.67] | 0.214 | 0.68 |
+| Midterm single-source | (both sources test) | 28 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| One-shot multi | (both sources test) | 28 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| MinHash LSH | (both sources test) | 28 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| Shingle containment | (both sources test) | 28 | 1.000 | 0.018 | 0.035 [0.00, 0.10] | 0.000 | 0.04 |
+| Midterm, shipped threshold | (both sources test) | 28 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| SpinTrace multi-source | (all), max-F1 thresholds without the bar | 48 | 1.000 | 0.948 | 0.973 [0.94, 0.99] | 0.917 | 1.90 |
+| Midterm single-source | (all), max-F1 thresholds without the bar | 48 | 0.900 | 0.375 | 0.529 [0.45, 0.59] | 0.000 | 0.83 |
+| One-shot multi | (all), max-F1 thresholds without the bar | 48 | 0.989 | 0.927 | 0.957 [0.92, 0.98] | 0.833 | 1.88 |
+| MinHash LSH | (all), max-F1 thresholds without the bar | 48 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| Shingle containment | (all), max-F1 thresholds without the bar | 48 | 1.000 | 0.562 | 0.720 [0.64, 0.78] | 0.271 | 1.12 |
 
 **Exact source set and recall by share rank** (test splices):
 

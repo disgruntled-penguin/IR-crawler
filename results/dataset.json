@@ -1,0 +1,119 @@
+{
+ "origins": {
+  "crawl": {
+   "n": 40806,
+   "median_words": 596
+  },
+  "wikinews_distractor": {
+   "n": 4114,
+   "median_words": 282
+  },
+  "ccnews": {
+   "n": 3605,
+   "median_words": 508
+  },
+  "synthetic": {
+   "n": 1900,
+   "median_words": 237
+  },
+  "wikinews": {
+   "n": 400,
+   "median_words": 262
+  },
+  "newsguard": {
+   "n": 4,
+   "median_words": 1093
+  }
+ },
+ "crawl_scripts": {
+  "latn": 39479,
+  "deva": 1230,
+  "taml": 26,
+  "telu": 15,
+  "beng": 13,
+  "gujr": 17,
+  "guru": 26
+ },
+ "crawl_sites": 37,
+ "fetch_requests": 54770,
+ "crawl_days": {
+  "2026-10-06": 17159,
+  "2026-10-07": 16196,
+  "2026-10-09": 17,
+  "2026-10-11": 67,
+  "2026-11-21": 7367
+ },
+ "files": {
+  "wikinews.jsonl": {
+   "rows": 400,
+   "levels": {}
+  },
+  "rewrites.jsonl": {
+   "rows": 1900,
+   "levels": {
+    "exact": 400,
+    "synonym": 400,
+    "light": 400,
+    "seo": 200,
+    "summary": 200,
+    "facts_only": 200,
+    "translation": 100
+   }
+  },
+  "rewrites_xl.jsonl": {
+   "rows": 428,
+   "levels": {
+    "hi_translation": 44,
+    "hi_seo": 44,
+    "hi_summary": 44,
+    "hi_facts_only": 44,
+    "bt:hi_translation": 22,
+    "bt:hi_seo": 22,
+    "bt:hi_summary": 22,
+    "bt:hi_facts_only": 22,
+    "ta_translation": 24,
+    "te_translation": 24,
+    "bn_translation": 24,
+    "mash_llm": 48,
+    "hi_facts_short": 22,
+    "bt:hi_facts_short": 22
+   }
+  },
+  "mashups.jsonl": {
+   "rows": 759,
+   "levels": {
+    "splice": 192,
+    "splice_light": 192,
+    "splice_synonym": 192,
+    "splice_seo": 183
+   }
+  },
+  "formats.jsonl": {
+   "rows": 800,
+   "levels": {
+    "listicle": 400,
+    "qa": 400
+   }
+  },
+  "hard_negatives.csv": {
+   "rows": 600,
+   "levels": {}
+  },
+  "live_flagged.csv": {
+   "rows": 174,
+   "levels": {}
+  },
+  "search_judgments.csv": {
+   "rows": 154,
+   "levels": {}
+  },
+  "newsguard_pairs.csv": {
+   "rows": 4,
+   "levels": {}
+  },
+  "crawl_urls.csv": {
+   "rows": 27237,
+   "levels": {}
+  }
+ }
+}

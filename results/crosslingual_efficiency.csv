@@ -1,9 +1,9 @@
 method,ms_per_suspect,ms_retrieve,postings_touched,docs_verified,llm_seconds,docs_compared,ms_detect_only
-spintrace_xl,619.2833,133.0951,80407.0649,5.0000,0.0000,,
-latin_only,2.0104,2.0104,2407.2857,,0.0000,,
-dense_cosine,128.6325,,,,0.0000,9295.2078,
-bt_exact_hash,22793.3799,,,,22.7922,,1.1721
-bt_minhash_jaccard,22802.8053,,,,22.7922,,10.5975
-bt_tfidf_cosine,22837.2429,,,,22.7922,,45.0351
-bt_bm25,22814.1651,,,,22.7922,,21.9573
-bt_spintrace_en,23208.0368,,,,22.7922,,415.8290
+spintrace_xl,128.8888,19.4485,81488.2123,5.0000,0.0000,,
+latin_only,0.6260,0.6260,2034.2972,,0.0000,,
+dense_cosine,27.4460,,,,0.0000,8845.4575,
+bt_exact_hash,20906.3873,,,,20.9063,,0.1373
+bt_minhash_jaccard,20906.5971,,,,20.9063,,0.3471
+bt_tfidf_cosine,20912.1273,,,,20.9063,,5.8773
+bt_bm25,20911.5503,,,,20.9063,,5.3003
+bt_spintrace_en,21001.3330,,,,20.9063,,95.0830
