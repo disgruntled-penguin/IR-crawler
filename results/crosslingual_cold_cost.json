@@ -1,0 +1,7 @@
+{
+ "n": 30,
+ "ms_per_suspect_cold": 483.31049583430286,
+ "ms_per_suspect_cold_median": 483.4560209965275,
+ "ms_per_suspect_warm": 19.188726366943836,
+ "note": "empty embedding cache per suspect, encoder warm, CPU"
+}

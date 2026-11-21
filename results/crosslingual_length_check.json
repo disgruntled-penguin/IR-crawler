@@ -1,0 +1,24 @@
+{
+ "median_words": {
+  "dev:hi_facts_only": 226.5,
+  "dev:hi_seo": 251.0,
+  "dev:hi_summary": 116.0,
+  "dev:hi_translation": 222.0,
+  "test:hi_facts_only": 229.0,
+  "test:hi_facts_short": 130.0,
+  "test:hi_seo": 258.5,
+  "test:hi_summary": 116.0,
+  "test:hi_translation": 230.0
+ },
+ "auc": {
+  "dev:hi_translation:vs_long": 0.569375,
+  "dev:hi_seo:vs_long": 0.286,
+  "dev:hi_summary:vs_long": 0.9992,
+  "test:hi_translation:vs_long": 0.5379591836734694,
+  "test:hi_seo:vs_long": 0.2678,
+  "test:hi_summary:vs_long": 1.0,
+  "test:hi_translation:vs_short": 0.027346938775510202,
+  "test:hi_seo:vs_short": 0.0,
+  "test:hi_summary:vs_short": 0.7171428571428572
+ }
+}

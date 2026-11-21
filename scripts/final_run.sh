@@ -22,5 +22,7 @@ run $PY -m spintrace.eval.xl_multi_eval --show 3   # Hindi mashups: passage trac
 run $PY -m spintrace live-xl --rebuild          # Indian-language crawl against the English crawl
 run $PY -m spintrace live-xl --same-site        # diagnostic: bilingual outlets against their own English pages
 run $PY -m spintrace.eval.dataset_stats         # results/dataset.md
+run $PY -m spintrace.eval.xl_length_check     # word-count AUC against the same-event negatives
+run $PY -m spintrace.eval.xl_cold_cost         # per-suspect cost with an empty embedding cache; keep the machine idle
 run $PY report/make_tables.py                   # LaTeX tables and number macros from results/
 run $PY report/make_figures.py                  # report charts
