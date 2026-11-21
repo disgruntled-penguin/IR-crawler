@@ -22,7 +22,7 @@
     "test splice splice_seo": 94,
     "test splice splice_synonym": 96
   },
-  "llm_items": 0,
+  "llm_items": 34,
   "params": {
     "containment": {
       "threshold": 0.16162123606994971

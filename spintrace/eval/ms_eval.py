@@ -647,12 +647,16 @@ def evaluate(out):
             by_n[m][k] = f1_of(counts([it for it, _ in sub], [pr for _, pr in sub]))[1]
     if out.get("llm"):
         llm, lr, lb = out["llm"]
-        for subset, keep in (("LLM mashups (all)", lambda it: True), ("LLM mashups (test split)",
-                                                                      lambda it: it["split"] == "test")):
+        # The first LLM pairs can mix a dev and a test original; only pairs with both sources in test are clean.
+        for subset, keep in (("LLM mashups (all)", lambda it: True),
+                             ("LLM mashups (both sources test)", lambda it: it["split_all"] == ["test"])):
             sub = [it for it in llm if keep(it)]
             for m in METHODS + REFERENCE:
                 pr = [predict(m, lr[it["id"]], lb[it["id"]], params[m]) for it in sub]
                 det += set_rows(m, sub, pr, [(subset, lambda it: True)])
+        for m in METHODS:
+            pr = [predict(m, lr[it["id"]], lb[it["id"]], free[m]) for it in llm]
+            det += set_rows(m, llm, pr, [("LLM mashups (all), max-F1 thresholds without the bar", lambda it: True)])
     shares = share_rows(test, preds["spintrace"])
     scatter = [(it["level"], s, dict(pr).get(g, 0.0)) for it, pr in zip(test, preds["spintrace"])
                if it["kind"] == "splice" for g, s in it["gold_share"].items()]
@@ -772,8 +776,7 @@ def markdown(res):
     """README tables, written to results/multisource_summary.md."""
     names = METHODS + REFERENCE
     lab = dict(LABELS, midterm_shipped="Midterm, shipped threshold")
-    groups = ["splice (all)"] + [f"splice {lv}" for lv in mashups.ALL_LEVELS] + ["splice hard", "splice 3 sources",
-                                                                                "LLM mashups (all)", "LLM mashups (test split)"]
+    groups = ["splice (all)"] + [f"splice {lv}" for lv in mashups.ALL_LEVELS] + ["splice hard", "splice 3 sources"]
     out = [f"Operating point: every method takes its best dev source-set F1 among the thresholds that name a source "
            f"for at most {res['cap']:.1%} of the dev facts-only articles and hard negatives, the shipped midterm "
            f"verifier's own rate there (same story is not the same as copied).\n",
@@ -786,6 +789,14 @@ def markdown(res):
             cells.append(_ci(r, "f1", "f1_lo", "f1_hi") if r else "-")
         rows.append(cells)
     out.append(_t(["method"] + [g.replace("splice ", "") if g != "splice (all)" else "all splices" for g in groups], rows))
+    llm = [r for r in res["det"] if r["group"].startswith("LLM mashups")]
+    if llm:
+        out.append("\n**LLM mashups** (gemma3:4b asked to combine two originals into one article; the source set is the "
+                   "label, shares unknown; never used for tuning; small n, so the intervals are wide):\n")
+        out.append(_t(["method", "set", "mashups", "precision", "recall", "F1 [95% CI]", "exact set", "sources per item"],
+                      [[lab[r["method"]], r["group"].replace("LLM mashups ", ""), r["n"], f"{r['precision']:.3f}",
+                        f"{r['recall']:.3f}", _ci(r, "f1", "f1_lo", "f1_hi"), f"{r['exact_set']:.3f}",
+                        f"{r['mean_sources_predicted']:.2f}"] for r in llm]))
     out.append("\n**Exact source set and recall by share rank** (test splices):\n")
     rows = []
     for m in names:
@@ -839,8 +850,9 @@ def markdown(res):
     c = res["cost"][0]
     out.append(f"\n**Cost** (test): {c['ms_per_suspect']:.0f} ms per suspect for retrieval and verification over "
                f"{c['rounds_per_suspect']:.2f} rounds ({c['postings_touched_per_round']:.0f} postings touched per round, "
-               f"{multisource.K_VERIFY} candidates verified per round), plus {c['ms_embed_suspect']:.0f} ms to embed "
-               "the suspect's sentences.")
+               f"{multisource.K_VERIFY} candidates verified per round)"
+               + (f", plus {c['ms_embed_suspect']:.0f} ms to embed the suspect's sentences." if c["ms_embed_suspect"] >= 1
+                  else "; the suspects' sentence embeddings came from the cache in this run."))
     p = res["params"]
     out.append(f"\nTuned on dev: round threshold {p['spintrace']['threshold']}, stop below "
                f"{p['spintrace']['stop_share']} unexplained, cover at sentence similarity {p['spintrace']['cover']}; "

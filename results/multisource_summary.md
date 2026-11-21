@@ -2,14 +2,36 @@ Operating point: every method takes its best dev source-set F1 among the thresho
 
 **Source-set F1 on test mashups** (micro over true sources; 95% bootstrap interval over mashups):
 
-| method | all splices | splice | splice_light | splice_synonym | splice_seo | hard | 3 sources | LLM mashups (all) | LLM mashups (test split) |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| SpinTrace multi-source | 0.870 [0.84, 0.90] | 1.000 [1.00, 1.00] | 0.992 [0.98, 1.00] | 0.938 [0.90, 0.97] | 0.329 [0.25, 0.41] | 0.863 [0.81, 0.90] | 0.839 [0.78, 0.88] | - | - |
-| Midterm single-source | 0.116 [0.08, 0.15] | 0.209 [0.15, 0.27] | 0.182 [0.12, 0.24] | 0.057 [0.02, 0.10] | 0.000 [0.00, 0.00] | 0.085 [0.04, 0.13] | 0.024 [0.01, 0.05] | - | - |
-| One-shot multi | 0.116 [0.08, 0.15] | 0.209 [0.15, 0.27] | 0.182 [0.12, 0.24] | 0.057 [0.02, 0.10] | 0.000 [0.00, 0.00] | 0.085 [0.04, 0.13] | 0.024 [0.01, 0.05] | - | - |
-| MinHash LSH | 0.188 [0.15, 0.22] | 0.384 [0.31, 0.45] | 0.292 [0.23, 0.35] | 0.008 [0.00, 0.03] | 0.000 [0.00, 0.00] | 0.184 [0.13, 0.23] | 0.100 [0.07, 0.13] | - | - |
-| Shingle containment | 0.742 [0.71, 0.77] | 0.981 [0.97, 0.99] | 0.970 [0.96, 0.99] | 0.582 [0.52, 0.64] | 0.050 [0.02, 0.09] | 0.746 [0.69, 0.79] | 0.694 [0.64, 0.74] | - | - |
-| Midterm, shipped threshold | 0.147 [0.11, 0.19] | 0.242 [0.18, 0.30] | 0.215 [0.15, 0.28] | 0.088 [0.05, 0.14] | 0.025 [0.00, 0.06] | 0.130 [0.08, 0.19] | 0.028 [0.01, 0.05] | - | - |
+| method | all splices | splice | splice_light | splice_synonym | splice_seo | hard | 3 sources |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| SpinTrace multi-source | 0.870 [0.84, 0.90] | 1.000 [1.00, 1.00] | 0.992 [0.98, 1.00] | 0.938 [0.90, 0.97] | 0.329 [0.25, 0.41] | 0.863 [0.81, 0.90] | 0.839 [0.78, 0.88] |
+| Midterm single-source | 0.116 [0.08, 0.15] | 0.209 [0.15, 0.27] | 0.182 [0.12, 0.24] | 0.057 [0.02, 0.10] | 0.000 [0.00, 0.00] | 0.085 [0.04, 0.13] | 0.024 [0.01, 0.05] |
+| One-shot multi | 0.116 [0.08, 0.15] | 0.209 [0.15, 0.27] | 0.182 [0.12, 0.24] | 0.057 [0.02, 0.10] | 0.000 [0.00, 0.00] | 0.085 [0.04, 0.13] | 0.024 [0.01, 0.05] |
+| MinHash LSH | 0.188 [0.15, 0.22] | 0.384 [0.31, 0.45] | 0.292 [0.23, 0.35] | 0.008 [0.00, 0.03] | 0.000 [0.00, 0.00] | 0.184 [0.13, 0.23] | 0.100 [0.07, 0.13] |
+| Shingle containment | 0.742 [0.71, 0.77] | 0.981 [0.97, 0.99] | 0.970 [0.96, 0.99] | 0.582 [0.52, 0.64] | 0.050 [0.02, 0.09] | 0.746 [0.69, 0.79] | 0.694 [0.64, 0.74] |
+| Midterm, shipped threshold | 0.147 [0.11, 0.19] | 0.242 [0.18, 0.30] | 0.215 [0.15, 0.28] | 0.088 [0.05, 0.14] | 0.025 [0.00, 0.06] | 0.130 [0.08, 0.19] | 0.028 [0.01, 0.05] |
+
+**LLM mashups** (gemma3:4b asked to combine two originals into one article; the source set is the label, shares unknown; never used for tuning; small n, so the intervals are wide):
+
+| method | set | mashups | precision | recall | F1 [95% CI] | exact set | sources per item |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| SpinTrace multi-source | (all) | 34 | 1.000 | 0.338 | 0.505 [0.34, 0.65] | 0.235 | 0.68 |
+| Midterm single-source | (all) | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| One-shot multi | (all) | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| MinHash LSH | (all) | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| Shingle containment | (all) | 34 | 1.000 | 0.015 | 0.029 [0.00, 0.08] | 0.000 | 0.03 |
+| Midterm, shipped threshold | (all) | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| SpinTrace multi-source | (both sources test) | 23 | 1.000 | 0.391 | 0.562 [0.36, 0.72] | 0.261 | 0.78 |
+| Midterm single-source | (both sources test) | 23 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| One-shot multi | (both sources test) | 23 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| MinHash LSH | (both sources test) | 23 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| Shingle containment | (both sources test) | 23 | 1.000 | 0.022 | 0.043 [0.00, 0.12] | 0.000 | 0.04 |
+| Midterm, shipped threshold | (both sources test) | 23 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| SpinTrace multi-source | (all), max-F1 thresholds without the bar | 34 | 1.000 | 0.971 | 0.985 [0.96, 1.00] | 0.941 | 1.94 |
+| Midterm single-source | (all), max-F1 thresholds without the bar | 34 | 0.931 | 0.397 | 0.557 [0.47, 0.63] | 0.000 | 0.85 |
+| One-shot multi | (all), max-F1 thresholds without the bar | 34 | 0.985 | 0.941 | 0.962 [0.93, 0.99] | 0.853 | 1.91 |
+| MinHash LSH | (all), max-F1 thresholds without the bar | 34 | 0.000 | 0.000 | 0.000 [0.00, 0.00] | 0.000 | 0.00 |
+| Shingle containment | (all), max-F1 thresholds without the bar | 34 | 1.000 | 0.559 | 0.717 [0.63, 0.80] | 0.235 | 1.12 |
 
 **Exact source set and recall by share rank** (test splices):
 
@@ -73,6 +95,6 @@ Operating point: every method takes its best dev source-set F1 among the thresho
 | Shingle containment | 0.044 | 0.917 | 0.599 | 0.893 | 0.865 | 0.837 | 0.011 | 0.033 | 0.467 | 0.233 |
 | Midterm, shipped threshold | 0.804 | 0.147 | 0.025 | 0.404 | 0.042 | 0.000 | 0.000 | 0.000 | 0.156 | 0.017 |
 
-**Cost** (test): 99 ms per suspect for retrieval and verification over 1.66 rounds (10283 postings touched per round, 5 candidates verified per round), plus 0 ms to embed the suspect's sentences.
+**Cost** (test): 99 ms per suspect for retrieval and verification over 1.66 rounds (10283 postings touched per round, 5 candidates verified per round); the suspects' sentence embeddings came from the cache in this run.
 
 Tuned on dev: round threshold 0.95, stop below 0.0 unexplained, cover at sentence similarity 0.62; Midterm single-source threshold 0.854; One-shot multi threshold 0.854; MinHash LSH threshold 0.102; Shingle containment threshold 0.162; Midterm, shipped threshold threshold 0.804.
