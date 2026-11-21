@@ -55,21 +55,23 @@ final rerun; `notes/requirements_checklist.md` maps every requirement to its sta
 
 Fresh clone and virtual environment: `pip install -r requirements.txt`, 17 tests, `build --stem`, `postings`, `eval` and `demo --seed 7` all ran. `recrawl` (hours, live web) and the NewsGuard Wayback fetch were not rerun, so the clean clone's numbers differ from the README's, which come from the full crawl.
 
-## Final phase (21 Nov 2026, code and README due 22:00 IST)
+## Final phase (21 to 22 Nov 2026)
 
-Plan: two problems the midterm cannot solve, because both break its assumption that a copy shares words with one original.
+Plan: two problems the mid-term cannot solve, because both break its assumption that a copy shares words with one original.
 
-1. Cross-language derivatives: English originals rewritten in Hindi (plus Tamil, Telugu and Bengali as a generality check), traced through numbers, dates and transliterated names (own transliteration, phonetic key and k-gram index).
-2. Multi-source mashups: one article stitched from two or three originals, recovered by iterative residual retrieval with per-source shares.
-3. Stretch: format changes (listicle, Q&A) through an order-free fact signal.
+1. Cross-language derivatives: English originals rewritten in Hindi (Tamil, Telugu and Bengali as a generality check), traced through numbers, dates and transliterated names (own transliteration, phonetic key and k-gram index, no translation step).
+2. Multi-source mashups: one article stitched from two or three originals, recovered by explain-away rounds with per-source shares.
+3. Prototype: Hindi mashups traced by passage (the two features composed). Stretch: format changes (negative result).
 
-Status at 15:50:
-- Data restored from the Trash to `data/` (43,463 docs); 18 tests pass.
-- Live crawl restarted at 15:33 for 6 h (`data/logs/crawl.log`) with 15 new Indian-language feeds (BBC Hindi, Aaj Tak, NDTV India, Amar Ujala, ABP, Bhaskar, TV9, India TV, BBC Marathi, Tamil, Telugu, Bengali, Gujarati, Punjabi). Each saved page records its script. Politeness proof lines: `ROBOTS_SKIP host=www.latestly.com ... disallowed by robots.txt`; BBC feed host gaps of 37-59 s.
-- Generation queue (`spintrace/eval/xl_rewrites.py`, gemma3:4b through ollama, 316 jobs) writes `evaldata/rewrites_xl.jsonl` (`data/logs/xl_rewrites.log`).
-- Two helper agents in worktrees: cross-language detection, and multi-source detection.
-- No human judging this round (the team is unavailable); live results are reported as unjudged counts with seeded-random examples.
+State at 22 Nov 03:30 IST:
+- Both helper-agent branches merged into `main` (cross-language and multi-source); 35 tests pass.
+- Final evaluation run (`scripts/final_run.sh`, 16 min) done once; results in `results/crosslingual_*`, `results/multisource_*`, `results/xlmulti_*`, `results/dataset.md`. It reruns incrementally after more rewrites are generated (the Hindi set is being grown from 44 to 100 originals; about 30 s per item, expected to finish around 05:30).
+- Headline test numbers (22 Hindi test originals per level): SpinTrace-XL F1 0.957 / 0.933 / 0.884 (translation / SEO / summary) against 0.936 / 0.864 / 0.780 for translate-back-then-SpinTrace and about 0.42 for multilingual dense cosine; same-event false-positive rate 0.000 (long) and 0.091 (100 words). Tamil, Telugu and Bengali: anchors retrieve the source but verification fails. Mashups: source-set F1 0.870 against 0.742 (shingle containment) and 0.116 (mid-term). Hindi mashup prototype: F1 0.705 but 28% false sources on same-event articles.
+- Found and fixed along the way: the crawler died at 17:47 on an unhandled connection reset (regression test added); word count alone separated Hindi summaries from the same-event negatives (AUC 1.00), so length-matched negatives were added; the Hindi mashup pairing reshuffled on every new rewrite (now pairs by fixed generation order).
+- Final report: `report/SpinTrace_final_report.tex` (draft complete, tables and numbers generated from `results/`; about 16 pages of body, page limit unknown). Dataset: `results/dataset.md`, README "Data and credits", report Section 5.
+- Crawler: running since 22 Nov 02:00 for 7 h (log `data/logs/crawl.log`), restarted after the 17:47 crash. The Mac restarted once at 16:00 and nothing was lost. Battery was an issue overnight (charger plugged in at about 03:00).
+- No human judging this round: the final's live results are unjudged counts with seeded-random examples.
 
-Blocked feeds: Navbharat Times, Jagran, Zee News Hindi and Patrika (404), News18 Hindi (403), Live Hindustan (503). Jansatta, DW Hindi and Prabhasakshi returned empty feeds.
+Still to do: final rerun after the Hindi extension; cold-cost benchmark on an idle machine; `crawl-report`; README numbers refresh; clean-clone check; presentation outline.
 
-16:00: the Mac restarted. The database passed `PRAGMA integrity_check` (44,295 docs) and nothing was lost: the crawler resumed from its stored frontier (285,431 queued, with the one-delay restart guard) for 20 h, the generation queue resumed from its cache (41 rows done), and both agents resumed from their worktrees. The deadline moved to 22 Nov, and a project report is due as well.
+Blocked or open: the final report's length limit and the presentation format on 25 Nov are unknown (asked, no answer yet). Blocked feeds: Navbharat Times, Jagran, Zee News Hindi and Patrika (404), News18 Hindi (403), Live Hindustan (503); Jansatta, DW Hindi and Prabhasakshi returned empty feeds.
