@@ -16,12 +16,14 @@ ALIGN_THRESHOLD = 0.62
 class Pair:
     """Lazily computed shared state for one pair, so each signal stays a small function."""
 
-    def __init__(self, s, c, feats, emb, retrieval=None):
+    def __init__(self, s, c, feats, emb, retrieval=None, idx=None):
         self.s, self.c = s, c
         self.feats = feats
         self.emb = emb
         self.retrieval = retrieval or {}
+        self.idx = idx
         self._align = None
+        self._facts = {}
 
     def alignment(self):
         """Best-matching candidate sentence for every suspect sentence (cosine of sentence embeddings)."""
@@ -122,6 +124,79 @@ def fact_overlap(p):
     return len(s & (cn | cnum)) / len(s) if s else 0.0
 
 
+def _idf(p, term):
+    if p.idx is None:
+        return 1.0
+    t = p.idx.vocab.get(term)
+    return float(p.idx.idf[t]) if t is not None else float(np.log10(max(p.idx.N, 2)))
+
+
+def fact_units(p, text):
+    """Names, numbers and quotes of a text as (kind, token tuple, idf weight); the weight is the unit's rarest token."""
+    if text not in p._facts:
+        names, nums = tx.facts(text)
+        units = []
+        for f in sorted(names | nums):
+            toks = tuple(t for t in tx.tokens(f) if t not in tx.STOPWORDS)
+            if toks:
+                units.append(("fact", toks, max(_idf(p, t) for t in toks)))
+        for q in tx.quotes(text):
+            toks = tuple(tx.tokens(q))
+            units.append(("quote", toks, max(_idf(p, t) for t in toks)))
+        p._facts[text] = units
+    return p._facts[text]
+
+
+def _has(unit, toks, grams):
+    kind, t, _ = unit
+    if kind == "quote":
+        return any(tuple(t[i:i + 5]) in grams for i in range(max(1, len(t) - 4)))
+    return all(x in toks for x in t)
+
+
+def _fact_share(p, a, b):
+    units = fact_units(p, a)
+    btoks = tx.tokens(b)
+    bset, grams = set(btoks), {tuple(btoks[i:i + 5]) for i in range(len(btoks) - 4)}
+    total = sum(w for _, _, w in units)
+    return sum(u[2] for u in units if _has(u, bset, grams)) / total if total else 0.0
+
+
+def fact_idf_overlap(p):
+    """Order-free: idf-weighted share of the suspect's names, numbers and quotes that the candidate also has. A
+    listicle or Q&A reshapes and reorders the sentences, but each fact survives where it was."""
+    return _fact_share(p, p.s["text"], p.c["text"])
+
+
+def fact_back_overlap(p):
+    """The same share in the other direction: a reformatted copy keeps nearly all of its source's facts, an article
+    written from a fact sheet only the handful the sheet listed."""
+    return _fact_share(p, p.c["text"], p.s["text"])
+
+
+def fact_sentence_coverage(p):
+    """Share of the suspect's fact-bearing sentences whose facts (by idf weight) are mostly in the candidate."""
+    ss, _ = p.emb.doc(p.s["doc_id"], p.s["text"])
+    ctoks = tx.tokens(p.c["text"])
+    cset, grams = set(ctoks), {tuple(ctoks[i:i + 5]) for i in range(len(ctoks) - 4)}
+    hit = n = 0
+    for sent in ss:
+        units = fact_units(p, sent)
+        total = sum(w for _, _, w in units)
+        if not total:
+            continue
+        n += 1
+        hit += sum(u[2] for u in units if _has(u, cset, grams)) / total >= 0.5
+    return hit / n if n else 0.0
+
+
+# Not used by the default verifier; fit only where named (the format-change experiment).
+OPTIONAL = {
+    "fact_idf_overlap": fact_idf_overlap,
+    "fact_back_overlap": fact_back_overlap,
+    "fact_sentence_coverage": fact_sentence_coverage,
+}
+
 SIGNALS = {
     "rare_cos": rare_cos,
     "shingle_containment": shingle_containment,
@@ -137,4 +212,7 @@ SIGNALS = {
 
 
 def compute(pair, names=None):
-    return {k: f(pair) for k, f in SIGNALS.items() if names is None or k in names}
+    """The default signals, or exactly the named ones (which may include OPTIONAL signals)."""
+    if names is None:
+        return {k: f(pair) for k, f in SIGNALS.items()}
+    return {k: f(pair) for k, f in {**SIGNALS, **OPTIONAL}.items() if k in names}
