@@ -56,7 +56,7 @@ def rewrites_of(ctx):
 
 def llm_items(ctx, path, syn):
     items = []
-    for r in xl_rewrites.load(levels={"mash_llm"}) if path is None else _xl_rows(path):
+    for r in _xl_rows(path or xl_rewrites.OUT):
         gold_ids = [store.doc_id_for(u) for u in r["orig_urls"]]
         if not all(g in ctx.idx.doc_num for g in gold_ids):
             continue
@@ -70,10 +70,18 @@ def llm_items(ctx, path, syn):
 
 
 def _xl_rows(path):
+    """Every LLM mashup row written so far; the generator may still be appending, so a partial last line is skipped."""
     if not path.exists():
         return []
-    rows = [json.loads(l) for l in path.open()]
-    return [r for r in rows if r.get("level") == "mash_llm"]
+    rows = []
+    for line in path.open():
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if r.get("level") == "mash_llm":
+            rows.append(r)
+    return rows
 
 
 def build_items(ctx, syn):
@@ -885,7 +893,7 @@ def suspect_for_key(ctx, key, xl=None):
         note = f"  [{m['level']}, {m['variant']}, mix {m['mix']}; rewrites of its sources hidden]"
         sus = multisource.Suspect(m["id"], m["text"], m["published"], m["farm"])
     elif key.startswith("mashllm:"):
-        rows = _xl_rows(Path(xl)) if xl else xl_rewrites.load(levels={"mash_llm"})
+        rows = _xl_rows(Path(xl) if xl else xl_rewrites.OUT)
         r = next((r for r in rows if f"mashllm:{r['rid']}" == key), None)
         if r is None:
             raise SystemExit(f"no LLM mashup {key!r}")
