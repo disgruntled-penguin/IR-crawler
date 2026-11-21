@@ -1,16 +1,16 @@
 method,level,n,extra_source_rate,source_found,false_source_rate
-"whole text, one source (dev threshold)",hi_translation,25,0.0,1.0,
-"whole text, one source (dev threshold)",hi_seo,25,0.0,0.96,
-"whole text, one source (dev threshold)",hi_summary,25,0.0,0.88,
-"whole text, one source (dev threshold)",hi_facts_only,25,,,0.0
-"whole text, one source (dev threshold)",hi_facts_short,25,,,0.08
-"whole text, shipped threshold",hi_translation,25,0.0,1.0,
-"whole text, shipped threshold",hi_seo,25,0.0,0.96,
-"whole text, shipped threshold",hi_summary,25,0.0,0.88,
-"whole text, shipped threshold",hi_facts_only,25,,,0.0
-"whole text, shipped threshold",hi_facts_short,25,,,0.08
-passage tracing,hi_translation,25,0.0,1.0,
-passage tracing,hi_seo,25,0.0,0.92,
-passage tracing,hi_summary,25,0.04,0.68,
-passage tracing,hi_facts_only,25,,,0.28
-passage tracing,hi_facts_short,25,,,0.12
+"whole text, one source (dev threshold)",hi_translation,49,0.0,1.0,
+"whole text, one source (dev threshold)",hi_seo,50,0.0,0.94,
+"whole text, one source (dev threshold)",hi_summary,49,0.0,0.8979591836734694,
+"whole text, one source (dev threshold)",hi_facts_only,50,,,0.04
+"whole text, one source (dev threshold)",hi_facts_short,50,,,0.16
+"whole text, shipped threshold",hi_translation,49,0.0,1.0,
+"whole text, shipped threshold",hi_seo,50,0.0,0.98,
+"whole text, shipped threshold",hi_summary,49,0.0,0.9183673469387755,
+"whole text, shipped threshold",hi_facts_only,50,,,0.1
+"whole text, shipped threshold",hi_facts_short,50,,,0.24
+passage tracing,hi_translation,49,0.0,1.0,
+passage tracing,hi_seo,50,0.0,0.96,
+passage tracing,hi_summary,49,0.02040816326530612,0.673469387755102,
+passage tracing,hi_facts_only,50,,,0.3
+passage tracing,hi_facts_short,50,,,0.28

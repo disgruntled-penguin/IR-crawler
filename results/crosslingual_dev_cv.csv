@@ -1,4 +1,4 @@
 features,n_features,dev_cv_macro_f1,dev_cv_fpr_facts_only
-all,12,0.8038,0.3600
-no_anchor_signals,6,0.8359,0.2700
-no_retrieval_score,11,0.8038,0.3600
+all,12,0.8712,0.1400
+no_anchor_signals,6,0.8866,0.1600
+no_retrieval_score,11,0.8712,0.1400

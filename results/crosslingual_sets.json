@@ -1,23 +1,23 @@
 {
   "dev": {
-    "hi_translation": 22,
-    "source_absent": 66,
-    "hi_seo": 22,
-    "hi_summary": 22,
-    "hi_facts_only": 22,
+    "hi_translation": 48,
+    "source_absent": 148,
+    "hi_seo": 50,
+    "hi_summary": 50,
+    "hi_facts_only": 50,
     "ta_translation": 12,
     "te_translation": 12,
     "bn_translation": 12
   },
   "test": {
-    "hi_translation": 22,
-    "source_absent": 66,
-    "hi_seo": 22,
-    "hi_summary": 22,
-    "hi_facts_only": 22,
+    "hi_translation": 49,
+    "source_absent": 148,
+    "hi_seo": 50,
+    "hi_summary": 49,
+    "hi_facts_only": 50,
     "ta_translation": 12,
     "te_translation": 12,
     "bn_translation": 12,
-    "hi_facts_short": 22
+    "hi_facts_short": 50
   }
 }

@@ -1,9 +1,9 @@
 {
   "english_index_docs": {
-    "live": 5729,
+    "live": 10274,
     "main_crawl": 14442
   },
-  "suspects": 282,
+  "suspects": 299,
   "flagged": 2,
   "flagged_derived": 2,
   "flagged_undated": 0,
@@ -16,23 +16,23 @@
       "flagged": 0
     },
     "telu": {
-      "suspects": 69,
+      "suspects": 72,
       "flagged": 0
     },
     "deva": {
-      "suspects": 60,
+      "suspects": 64,
       "flagged": 2
     },
     "taml": {
-      "suspects": 26,
+      "suspects": 30,
       "flagged": 0
     },
     "gujr": {
-      "suspects": 17,
+      "suspects": 20,
       "flagged": 0
     },
     "guru": {
-      "suspects": 26,
+      "suspects": 29,
       "flagged": 0
     }
   },
@@ -42,7 +42,7 @@
       "flagged": 0
     },
     "bbc.com": {
-      "suspects": 157,
+      "suspects": 174,
       "flagged": 2
     }
   },
@@ -56,14 +56,14 @@
       "index": "live",
       "source_url": "https://www.bbc.co.uk/news/articles/cq702ez8d4lwo",
       "source_site": "bbc.co.uk",
-      "prob": 0.9324,
+      "prob": 0.9293,
       "verdict": "derived",
       "flagged": 1,
       "n_numbers": 10,
       "n_dates": 3,
       "n_latin": 3,
-      "n_names": 151,
-      "postings_touched": 65623,
+      "n_names": 148,
+      "postings_touched": 112670,
       "lag_hours": 8.3,
       "credits_source": 1,
       "agencies_named": ""
@@ -76,14 +76,14 @@
       "index": "live",
       "source_url": "https://www.bbc.co.uk/news/articles/c6jre8xd83qgo",
       "source_site": "bbc.co.uk",
-      "prob": 0.944,
+      "prob": 0.9449,
       "verdict": "derived",
       "flagged": 1,
       "n_numbers": 12,
       "n_dates": 1,
       "n_latin": 3,
-      "n_names": 167,
-      "postings_touched": 60516,
+      "n_names": 166,
+      "postings_touched": 95100,
       "lag_hours": 3.5,
       "credits_source": 1,
       "agencies_named": ""
@@ -96,17 +96,17 @@
       "script": "taml",
       "suspect_published": 1793600553.602,
       "index": "live",
-      "source_url": "https://www.hindustantimes.com/india-news/future-military-power-will-depend-on-decision-making-speed-not-platform-numbers-rajnath-singh-101791659639004.html",
-      "source_site": "hindustantimes.com",
-      "prob": 0.016,
+      "source_url": "https://www.thehindu.com/news/national/dyfi-to-move-supreme-court-over-alleged-illegal-detention-torture-of-activists/article71571975.ece",
+      "source_site": "thehindu.com",
+      "prob": 0.0084,
       "verdict": "derived",
       "flagged": 0,
       "n_numbers": 12,
       "n_dates": 0,
       "n_latin": 2,
-      "n_names": 670,
-      "postings_touched": 951745,
-      "lag_hours": 532.1,
+      "n_names": 673,
+      "postings_touched": 1686494,
+      "lag_hours": 518.8,
       "credits_source": 0,
       "agencies_named": ""
     },
@@ -118,7 +118,7 @@
       "index": "main",
       "source_url": "https://timesofindia.indiatimes.com/articleshowprint/134743518.cms",
       "source_site": "indiatimes.com",
-      "prob": 0.0588,
+      "prob": 0.0371,
       "verdict": "derived",
       "flagged": 0,
       "n_numbers": 7,
@@ -138,7 +138,7 @@
       "index": "main",
       "source_url": "https://www.hindustantimes.com/entertainment/tv/amitabh-bachchan-is-in-awe-as-madhuri-dixit-channels-her-inner-paro-from-devdas-on-kaun-banega-crorepati-101791216075343.html",
       "source_site": "hindustantimes.com",
-      "prob": 0.1447,
+      "prob": 0.11,
       "verdict": "derived",
       "flagged": 0,
       "n_numbers": 6,
@@ -156,17 +156,17 @@
       "script": "gujr",
       "suspect_published": 1795257063.342,
       "index": "live",
-      "source_url": "https://www.engadget.com/2322827/ray-ban-meta-gen-3-review/",
-      "source_site": "engadget.com",
-      "prob": 0.0142,
+      "source_url": "https://www.devdiscourse.com/article/headlines/4010242-respect-constitution-not-bjps-political-instructions-iyc-raises-demands-to-meta",
+      "source_site": "devdiscourse.com",
+      "prob": 0.008,
       "verdict": "derived",
       "flagged": 0,
       "n_numbers": 16,
       "n_dates": 0,
       "n_latin": 1,
-      "n_names": 470,
-      "postings_touched": 486077,
-      "lag_hours": 20.0,
+      "n_names": 471,
+      "postings_touched": 864216,
+      "lag_hours": 2.4,
       "credits_source": 0,
       "agencies_named": ""
     },
@@ -178,7 +178,7 @@
       "index": "main",
       "source_url": "https://timesofindia.indiatimes.com/education/news/punjab-police-recruitment-2026-notification-expected-soon-for-10000-posts-cm-bhagwant-mann-announces/articleshow/134685644.cms",
       "source_site": "indiatimes.com",
-      "prob": 0.0431,
+      "prob": 0.0274,
       "verdict": "derived",
       "flagged": 0,
       "n_numbers": 6,
@@ -192,5 +192,5 @@
     }
   ],
   "flagged_same_outlet": 0,
-  "seconds": 71.7
+  "seconds": 72.2
 }

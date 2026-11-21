@@ -1,8 +1,8 @@
 {
  "origins": {
   "crawl": {
-   "n": 40806,
-   "median_words": 596
+   "n": 46479,
+   "median_words": 592
   },
   "wikinews_distractor": {
    "n": 4114,
@@ -26,22 +26,22 @@
   }
  },
  "crawl_scripts": {
-  "latn": 39479,
-  "deva": 1230,
-  "taml": 26,
-  "telu": 15,
+  "latn": 44150,
+  "deva": 2219,
+  "taml": 30,
+  "telu": 18,
   "beng": 13,
-  "gujr": 17,
-  "guru": 26
+  "gujr": 20,
+  "guru": 29
  },
  "crawl_sites": 37,
- "fetch_requests": 54770,
+ "fetch_requests": 62523,
  "crawl_days": {
   "2026-10-06": 17159,
   "2026-10-07": 16196,
   "2026-10-09": 17,
   "2026-10-11": 67,
-  "2026-11-21": 7367
+  "2026-11-21": 13040
  },
  "files": {
   "wikinews.jsonl": {
@@ -61,22 +61,22 @@
    }
   },
   "rewrites_xl.jsonl": {
-   "rows": 428,
+   "rows": 820,
    "levels": {
-    "hi_translation": 44,
-    "hi_seo": 44,
-    "hi_summary": 44,
-    "hi_facts_only": 44,
-    "bt:hi_translation": 22,
-    "bt:hi_seo": 22,
-    "bt:hi_summary": 22,
-    "bt:hi_facts_only": 22,
+    "hi_translation": 100,
+    "hi_seo": 100,
+    "hi_summary": 100,
+    "hi_facts_only": 100,
+    "bt:hi_translation": 50,
+    "bt:hi_seo": 50,
+    "bt:hi_summary": 50,
+    "bt:hi_facts_only": 50,
     "ta_translation": 24,
     "te_translation": 24,
     "bn_translation": 24,
     "mash_llm": 48,
-    "hi_facts_short": 22,
-    "bt:hi_facts_short": 22
+    "hi_facts_short": 50,
+    "bt:hi_facts_short": 50
    }
   },
   "mashups.jsonl": {
