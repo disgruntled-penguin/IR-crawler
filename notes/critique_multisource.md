@@ -96,6 +96,11 @@ baseline finds almost none (containment 1.5%). Without the bar SpinTrace reaches
 these items too the residual query adds almost nothing; what costs recall is the threshold the facts-only articles
 force. n is small and the generator copies a lot of each original's wording.
 
+**Reviewer 10: format changes.** The rule-based listicles and Q&As are not hard for the shipped verifier (F1 0.964 and
+0.943), and the order-free fact signals make things worse (refit with them: 0.931 on both, facts-only false-positive
+rate 0.300 against 0.156 shipped). TopGolf.kr stays unverified. Reported as a negative result; the default verifier
+is unchanged.
+
 ## Conclusion
 
 The claim survives in a narrower form: a per-round verifier over the unexplained sentences recovers second and third
