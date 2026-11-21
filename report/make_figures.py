@@ -13,7 +13,7 @@ import plotstyle as ps
 from plotstyle import plt
 
 ROOT = Path(__file__).resolve().parent.parent
-RESULTS = ROOT / "results"
+RESULTS = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "results"
 LEVELS = ["exact", "light", "synonym", "seo", "summary", "translation"]
 
 
@@ -107,9 +107,84 @@ def pr_curve():
     plt.close(fig)
 
 
+XL_LEVELS = ["hi_translation", "hi_seo", "hi_summary"]
+XL_METHODS = [
+    ("spintrace_xl", "SpinTrace (anchors)", dict(color=ps.OXBLOOD, ls="-", marker="o", lw=2.2, ms=4.5, zorder=6)),
+    ("bt_spintrace_en", "Translate back, then SpinTrace", dict(color=ps.OCHRE, ls="-", marker="s", lw=1.3, ms=3.5)),
+    ("bt_bm25", "Translate back, then BM25", dict(color=ps.OCHRE, ls=(0, (4, 2)), marker="D", lw=1.3, ms=3, mfc="white")),
+    ("bt_minhash_jaccard", "Translate back, then MinHash", dict(color=ps.OLIVE, ls=(0, (4, 2)), marker="v", lw=1.3, ms=3.8, mfc="white")),
+    ("dense_cosine", "Multilingual dense cosine", dict(color=ps.GREY, ls="-", marker="o", lw=1.3, ms=3.5, mfc="white")),
+    ("latin_only", "Latin-script tokens only", dict(color=ps.GREY, ls=(0, (1.5, 1.5)), marker="x", lw=1.3, ms=3.8)),
+]
+
+
+def xl_f1_by_level():
+    det = rows("crosslingual_detection.csv")
+    fig, ax = plt.subplots(figsize=(ps.TEXT_WIDTH_IN * 0.98, 2.45))
+    xs = np.arange(len(XL_LEVELS))
+    ends = []
+    for key, label, style in XL_METHODS:
+        ys = []
+        for level in XL_LEVELS:
+            r = next((r for r in det if r["method"] == key and r["level"] == level), None)
+            ys.append(float(r["f1"]) if r else np.nan)
+        if np.isnan(ys).all():
+            continue
+        ax.plot(xs, ys, **style, label=label, clip_on=False)
+        ends.append((ys[-1], label, ps.OXBLOOD if key == "spintrace_xl" else ps.INK))
+    end_labels(ax, ends, xs[-1], gap=0.07)
+    ax.set_xticks(xs, ["translation", "SEO rewrite in Hindi", "summary in Hindi"])
+    ax.set_xlim(-0.15, len(XL_LEVELS) - 0.4)
+    ax.set_ylim(0, 1.02)
+    ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ax.set_xlabel("Hindi derivative of an English original, easiest to hardest")
+    ax.set_ylabel("F1")
+    fig.savefig(ps.FIG_DIR / "xl_f1_by_level.pdf")
+    plt.close(fig)
+
+
+MS_METHODS = [
+    ("spintrace", "SpinTrace multi-source", dict(color=ps.OXBLOOD, ls="-", marker="o", lw=2.2, ms=4.5, zorder=6)),
+    ("containment", "Shingle containment", dict(color=ps.OLIVE, ls="-", marker="^", lw=1.3, ms=3.8)),
+    ("minhash", "MinHash LSH", dict(color=ps.OLIVE, ls=(0, (4, 2)), marker="v", lw=1.3, ms=3.8, mfc="white")),
+    ("midterm", "Midterm single source", dict(color=ps.GREY, ls="-", marker="o", lw=1.3, ms=3.5, mfc="white")),
+]
+
+
+def ms_recall_by_rank():
+    data = rows("multisource_by_rank.csv")
+    cats = [(2, 1, "2 sources:\nlargest"), (2, 2, "2 sources:\nsecond"), (3, 1, "3 sources:\nlargest"),
+            (3, 2, "3 sources:\nsecond"), (3, 3, "3 sources:\nthird")]
+    methods = sorted({r["method"] for r in data})
+    fig, ax = plt.subplots(figsize=(ps.TEXT_WIDTH_IN * 0.98, 2.45))
+    xs = np.arange(len(cats))
+    ends = []
+    for key, label, style in MS_METHODS:
+        match = key if key in methods else None
+        if match is None:
+            continue
+        ys = [float(next((r["recall"] for r in data if r["method"] == match and int(r["n_sources"]) == n
+                          and int(r["source_rank"]) == k), "nan")) for n, k, _ in cats]
+        ax.plot(xs, ys, **style, label=label, clip_on=False)
+        ends.append((ys[-1], label, ps.OXBLOOD if key == "spintrace" else ps.INK))
+    end_labels(ax, ends, xs[-1], gap=0.07)
+    ax.set_xticks(xs, [c[2] for c in cats])
+    ax.set_xlim(-0.15, len(cats) - 0.3)
+    ax.set_ylim(0, 1.02)
+    ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ax.set_ylabel("share of true sources found")
+    fig.savefig(ps.FIG_DIR / "ms_recall_by_rank.pdf")
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     ps.setup()
     f1_by_level()
     index_elimination()
     pr_curve()
+    for fn in (xl_f1_by_level, ms_recall_by_rank):
+        try:
+            fn()
+        except (FileNotFoundError, StopIteration) as e:
+            print("skipped", fn.__name__, e)
     print("figures in", ps.FIG_DIR)
