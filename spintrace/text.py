@@ -15,6 +15,24 @@ CAPS = re.compile(r"\b[A-ZÀ-Þ][^\W\d_]*(?:['\-][^\W\d_]+)*(?:[ \t]+(?:(?:of|th
 NUMBER = re.compile(r"\b\d+(?:[.,]\d+)*\b")
 
 
+# Unicode gives each Indic script a 128-code-point block in the same (ISCII) layout.
+INDIC_BLOCKS = {0x0900: "deva", 0x0980: "beng", 0x0A00: "guru", 0x0A80: "gujr", 0x0B00: "orya",
+                0x0B80: "taml", 0x0C00: "telu", 0x0C80: "knda", 0x0D00: "mlym"}
+
+
+def script_of(text):
+    """The dominant script of a text: 'latn' or one of the Indic block names above."""
+    counts = {"latn": 0}
+    for ch in text[:4000]:
+        o = ord(ch)
+        if ch.isascii():
+            counts["latn"] += ch.isalpha()
+        elif 0x0900 <= o < 0x0D80:
+            b = INDIC_BLOCKS[o & ~0x7F]
+            counts[b] = counts.get(b, 0) + 1
+    return max(counts, key=counts.get)
+
+
 def clean(text):
     return unicodedata.normalize("NFKC", text).translate(QUOTE_MAP)
 

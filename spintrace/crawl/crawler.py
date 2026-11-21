@@ -8,7 +8,7 @@ from email.utils import parsedate_to_datetime
 
 import requests
 
-from .. import config, store
+from .. import config, store, text as tx
 from . import extract, frontier as fr
 from .robots import RobotsCache
 from .urlnorm import host_of, normalise, site_of, skip_reason, trap_reason
@@ -219,10 +219,12 @@ class Crawler:
             "doc_id": store.doc_id_for(url), "url": url, "host": host, "site": site,
             "kind": self.site_kind.get(site, "original"), "origin": "crawl", "title": page["title"],
             "text": page["text"], "published": published, "date_source": date_source, "fetched_at": time.time(),
+            "meta": {"script": tx.script_of(page["text"])},
         }
         store.save_doc(self.con, doc)
         self.saved += 1
-        self._event(host, url, "saved", f"doc={doc['doc_id']} words={n_words} date={date_source} title={(page['title'] or '')[:70]!r}")
+        self._event(host, url, "saved", f"doc={doc['doc_id']} script={doc['meta']['script']} words={n_words} "
+                                        f"date={date_source} title={(page['title'] or '')[:70]!r}")
 
     def step(self):
         item = self.frontier.next()
