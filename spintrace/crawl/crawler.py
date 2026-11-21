@@ -7,6 +7,7 @@ import time
 from email.utils import parsedate_to_datetime
 
 import requests
+import urllib3
 
 from .. import config, store, text as tx
 from . import extract, frontier as fr
@@ -180,7 +181,8 @@ class Crawler:
             resp = self.session.get(url, timeout=config.REQUEST_TIMEOUT, allow_redirects=False, stream=True)
             body = resp.raw.read(config.MAX_BYTES, decode_content=True)
             resp.close()
-        except requests.RequestException as e:
+        except (requests.RequestException, urllib3.exceptions.HTTPError, OSError) as e:
+            # Reading the body can raise urllib3 and socket errors that requests does not wrap.
             self._log_request(host, url, "fetch", None, f"error={type(e).__name__}")
             return None, None
         self._log_request(host, url, "fetch", resp.status_code)

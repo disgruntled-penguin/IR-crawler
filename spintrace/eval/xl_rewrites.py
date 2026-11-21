@@ -24,7 +24,8 @@ LANGS = {"hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali"}
 HI_LEVELS = ["hi_translation", "hi_seo", "hi_summary", "hi_facts_only"]
 NEGATIVE = {"hi_facts_only"}
 MAX_WORDS = 220
-N_HI, N_OTHER, N_MASH = 44, 12, 16
+N_HI, N_OTHER, N_MASH = 100, 24, 48
+N_HI_FIRST, N_OTHER_FIRST, N_MASH_FIRST = 44, 12, 16
 
 PROMPTS = {
     "translation": "Translate the following English news article into {lang}. Output only the translation.\n\n{text}",
@@ -53,11 +54,19 @@ def head(text, n=MAX_WORDS):
     return cut[:end + 1] if end > len(cut) // 2 else cut
 
 
-def llm(prompt, num_predict=1200):
-    r = requests.post(OLLAMA, json={"model": MODEL, "stream": False, "think": False, "prompt": prompt,
-                                    "options": {"temperature": 0.7, "seed": 7, "num_predict": num_predict}},
-                      timeout=900)
-    r.raise_for_status()
+def llm(prompt, num_predict=1200, tries=5):
+    for attempt in range(tries):
+        try:
+            r = requests.post(OLLAMA, json={"model": MODEL, "stream": False, "think": False, "prompt": prompt,
+                                            "options": {"temperature": 0.7, "seed": 7, "num_predict": num_predict}},
+                              timeout=900)
+            r.raise_for_status()
+            break
+        except requests.RequestException:
+            # ollama answers 500 when the machine runs short of memory; wait and try again.
+            if attempt == tries - 1:
+                raise
+            time.sleep(30 * (attempt + 1))
     out = re.sub(r"<think>.*?</think>", "", r.json()["response"], flags=re.S).strip()
     lines = [l for l in out.split("\n") if l.strip() and not l.strip().startswith(("#", "**", "Note", "Here"))]
     return "\n".join(lines).strip()
@@ -77,29 +86,56 @@ def pick_originals():
 
 
 def mash_pairs(origs, n):
-    """Pairs of originals published within 14 days of each other, so the mix is plausible news."""
+    """Pairs of originals published within 14 days of each other, so the mix is plausible news.
+
+    The first N_MASH_FIRST pairs are the ones generated first (some mix dev and test originals). Every
+    later pair keeps both originals in one split, so tuning on dev never touches a test source.
+    """
     rng = random.Random(358)
     pool = sorted(origs[:200], key=lambda o: o["published"])
     pairs = []
     for i, a in enumerate(pool):
         near = [b for b in pool[i + 1:i + 8] if abs(b["published"] - a["published"]) < 14 * 86400]
-        if near and len(pairs) < n and rng.random() < 0.5:
+        if near and len(pairs) < N_MASH_FIRST and rng.random() < 0.5:
             pairs.append((a, rng.choice(near)))
+    used = {(a["title"], b["title"]) for a, b in pairs}
+    for i, a in enumerate(pool):
+        for b in pool[i + 1:i + 8]:
+            ok = abs(b["published"] - a["published"]) < 14 * 86400 and a["split"] == b["split"]
+            if ok and len(pairs) < n and (a["title"], b["title"]) not in used and rng.random() < 0.5:
+                pairs.append((a, b))
+                used.add((a["title"], b["title"]))
+                break
     return pairs
 
 
 def jobs():
+    """Cheap, high-value items first, so an interrupted night still leaves complete small sets."""
     origs = pick_originals()
-    for o in origs[:N_HI]:
-        for level in HI_LEVELS:
-            yield {"kind": "xl", "orig": o, "level": level}
-            if o["split"] == "test":
-                yield {"kind": "back", "orig": o, "level": level}
-    for lang in ("ta", "te", "bn"):
-        for o in origs[:N_OTHER]:
-            yield {"kind": "xl", "orig": o, "level": f"{lang}_translation"}
-    for a, b in mash_pairs(origs, N_MASH):
-        yield {"kind": "mash", "orig": a, "other": b, "level": "mash_llm"}
+    pairs = mash_pairs(origs, N_MASH)
+
+    def hindi(lo, hi):
+        for o in origs[lo:hi]:
+            for level in HI_LEVELS:
+                yield {"kind": "xl", "orig": o, "level": level}
+                if o["split"] == "test":
+                    yield {"kind": "back", "orig": o, "level": level}
+
+    def other(lo, hi):
+        for lang in ("ta", "te", "bn"):
+            for o in origs[lo:hi]:
+                yield {"kind": "xl", "orig": o, "level": f"{lang}_translation"}
+
+    def mash(lo, hi):
+        for a, b in pairs[lo:hi]:
+            yield {"kind": "mash", "orig": a, "other": b, "level": "mash_llm"}
+
+    yield from hindi(0, N_HI_FIRST)
+    yield from other(0, N_OTHER_FIRST)
+    yield from mash(0, N_MASH_FIRST)
+    yield from mash(N_MASH_FIRST, N_MASH)
+    yield from other(N_OTHER_FIRST, N_OTHER)
+    yield from hindi(N_HI_FIRST, N_HI)
 
 
 def build():
