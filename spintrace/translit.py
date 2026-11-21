@@ -27,8 +27,8 @@ SIGNS = {
     0x47: "e", 0x48: "ai", 0x49: "o", 0x4A: "o", 0x4B: "o", 0x4C: "au", 0x56: "ai", 0x57: "au", 0x62: "li",
 }
 CANDRABINDU, ANUSVARA, VISARGA, NUKTA_SIGN, VIRAMA = 0x01, 0x02, 0x03, 0x3C, 0x4D
-# Malayalam chillu letters: a final consonant with no vowel.
-CHILLU = {0x0D7A: "n", 0x0D7B: "n", 0x0D7C: "r", 0x0D7D: "l", 0x0D7E: "l", 0x0D7F: "k"}
+# Malayalam chillu letters and Bengali khanda ta: a final consonant with no vowel.
+CHILLU = {0x0D7A: "n", 0x0D7B: "n", 0x0D7C: "r", 0x0D7D: "l", 0x0D7E: "l", 0x0D7F: "k", 0x09CE: "t"}
 LABIALS = ("p", "b", "m", "f")
 
 
