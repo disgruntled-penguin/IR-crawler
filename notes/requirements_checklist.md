@@ -29,7 +29,7 @@ Status as of 7 Oct evening, after judging. "Team" marks the items that are human
 | Real inputs; synthetic rewrites only as labels | Done |
 | Own IR core: positional zoned index, tf-idf, BM25, shingling, MinHash, LSH, frontier with politeness | Done |
 | Inspectable: postings, shingle overlap and Jaccard, candidate scores, sentence alignment, verdict | Done (`postings`, `pair`, `suspect`, `demo`) |
-| robots.txt with Crawl-delay; delay per host; identifying UA with contact; backoff on 429/503; stop after errors; skip comments and profiles; no crawled texts committed | Done; 9 early delay violations before the 23:45 fix are disclosed |
+| robots.txt with Crawl-delay; delay per host; identifying UA with contact; backoff on 429/503; stop after errors; skip comments and profiles; no crawled texts committed | Done; 39 early delay violations are disclosed (9 from the 23:45 race, 30 from overlapping rehearsal crawls on 7 Oct), and a lock now refuses a second crawler; the final crawl has none |
 | One README, clean clone works | Done |
 | Code style: short comments, no decorative separators | Done (pyflakes clean) |
 | AI-use log | Done |
@@ -72,10 +72,12 @@ mid-term assignment, CLAUDE.md and the team's stated needs (dataset description,
 | Hard negatives, and a check that length does not separate the classes | Done: length artefact found and length-matched negatives added | `notes/critique_final.md` |
 | Inspectable commands | Done | `suspect-xl`, `kgram`, `sources` |
 | Critique rounds | Done: per feature and cross-cutting | `notes/critique_xl.md`, `critique_multisource.md`, `critique_final.md` |
-| Dataset described | Done | `results/dataset.md`, README "Data and credits", report Section 5 |
+| Dataset described | Done | `results/dataset.md`, README "Data and credits", report Section 6.1 |
 | Project report | Draft written; numbers come from the result files; page limit unknown | `report/SpinTrace_final_report.tex` |
 | Presentation on 25 Nov | Team: format not yet confirmed | |
 | Judged labels for the final's live results | Not done (no judging time); reported as unjudged counts | README, report Section 7 |
 | Tests | 35 pass | `tests/` |
-| Crawler politeness in the final crawl | Done at 09:05 on 22 Nov, after the crawler stopped, with `crawl-report --since 2026-11-21` (31,917 page requests to 45 hosts, 0 disallowed fetches, 0 requests under the 5 s floor, closest pair 20.0 s, 43 backoffs, 366 trap guards) | `results/crawl_report.json`, report Section 6.11 |
+| Crawler politeness in the final crawl | Done at 09:05 on 22 Nov, after the crawler stopped, with `crawl-report --since 2026-11-21` (31,917 page requests to 45 hosts, 0 disallowed fetches, 0 requests under the 5 s floor, closest pair 20.0 s, 43 backoffs, 366 trap guards) | `results/crawl_report.json`, report Section 6.13 |
 | README commands from a clean clone | Partly checked at 05:25: fresh clone, 35 tests pass, CLI help runs, the report builds with tectonic (20 pages). Not rerun from a clean clone: the crawl, index build and evaluation (they need the 1 GB data directory and hours) | PROGRESS.md |
+| Report in the professor's research-paper format (title, abstract, introduction with contributions, related work with 5-7 cited papers, objective, proposed model with a diagram, methodology with formulas, experiments and results with a comparison with published methods, conclusions and limitations, references in her format) | Done on 22 Nov (26 pages including the appendix) | `report/SpinTrace_final_report.pdf` |
+| Submission ZIP: report PDF, GitHub link, source code, dataset; named CSD358_Member1_Member2_Member3 | Built by `scripts/make_submission.sh`; GitHub link needs the push (not yet approved) and the member names need confirming | |
