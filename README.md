@@ -110,6 +110,7 @@ bash scripts/final_run.sh                   # eval-multi, eval-multi --live, eva
 python -m spintrace.eval.dataset_stats      # results/dataset.md and dataset.json: what is in the store and the label files
 python report/make_tables.py                # LaTeX tables and number macros from results/ (report/tables/)
 python report/make_figures.py               # report charts (report/figures/)
+python report/make_pipeline.py              # the proposed-model diagram (report/figures/pipeline_final.pdf)
 tectonic report/SpinTrace_final_report.tex  # the report PDF
 ```
 

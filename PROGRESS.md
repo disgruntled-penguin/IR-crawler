@@ -23,7 +23,7 @@ final rerun; `notes/requirements_checklist.md` maps every requirement to its sta
 - Search: with g(d) the original ranks first for 52.6% of test queries (10% without); nDCG@10 0.837 -> 0.886.
 - NewsGuard pairs: NYT -> GlobalVillageSpace retrieved first of 20.9k, verified, traced; Wired -> TopGolf.kr retrieved first, not verified.
 - Scale: +3,637 CC-NEWS articles (24.5k docs), nothing refit: F1 within 0.01 of the main run.
-- Crawl (final, stopped about 12:00 on 7 Oct): 32,513 articles from 43,683 page requests over 13.5 h; 0 disallowed URLs fetched; 9 delay violations, all before the 23:45 fix; median freshness 70 min. Evaluations used the snapshot at the 04:30 run (~16k crawled articles).
+- Crawl (final, stopped about 12:00 on 7 Oct): 32,513 articles from 43,683 page requests over 13.5 h; 0 disallowed URLs fetched; 39 delay violations (9 before the 23:45 fix, 30 from rehearsal crawls that overlapped on 7 Oct 23:13-23:16; a lock now refuses a second crawler); median freshness 70 min. Evaluations used the snapshot at the 04:30 run (~16k crawled articles).
 - Human judgments: both judges labelled all 174 live flags and 154 search results. Agreement 0.59 / 0.64, kappa 0.12 / 0.16. Live precision 0.845 (either judge), 0.437 (both), 0.738 (agreed pairs). Team convention: positive if either judge said so; the README reports all three. Hard negatives were not hand-checked.
 
 ## Overnight bugs found and fixed

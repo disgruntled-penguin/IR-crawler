@@ -4,6 +4,7 @@
 \usepackage{fontspec}
 \usepackage[table]{xcolor}
 \usepackage{graphicx}
+\usepackage{amsmath}
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{tabularx}
@@ -85,11 +86,17 @@
 \vspace{0.7em}
 {\headfontreg\small Nishita Kadali\quad\textcolor{warmgrey}{/}\quad Pustak Pathak\par
 CSD358 Information Retrieval, final project, Track 4: web crawling, freshness and web integrity\par
-November 2026\par}
+November 2026\par
+Code, labels and re-crawl script: \url{https://github.com/disgruntled-penguin/IR-crawler}\par}
 \vspace{0.4em}
 
-\section{Problem and track relevance}
 
+\begin{abstract}
+\small
+Content farms now use language models to reword, translate and stitch together articles from mainstream outlets, and the duplicate checks in crawlers and plagiarism tools miss most of them: NewsGuard found that Grammarly's checker missed the source of 34 of 43 AI-rewritten articles. We present SpinTrace, a polite focused news crawler whose ``content seen?'' check is extended from copy detection to paraphrase-aware derivative detection. A rewrite changes the wording but keeps names, numbers, dates and quotes, which are high-idf terms and exact phrases. SpinTrace therefore retrieves a suspect's likely source from those terms through its own positional inverted index (idf weighting, index elimination, phrase queries and an earlier-articles-only filter), verifies the top candidates by sentence alignment, decides provenance from publish dates and demotes copies in ranking. The project extends this to two cases that break the assumption that a copy shares wording with one original: translations, traced from English to Hindi through number normalisation, transliteration and a k-gram name index with no translation step, and multi-source mashups, traced by querying again with the sentences that no source explains yet. On graded English rewrites MinHash Jaccard falls to F1 0.021 on SEO rewrites while SpinTrace reaches 0.782. On Hindi derivatives SpinTrace reaches F1 \nXlTrans, \nXlSeo\ and \nXlSum\ on translations, SEO rewrites and summaries, which is comparable to translating back and running an English detector at about $1/\nSpeedup$ of the cost, and on spliced mashups it recovers the source set with F1 \nMsAll\ against \nMsContAll\ for shingle containment. Verification fails on Tamil, Telugu and Bengali because the sentence model does not cover them, and the Hindi mashup path is a prototype; we report where each part loses.
+\end{abstract}
+
+\section{Introduction}
 In August 2023 NewsGuard gave 43 AI-rewritten articles from content farms to Grammarly's premium plagiarism checker. It could not identify the original source of 34 of them, a 79\% failure rate~\cite{ng2023}. The farms take a story from a mainstream outlet, have a language model reword it, and publish the result as their own. NewsGuard's tracking page now counts 3,749 AI content-farm sites~\cite{ng2026}. The checker fails for a structural reason: it looks for text pulled verbatim, and a paraphrase has very little of it.
 
 A web crawler has the same blind spot. Its ``content seen?'' check fingerprints each page and compares sets of word shingles, which catches mirrors and light edits~\cite{broder1997,manku2007,iir2008}. A paraphrase shares almost no word 5-grams with its source; in our tests MinHash Jaccard reaches an F1 of 0.021 on SEO-style rewrites (Section~\ref{sec:eval}). The crawler then indexes the rewrite as new content, and in search the copy competes with the article it was taken from.
@@ -100,16 +107,151 @@ Track~4 asks for a focused crawler and a small index that address one integrity 
 
 \paragraph{What the final project adds} The mid-term system, like every copy detector we know of, assumes that a derivative shares wording with one original. Two kinds of derivative break that assumption, and a content farm has reason to produce both. A \emph{translation} shares no words with its source at all. A \emph{mashup} stitches one article from two or three originals, so no single original explains it, and a detector that returns its best match finds one source and stops. The final project traces both to their originals. The premise is unchanged: a rewrite or a translation changes the wording but keeps the names, numbers and dates, which stay high-idf evidence in the crawler's own index. We extend what counts as evidence across scripts (numbers, dates and names written in Devanagari, with the same code tried on Bengali, Tamil and Telugu) and what counts as a query (the sentences of the suspect that no source has explained yet).
 
-\section{How we used IR}
+\paragraph{Contributions} This report makes five contributions.
+\begin{enumerate}
+\item \emph{A paraphrase-aware content-seen check} (the mid-term system, kept as the base layer). Candidate sources come from the high-idf terms and quote phrases of a suspect, queried against the crawler's own positional inverted index; a sentence-alignment verifier checks the top candidates; provenance follows publish dates; confirmed copies are demoted in ranking by a static quality g(d).
+\item \emph{Cross-language tracing without translation.} English to Hindi derivatives are found through numbers, dates and names (an own transliteration table, a phonetic key and a k-gram index with edit distance), run on the same inverted index, and compared with translating first and with multilingual dense retrieval, including cost.
+\item \emph{Multi-source tracing.} A mashup is traced to all of its sources by explain-away rounds, which query again with only the suspect sentences no source explains, and each source gets a share of the text. A prototype joins this with the Hindi path.
+\item \emph{A polite crawler and live runs.} A focused crawler of English and Indian-language news that obeys robots.txt and Crawl-delay, with an audit of its own fetch log, and detection run on the live crawl.
+\item \emph{An evaluation that reports losses.} Graded rewrite intensities, same-event hard negatives (also length-matched), dev and test splits by original story, one-signal-at-a-time ablations, baselines at their best dev thresholds, and a list of where SpinTrace is weak.
+\end{enumerate}
 
-Our premise is that a rewrite changes the wording but keeps the names, numbers, dates and direct quotes. In IR terms those are high-idf terms and exact phrases. So the classical machinery (an inverted index, idf weights, positional phrase queries and a date filter) finds the candidate sources, and a sentence-embedding model only checks the few candidates IR returns. Figure~\ref{fig:pipeline} shows the pipeline. Table~\ref{tab:concepts} groups the concepts we use under the assignment's five lecture topics and points to the code; the paragraphs below give the choices and the reasons.
+\section{Related Work}
+\label{sec:related}
+
+We group the papers we read by the part of the system they inform, and then say what is new.
+
+\paragraph{Near-duplicate detection and the crawler's content-seen check} Broder~\cite{broder1997} defines the resemblance and the containment of two documents as the two-sided and one-sided overlap of their sets of word shingles, and shows that min-wise sketches estimate them cheaply. This is the check our crawler runs first and our main baseline. Manku et al.~\cite{manku2007} bring near-duplicate detection to a production crawler with 64-bit SimHash fingerprints compared by Hamming distance. Both find mirrors, copies and light edits; neither is designed for a paraphrase, which shares few shingles with its source (Table~\ref{tab:f1}). Our frontier and politeness rules follow Mercator~\cite{heydon1999}.
+
+\paragraph{Ranking and retrieval} We use the vector space model with idf, length normalisation, index elimination and tolerant retrieval as presented by Manning et al.~\cite{iir2008}, and BM25~\cite{robertson2009} as a baseline. Dense sentence embeddings such as Sentence-BERT~\cite{reimers2019} place a paraphrased sentence near its source, but they do not say which of thousands of documents holds it and they cannot separate a copy from an independent article on the same event, so we use them only to verify the candidates the index returns.
+
+\paragraph{Plagiarism detection and source retrieval} The evaluation framework of Potthast et al.~\cite{potthast2010} builds test corpora by inserting passages obfuscated to different degrees, which is the idea behind our graded rewrite intensities. Potthast et al.~\cite{potthast2011} study cross-language plagiarism detection and compare families of models, among them cross-language explicit semantic analysis, cross-language character n-grams and translation followed by monolingual analysis; we use the last as our strongest cross-language baseline. Hagen et al.~\cite{hagen2015} review source retrieval, the task of finding the web sources of a suspicious document by formulating queries from it. Our candidate query is a query formulation of this kind, run on the crawler's own index instead of a web search engine.
+
+\paragraph{AI-rewritten news} NewsGuard documented AI-rewritten articles from content farms and the checkers that missed them~\cite{ng2023}, and keeps a count of such sites~\cite{ng2026}. These reports motivate the task and give us real farm pairs to test on, but they are not methods.
+
+\begin{table}[h]
+  \centering\small
+  \caption{Tools in use today and why they miss AI rewrites: each either matches surface text or never names a source.}
+  \label{tab:existing}
+  \footnotesize\begin{tabularx}{\textwidth}{@{}P{4.9cm}P{4.6cm}L@{}}
+    \toprule
+    \hrow \hd{Approach} & \hd{Catches} & \hd{Why it fails on AI rewrites} \\
+    \midrule
+    Exact hashing (content-seen) & identical copies & any edit breaks the hash \\
+    Shingles with MinHash or SimHash & near-copies, light edits & paraphrases share few shingles \\
+    Plagiarism checkers & verbatim reuse & missed 79\% of sources in NewsGuard's test \\
+    Domain blocklists & known farm domains & manual and stale; new domains slip through \\
+    AI-text detectors & text that looks machine-written & unreliable, and never name the source \\
+    \ours SpinTrace & rewrites at any intensity, with their original & weak spots measured in Section~\ref{sec:eval} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Beyond the tools in Table~\ref{tab:existing}, the obvious baseline for this track is a shingle near-duplicate detector over a crawl. SpinTrace differs from it in four places. Candidate sources come from the facts a rewrite keeps, as an index-elimination query over the crawler's own inverted index, instead of from surface overlap or from embedding everything and ranking by cosine. A verdict has a direction: the earlier article is the source, or, without dates, the one that covers the other. The verdicts feed back into ranking through g(d), so detection changes what users see. And we test it where the baseline breaks (graded rewrite intensities) and where a paraphrase detector is most likely to be wrong: independent articles about the same event, which share names and numbers without being copies. Every component is textbook IR; what is new is putting them together at the crawler's content-seen step and measuring where the result fails. A GitHub API search in October 2026 found blocklists and generic plagiarism checkers, but no project combining a crawler, paraphrase-aware detection and provenance tracing.
+
+\paragraph{Novelty of our approach} Both new problems have a literature. Cross-language plagiarism detection retrieves a source across languages by translation, cross-language explicit semantic analysis or character n-gram models~\cite{potthast2011}, and finding every source of a suspicious document is the source-retrieval task of the PAN competitions, which also formulates queries from the suspicious text~\cite{hagen2015}. We do not claim those ideas. We claim a particular combination, tested against the obvious alternatives: the premise that facts survive rewriting, carried onto a crawler's own positional inverted index, extended to translations through transliteration and a k-gram name index and to mashups through residual queries, on news, with per-source shares and with same-story articles as the negatives. Where it beats the alternatives and where it does not is in Section~\ref{sec:eval}.
+
+\section{Objective}
+\label{sec:objective}
+
+The objective is a news crawler that decides, for each page it stores, whether the page is derived from a page already stored, however the wording, the language or the number of sources changed; names the source or sources with evidence a person can read; and uses the verdict to rank originals above their copies. The system has to do this on real crawled pages, politely, and with costs that a crawl loop can afford. We ask four questions, answered in Section~\ref{sec:eval}.
+
+\begin{enumerate}
+\item \textbf{RQ1.} Do the names, numbers, dates and quotes of a suspect retrieve and verify the source of a rewrite better than surface overlap, and where does classical retrieval win or lose against dense retrieval?
+\item \textbf{RQ2.} Does the same premise reach across scripts, from English to Hindi, without a translation step, and how does it compare in accuracy and cost with translating first?
+\item \textbf{RQ3.} Can an article stitched from several originals be traced to all of them by querying again with the sentences that no source explains yet?
+\item \textbf{RQ4.} Does ranking with g(d) put originals above their copies, and is the crawler correct and polite?
+\end{enumerate}
+
+\section{Proposed Model}
+\label{sec:model}
+
+SpinTrace has two parts: a crawler that keeps a positional inverted index fresh, and a detection stage that runs on each page the crawler stores. Our premise is that a rewrite changes the wording but keeps the names, numbers, dates and direct quotes. In IR terms those are high-idf terms and exact phrases. So the classical machinery (an inverted index, idf weights, positional phrase queries and a date filter) finds the candidate sources, and a sentence-embedding model only checks the few candidates IR returns. Figure~\ref{fig:pipelinefinal} shows the whole process, including the two extensions of the final project, and Figure~\ref{fig:pipeline} the mid-term detection pipeline in more detail.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/pipeline_final.pdf}
+  \caption{The proposed model. The crawler fills the index (top); each suspect page goes through the detection stage (bottom). Anchor extraction, normalisation and verification are extended to Indian-language suspects, and the explain-away loop returns to the query stage for mashups.}
+  \label{fig:pipelinefinal}
+\end{figure}
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.94\textwidth]{figures/pipeline.pdf}
-  \caption{The SpinTrace pipeline. Oxblood boxes are the detection stage that extends the content-seen check; paths are under \code{spintrace/}.}
+  \caption{The mid-term SpinTrace pipeline. Oxblood boxes are the detection stage that extends the content-seen check; paths are under \code{spintrace/}.}
   \label{fig:pipeline}
 \end{figure}
+
+The stages, in the order a suspect passes through them:
+\begin{enumerate}
+\item \textbf{Crawl and store.} Polite fetching, a main-text extractor, a publish date and the textbook content-seen check (exact hash, shingles, MinHash).
+\item \textbf{Normalise.} One pipeline for the index, the shingles and the queries; for Indian-language text, normalisation that keeps vowel signs, digits mapped to ASCII, and lakh, crore and million written as plain numbers.
+\item \textbf{Anchor query.} The suspect's highest-idf terms, numbers, dates, quote windows and, for Hindi, names matched through transliteration and a k-gram index; only earlier articles from other sites are searched.
+\item \textbf{Candidates.} Index elimination over those terms gives the top 20 by cosine, with phrase hits on the quotes.
+\item \textbf{Verify.} The top 5 are checked by sentence alignment and nine more signals combined by a logistic regression fit on dev.
+\item \textbf{Provenance.} The earlier article is the source; without dates, the side the other covers is the source. Verdicts form a copy graph and set g(d).
+\item \textbf{Explain-away loop.} For a mashup, the suspect sentences that no found source explains become the next query, until none verifies.
+\item \textbf{Output.} The source or sources with the share of the text each explains and the aligned sentences as evidence; search ranks by relevance plus $\lambda\,g(d)$.
+\end{enumerate}
+Section~\ref{sec:method} gives the algorithm and formulas of each stage.
+
+\section{Methodology}
+\label{sec:method}
+
+\subsection{Scoring and decision formulas}
+
+Let $N$ be the number of documents in the index, $\mathrm{df}(t)$ the number of documents that contain term $t$, $\mathrm{tf}_{t,d}$ the count of $t$ in $d$ and $|d|$ the length of $d$ in tokens.
+
+\paragraph{Weighting and candidate scoring} The inverse document frequency and the lnc.ltc cosine score are
+\begin{align}
+\mathrm{idf}(t) &= \log_{10}\frac{N}{\mathrm{df}(t)}, \label{eq:idf}\\
+s(q,d) &= \sum_{t\in q}\underbrace{\bigl(1+\log_{10}\mathrm{tf}_{t,q}\bigr)\,\mathrm{idf}(t)\,\beta_t}_{w_{q,t}}\;\frac{1+\log_{10}\mathrm{tf}_{t,d}}{\lVert d\rVert},\qquad
+\lVert d\rVert=\sqrt{\textstyle\sum_{t'}\bigl(1+\log_{10}\mathrm{tf}_{t',d}\bigr)^2}. \label{eq:cos}
+\end{align}
+Here $\beta_t=2$ for names and numbers and $1$ otherwise. The query norm is the same for every document, so it is dropped and $s$ ranks as the cosine does. Documents carry no idf, so the rare terms of the query decide, and the length normalisation $\lVert d\rVert$ keeps long articles from winning against a short summary. Index elimination keeps only the $m=30$ query terms with the largest $w_{q,t}$ and $\mathrm{df}\ge 2$; only their postings are walked.
+
+\paragraph{BM25 baseline} With $k_1=1.2$ and $b=0.75$,
+\begin{equation}
+\mathrm{BM25}(q,d)=\sum_{t\in q}\ln\!\Bigl(1+\frac{N-\mathrm{df}(t)+0.5}{\mathrm{df}(t)+0.5}\Bigr)\frac{\mathrm{tf}_{t,d}\,(k_1+1)}{\mathrm{tf}_{t,d}+k_1\bigl(1-b+b\,|d|/\overline{|d|}\bigr)}. \label{eq:bm25}
+\end{equation}
+
+\paragraph{Content-seen check} For two documents with shingle sets $A$ and $B$ (word 5-grams), resemblance and containment are
+\begin{equation}
+J(A,B)=\frac{|A\cap B|}{|A\cup B|},\qquad C(A\mid B)=\frac{|A\cap B|}{|A|}. \label{eq:jacc}
+\end{equation}
+MinHash estimates $J$ from $k=128$ hash functions, $\hat J=\frac1k\sum_{i=1}^{k}[\min h_i(A)=\min h_i(B)]$, and LSH with $b=32$ bands of $r=4$ rows makes a pair a candidate with probability $1-(1-J^{r})^{b}$, whose knee is near $(1/b)^{1/r}\approx 0.42$.
+
+\paragraph{Numbers and names across scripts} A number written in Hindi is turned into a plain number, with lakh $=10^5$ and crore $=10^7$, so \hi{३.५ करोड़} becomes $3.5\times10^{7}=35{,}000{,}000$, the same term as ``35 million''. A transliterated name key $x$ matches an English name key $y$ when their character 3-gram sets $G_3$ (with boundary markers) satisfy
+\begin{equation}
+J\bigl(G_3(x),G_3(y)\bigr)\ge 0.3\quad\text{and}\quad \mathrm{ed}(x,y)\le 2, \label{eq:kgram}
+\end{equation}
+where $\mathrm{ed}$ is the Levenshtein distance (at most 1 for keys of three letters or fewer).
+
+\paragraph{Verification and decision} The verifier is a class-balanced logistic regression over the signals $\mathbf{x}$ of a suspect-candidate pair (sentence alignment coverage and mean score, order, back coverage, word overlap in aligned pairs, quote overlap, name and number overlap, shingle containment and the retrieval cosine):
+\begin{equation}
+p(s\to d)=\sigma\bigl(\mathbf{w}^{\top}\mathbf{x}+b\bigr),\qquad \text{derived}\iff p(s\to d)\ge\tau, \label{eq:logit}
+\end{equation}
+with $\tau$ chosen to maximise F1 on the dev split. Two sentences align when their embedding cosine is at least $\theta=0.62$ for the English model.
+
+\paragraph{Static quality and net score} A document's static quality falls with the probability that it is a copy, and search combines it with relevance:
+\begin{equation}
+g(d)=1-\max_{s} p(s\to d),\qquad \mathrm{net}(q,d)=\mathrm{rel}(q,d)+\lambda\,g(d),\quad \lambda=0.1. \label{eq:net}
+\end{equation}
+
+\paragraph{Explain-away rounds} Let $S$ be the sentences of a mashup suspect. Round $i$ retrieves and verifies a source $d_i$ from a query built only from the residual $R_{i-1}$ ($R_0=S$) and excluding $d_1,\dots,d_{i-1}$; it covers $C_i=\{s\in S:\mathrm{sim}(s,d_i)\ge\theta\}$ and leaves $R_i=S\setminus(C_1\cup\dots\cup C_i)$. Rounds stop when $|R_i|/|S|$ falls under a dev-tuned limit, when no candidate verifies, or after four sources. Each sentence is then assigned to the found source it aligns to best, and the share of source $i$ is the fraction of $S$ assigned to it; the remainder is unexplained:
+\begin{equation}
+\mathrm{share}_i=\frac{\bigl|\{s\in S:\ \arg\max_j \mathrm{sim}(s,d_j)=i,\ \max_j \mathrm{sim}(s,d_j)\ge\theta\}\bigr|}{|S|}. \label{eq:share}
+\end{equation}
+
+\paragraph{Evaluation metrics} With true positives TP, false positives FP and false negatives FN,
+\begin{equation}
+P=\frac{TP}{TP+FP},\qquad R=\frac{TP}{TP+FN},\qquad F_1=\frac{2PR}{P+R},\qquad \mathrm{MRR}=\frac1{|Q|}\sum_{q\in Q}\frac1{\mathrm{rank}_q}, \label{eq:metrics}
+\end{equation}
+where $\mathrm{rank}_q$ is the rank of the true source for suspect $q$. We also report $P@k$, $\mathrm{Recall}@k$ and nDCG@10 for search, and source-set precision, recall and $F_1$ for mashups.
+
+\subsection{Components and design choices}
+
+Table~\ref{tab:concepts} groups the concepts we use under the assignment's five lecture topics and points to the code; the paragraphs below give the choices and the reasons.
 
 \begin{table}[t]
   \centering\small
@@ -151,7 +293,7 @@ Our premise is that a rewrite changes the wording but keeps the names, numbers, 
 
 \paragraph{Explain-away rounds} \code{detect/multisource.py} treats a mashup as retrieval with feedback. Round one is the mid-term query. The best verified source explains the suspect sentences it aligns with; round two queries only the sentences left over (their rare terms, fact-boosted terms and quotes) with the sources already found excluded, and rounds continue until nothing verifies, the unexplained share falls under a dev-tuned limit, or four sources are found. A per-round verifier scores signals relative to the residual instead of whole-document coverage, because a source that supplies half of a mashup would never pass the mid-term verifier's threshold; it also looks at what the unaligned sentences resemble, which separates a second source from an independent article on the same story. The output is the list of sources, the share of sentences each explains, and the share nobody explains.
 
-\section{Beyond IR}
+\subsection{Models and libraries outside classical IR}
 
 \paragraph{Sentence embeddings} all-MiniLM-L6-v2 (sentence-transformers~\cite{reimers2019}) maps sentences to vectors so that a paraphrased sentence lands near its source. In the detection path it does one job: aligning sentences between a suspect and the five candidates IR returned. The ablations (Appendix, Table~\ref{tab:ablations}) show how the two halves depend on each other. Keeping only the IR signals drops macro F1 over the six levels from 0.896 to 0.802 and raises the false-positive rate on facts-only articles from 0.156 to 0.444. Dropping verification and trusting retrieval alone gives 0.595. In the other direction, swapping the IR candidates for dense-retrieval candidates gives 0.894, so on this corpus the IR stage is not more accurate than dense retrieval as a candidate generator. What it adds is evidence a person can read (which rare terms and quotes matched) and a higher share of sources ranked first: 0.993 against 0.961 for dense retrieval, which ranks the true source first for only 0.83 of SEO rewrites and summaries. A scikit-learn logistic regression combines the ten signals; we chose it for its few parameters and readable weights (\code{results/verifier.json}).
 
@@ -161,31 +303,10 @@ Our premise is that a rewrite changes the wording but keeps the names, numbers, 
 
 \paragraph{Libraries, in IR terms} \code{requests} is the fetcher; \code{trafilatura} does boilerplate removal, deciding what the document is; \code{lxml} parses links, RSS, Atom and sitemaps; \code{urllib.robotparser} parses robots.txt rules, while fetching, caching and delay policy are ours; \code{nltk} supplies the Porter stemmer and WordNet (used only to make synonym-spun test rewrites); \code{mwparserfromhell} strips wikitext from the Wikinews dump; \code{warcio} reads the CC-NEWS file. Every IR component in Table~\ref{tab:concepts}, BM25 included, is our own code.
 
-\section{Novelty and creativity}
+\section{Experimentation and Results}
+\label{sec:eval}
 
-\begin{table}[h]
-  \centering\small
-  \caption{Tools in use today and why they miss AI rewrites: each either matches surface text or never names a source.}
-  \label{tab:existing}
-  \footnotesize\begin{tabularx}{\textwidth}{@{}P{4.9cm}P{4.6cm}L@{}}
-    \toprule
-    \hrow \hd{Approach} & \hd{Catches} & \hd{Why it fails on AI rewrites} \\
-    \midrule
-    Exact hashing (content-seen) & identical copies & any edit breaks the hash \\
-    Shingles with MinHash or SimHash & near-copies, light edits & paraphrases share few shingles \\
-    Plagiarism checkers & verbatim reuse & missed 79\% of sources in NewsGuard's test \\
-    Domain blocklists & known farm domains & manual and stale; new domains slip through \\
-    AI-text detectors & text that looks machine-written & unreliable, and never name the source \\
-    \ours SpinTrace & rewrites at any intensity, with their original & weak spots measured in Section~\ref{sec:eval} \\
-    \bottomrule
-  \end{tabularx}
-\end{table}
-
-Beyond the tools in Table~\ref{tab:existing}, the obvious baseline for this track is a shingle near-duplicate detector over a crawl. SpinTrace differs from it in four places. Candidate sources come from the facts a rewrite keeps, as an index-elimination query over the crawler's own inverted index, instead of from surface overlap or from embedding everything and ranking by cosine. A verdict has a direction: the earlier article is the source, or, without dates, the one that covers the other. The verdicts feed back into ranking through g(d), so detection changes what users see. And we test it where the baseline breaks (graded rewrite intensities) and where a paraphrase detector is most likely to be wrong: independent articles about the same event, which share names and numbers without being copies. Every component is textbook IR; what is new is putting them together at the crawler's content-seen step and measuring where the result fails. A GitHub API search in October 2026 found blocklists and generic plagiarism checkers, but no project combining a crawler, paraphrase-aware detection and provenance tracing.
-
-\paragraph{Prior work, and what is new} Both new problems have a literature. Cross-language plagiarism detection retrieves a source across languages by translation, cross-language explicit semantic analysis or character n-gram models~\cite{potthast2011}, and finding every source of a suspicious document is the source-retrieval task of the PAN competitions, which also formulates queries from the suspicious text~\cite{hagen2015}. We do not claim those ideas. We claim a particular combination, tested against the obvious alternatives: the premise that facts survive rewriting, carried onto a crawler's own positional inverted index, extended to translations through transliteration and a k-gram name index and to mashups through residual queries, on news, with per-source shares and with same-story articles as the negatives. Where it beats the alternatives and where it does not is in Section~\ref{sec:eval}.
-
-\section{Data}
+\subsection{Datasets}
 \label{sec:data}
 
 The track is about a live crawl, so the dataset is the crawl plus labelled test sets that we built on freely licensed originals. Table~\ref{tab:data} lists what exists and what each part is for.
@@ -204,8 +325,7 @@ The track is about a live crawl, so the dataset is the crawl plus labelled test 
 
 \paragraph{What is committed} Code, URLs, features, labels and the Wikinews-derived texts. Crawled article texts are never committed; \code{recrawl} rebuilds them from the URL list. Nothing here was labelled by an AI system, and no human judging was possible for the final's live results (Section~\ref{sec:limits}).
 
-\section{Evaluation}
-\label{sec:eval}
+\subsection{Evaluation setup}
 
 \paragraph{Setup} Positives are rewrites of 400 Wikinews originals at six intensities: exact copy, light edit, WordNet synonym spin, an LLM ``SEO-friendly'' rewrite like the one NewsGuard tested, an LLM summary, and an LLM round trip through German. Negatives are the originals themselves, crawl hard negatives (same event, another outlet, published within 3 days, at least 3 shared rare names, and no shingle containment above 0.1 against any earlier document; median gap 10.5\,h, 77\% within 24\,h), and facts-only articles that the LLM wrote from an original's topic, names, numbers and quotes without seeing its text. Every item is scored against the full index of 20,860 documents (the crawl, the originals, 4,000 Wikinews distractors and all rewrites), except that a rewrite cannot see other rewrites of its own original. We split by original story, so a story and all its rewrites fall on one side. The verifier and every method's threshold are fit on the dev split; every number below is from the test split (190 items each for exact, light and synonym, 90 SEO, 90 summary, 45 translation; 190 originals, 301 hard negatives and 90 facts-only as negatives). The baselines are exact hash, MinHash Jaccard over LSH candidates, shingle containment against every earlier document (the best case for shingles), full-document tf-idf cosine, full-document BM25 normalised by the suspect's self-score, and dense cosine of mean MiniLM sentence vectors. Each gets its best dev threshold.
 
@@ -247,6 +367,7 @@ It loses at the easy end. Exact hash (0.995) and MinHash (0.992 and 0.990) beat 
 SpinTrace ranks the true source first for 0.998 of test positives (MRR 0.998, Recall@20 1.000), and most baselines come close: full-document BM25 reaches 0.996, tf-idf cosine 0.993, shingle containment 0.987 and dense cosine 0.961. MinHash (0.526) and exact hash (0.239) only rank sources they can detect at all. Ranking the right source is easy for sparse methods on this corpus; the case for the rare-term query is in its cost.
 
 \subsection{Index elimination and cost}
+\label{sec:elim}
 
 \begin{figure}[t]
   \begin{minipage}[t]{0.44\textwidth}
@@ -277,7 +398,7 @@ SpinTrace ranks the true source first for 0.998 of test positives (MRR 0.998, Re
   \end{minipage}
 \end{figure}
 
-Figure~\ref{fig:elim} varies the number m of rare terms in the query. Three terms find the source at rank 1 for 0.805 of positives while touching 28 postings; ten terms reach 0.970 with 282 postings; our setting of 30 reaches 0.994 with 3,891. Ten random terms reach 0.937 but touch 12,365 postings, and the ten most common terms reach only 0.713 with 48,375. The rarest terms are both the cheapest query and the most accurate one, which is the premise of Section~2 in one chart.
+Figure~\ref{fig:elim} varies the number m of rare terms in the query. Three terms find the source at rank 1 for 0.805 of positives while touching 28 postings; ten terms reach 0.970 with 282 postings; our setting of 30 reaches 0.994 with 3,891. Ten random terms reach 0.937 but touch 12,365 postings, and the ten most common terms reach only 0.713 with 48,375. The rarest terms are both the cheapest query and the most accurate one, which is the premise of Section~\ref{sec:model} in one chart.
 
 Table~\ref{tab:cost} gives cost per suspect. SpinTrace touches 8,293 postings, about 1\% of the 745,985 a full-document query touches, and only 20 documents reach the expensive comparison; all-pairs shingle containment compares every earlier document (8,165 on average) and takes 58.9\,ms. SpinTrace is not the fastest in wall-clock time, though: the baselines that compare precomputed vectors take 1.4 to 12.0\,ms against its 23.2\,ms.
 
@@ -306,6 +427,7 @@ Table~\ref{tab:cost} gives cost per suspect. SpinTrace touches 8,293 postings, a
 On synthetic queries, where we know which document is the original, g(d) puts the original first for 52.6\% of queries instead of 10\%, and nDCG@10 rises from 0.837 to 0.886; P@10 dips from 0.533 to 0.524 (Table~\ref{tab:search}). Our 15 judged live queries do not separate the rankings. When either judge's ``relevant'' counts, 93.5\% of judged results were relevant, so P@10 (0.933) and nDCG@10 (0.973) are identical with and without g(d), and the only change is the share of originals among the relevant top 10, from 0.927 to 0.953. When both judges must agree, nDCG@10 is slightly lower with g(d) (0.803 against 0.811).
 
 \subsection{Human judgments of live flags}
+\label{sec:judged}
 
 Both of us labelled all 174 pairs that SpinTrace flagged in the live crawl. We judged blind: the judging page hides SpinTrace's score and verdict and the other judge's label. Live precision depends on how the two labels are combined: 0.845 if either judge says derived (our convention, and the lenient one), 0.437 if both must, and 0.738 on the 103 pairs we agreed on. We agreed on only 59\% of pairs (Cohen's kappa 0.123); Judge~1 called 103 derived and Judge~2 called 120. On search results agreement was 0.636 (kappa 0.161) over 154 judged results. Judge~1's not-derived pairs have much less exact overlap (median shingle containment 0.38, against 0.85 for derived pairs), which fits the sentence alignment matching independent coverage of one event.
 
@@ -334,7 +456,7 @@ A Hindi suspect has to be traced to its English source among all earlier English
   \label{fig:xl}
 \end{figure}
 
-SpinTrace on anchors reaches F1 \nXlTrans, \nXlSeo and \nXlSum on translations, SEO rewrites and summaries, and ranks the true source first for \nXlPone of all Hindi derivatives; the sets are small (\nXlTestN\ test originals per level), so the intervals in the CSV matter. Translating back and then running the English SpinTrace reaches \nBtSpinTrans, \nBtSpinSeo and \nBtSpinSum: better on literal translations, worse on SEO rewrites and summaries, and every interval overlaps ours, so on this set neither route is more accurate. Plain tf-idf on the back-translation is as strong as either on translations (\nBtTfidfTrans) and on SEO rewrites (\nBtTfidfSeo), and with BM25 it ranks the true source first for \nBtTfidfPone of all derivatives; translate-then-detect is therefore a strong baseline, and we do not claim an accuracy win over it. It falls apart on summaries (\nBtTfidfSum for tf-idf, \nBtBmSum for BM25), where a short brief shares little wording with its source after the round trip. Exact hash and MinHash score zero, as they must: a translation shares no shingles with its source. The embedding-only baselines are the weak ones: multilingual dense cosine reaches \nDenseTrans, \nDenseSeo and \nDenseSum and flags \nDenseFprSame of the same-event articles, and retrieval from Latin-script tokens alone reaches only \nLatinSum on summaries, so the bridge through numbers, dates and transliterated names does the work.
+SpinTrace on anchors reaches F1 \nXlTrans, \nXlSeo\ and \nXlSum\ on translations, SEO rewrites and summaries, and ranks the true source first for \nXlPone\ of all Hindi derivatives; the sets are small (\nXlTestN\ test originals per level), so the intervals in the CSV matter. Translating back and then running the English SpinTrace reaches \nBtSpinTrans, \nBtSpinSeo\ and \nBtSpinSum: better on literal translations, worse on SEO rewrites and summaries, and every interval overlaps ours, so on this set neither route is more accurate. Plain tf-idf on the back-translation is as strong as either on translations (\nBtTfidfTrans) and on SEO rewrites (\nBtTfidfSeo), and with BM25 it ranks the true source first for \nBtTfidfPone\ of all derivatives; translate-then-detect is therefore a strong baseline, and we do not claim an accuracy win over it. It falls apart on summaries (\nBtTfidfSum\ for tf-idf, \nBtBmSum\ for BM25), where a short brief shares little wording with its source after the round trip. Exact hash and MinHash score zero, as they must: a translation shares no shingles with its source. The embedding-only baselines are the weak ones: multilingual dense cosine reaches \nDenseTrans, \nDenseSeo\ and \nDenseSum\ and flags \nDenseFprSame\ of the same-event articles, and retrieval from Latin-script tokens alone reaches only \nLatinSum\ on summaries, so the bridge through numbers, dates and transliterated names does the work.
 
 Where SpinTrace wins is cost, not accuracy, and the cost needs care. Retrieval takes about \nXlRetMs\,ms over about \nXlPostings\ postings with no LLM call and no embedding of the corpus. Verification then embeds the suspect's sentences and those of five candidates; with those embeddings cached a suspect costs \nXlMs\,ms in total, and with a cold cache about \nXlColdMs\,ms (measured separately on an idle machine; see \code{results/crosslingual\_cold\_cost.json}). Translating back costs about \nBtLlmSec\,s of LLM time per suspect before any detection, roughly \nSpeedup\ times more than our cold cost. Multilingual dense cosine is cheap per query (\nDenseMs\,ms) but needs every document embedded first, which took about fifteen minutes for the 20{,}860 English documents and grows with the corpus; the inverted index already exists.
 
@@ -346,14 +468,14 @@ Where SpinTrace wins is cost, not accuracy, and the cost needs care. Retrieval t
   \input{tables/xl_ablation}
 \end{table}
 
-Removing one thing at a time (Table~\ref{tab:xlabl}) shows which parts carry weight. Without the sentence-alignment signals macro F1 falls to \nAblNoAlign, so verification is essential and anchors alone cannot decide. Among the anchors, the source-language document-frequency check matters most (\nAblNoDf without it, against \nAblFull); it stops a name that is common in Hindi news but rare in our English crawl from acting as a strong anchor. Dropping name anchors costs more than dropping numbers (\nAblNoNames and \nAblNoNumbers), and exact transliteration without the fuzzy k-gram step gives \nAblTranslitExact. Dates change nothing at this scale (\nAblNoDates). Swapping our retrieval for dense retrieval with the same verifier gives \nAblDenseVerify, only a little behind, so on this corpus dense retrieval is nearly as good a candidate generator; what the index adds is that it needs no corpus-wide embedding and that every step can be read.
+Removing one thing at a time (Table~\ref{tab:xlabl}) shows which parts carry weight. Without the sentence-alignment signals macro F1 falls to \nAblNoAlign, so verification is essential and anchors alone cannot decide. Among the anchors, the source-language document-frequency check matters most (\nAblNoDf\ without it, against \nAblFull); it stops a name that is common in Hindi news but rare in our English crawl from acting as a strong anchor. Dropping name anchors costs more than dropping numbers (\nAblNoNames\ and \nAblNoNumbers), and exact transliteration without the fuzzy k-gram step gives \nAblTranslitExact. Dates change nothing at this scale (\nAblNoDates). Swapping our retrieval for dense retrieval with the same verifier gives \nAblDenseVerify, only a little behind, so on this corpus dense retrieval is nearly as good a candidate generator; what the index adds is that it needs no corpus-wide embedding and that every step can be read.
 
 \paragraph{Length is not a shortcut}
 \label{sec:length}
 A hostile reading of Table~\ref{tab:xl} is that the negatives differ from the summaries in length rather than in derivation. We checked, and the worry is half right. Word count alone separates the Hindi summaries (median \nLenSumMed\ words) from the same-event negatives (median \nLenLongMed) almost perfectly, with an AUC of \nLenAucSum\ on test; translations (AUC \nLenAucTrans) are not separable by length, and SEO rewrites (\nLenAucSeo, because they are longer) only in part (\code{results/crosslingual\_length\_check.json}). So we generated a second same-event negative of about \nLenShortMed\ words for every test original, and report the false-positive rate on both. SpinTrace flags \nXlFprShort\ of the short negatives against \nXlFprSame\ of the long ones, on 50 items each with overlapping intervals; the translate-back SpinTrace flags \nBtSpinFprShort\ and \nBtSpinFprSame. The rise is in the direction the worry predicts: with the length cue taken away the verifier names a false source more often, so part of the precision on summaries was length. The short negatives still leave a smaller cue against summaries (AUC \nLenAucSumShort), so the true rate lies between the two figures. The short negatives are a test-only diagnostic: a threshold tuned on dev against the long negatives is exposed if it lets short ones through.
 
 \paragraph{Other scripts: retrieval transfers unevenly, verification does not}
-The same code, with the same dev thresholds and the multilingual sentence model, was tried on Tamil, Telugu and Bengali translations of 12 test originals each (Table~\ref{tab:xlother}). The generality check half failed, and the reason is informative. The anchors still retrieve the source in part: it is ranked first for \nTaPone, \nTePone and \nBnPone of the Tamil, Telugu and Bengali items, against \nDenseTaPone, \nDenseTePone and \nDenseBnPone for dense retrieval, which has no coverage of these scripts. Verification fails (F1 \nTaF, \nTeF and \nBnF), most likely because the multilingual sentence model's model card lists Hindi, Marathi, Gujarati and Urdu among its 50 languages but not Tamil, Telugu or Bengali, so sentence alignment carries little signal there. The alignment scores agree: on the true source, the mean alignment cosine is \nAlignHi\ for Hindi (coverage \nAlignCovHi) but \nAlignTa, \nAlignTe\ and \nAlignBn\ for Tamil, Telugu and Bengali (coverage \nAlignCovTa, \nAlignCovTe\ and \nAlignCovBn; dev and test items whose source is among the five candidates, \code{results/crosslingual\_align\_check.json}). Where an embedding model does not cover a language, the index is the only part of the system that still works. These sets are tiny and are a negative generality result, not a benchmark.
+The same code, with the same dev thresholds and the multilingual sentence model, was tried on Tamil, Telugu and Bengali translations of 12 test originals each (Table~\ref{tab:xlother}). The generality check half failed, and the reason is informative. The anchors still retrieve the source in part: it is ranked first for \nTaPone, \nTePone\ and \nBnPone\ of the Tamil, Telugu and Bengali items, against \nDenseTaPone, \nDenseTePone\ and \nDenseBnPone\ for dense retrieval, which has no coverage of these scripts. Verification fails (F1 \nTaF, \nTeF\ and \nBnF), most likely because the multilingual sentence model's model card lists Hindi, Marathi, Gujarati and Urdu among its 50 languages but not Tamil, Telugu or Bengali, so sentence alignment carries little signal there. The alignment scores agree: on the true source, the mean alignment cosine is \nAlignHi\ for Hindi (coverage \nAlignCovHi) but \nAlignTa, \nAlignTe\ and \nAlignBn\ for Tamil, Telugu and Bengali (coverage \nAlignCovTa, \nAlignCovTe\ and \nAlignCovBn; dev and test items whose source is among the five candidates, \code{results/crosslingual\_align\_check.json}). Where an embedding model does not cover a language, the index is the only part of the system that still works. These sets are tiny and are a negative generality result, not a benchmark.
 
 \begin{table}[t]
   \centering\small
@@ -380,7 +502,7 @@ A mashup has to be traced to all of its sources. We score the predicted source s
   \input{tables/ms_detection}
 \end{table}
 
-SpinTrace recovers the source sets with F1 \nMsAll over all splices, against \nMsContAll for shingle containment and \nMsMidAll for the mid-term method, which cannot name more than one source and is capped well below that. On plain copy-and-paste splices shingle containment does about as well as we do (\nMsPlainCont against \nMsPlain) and is far cheaper; the gap opens when the blocks are reworded: \nMsSyn against \nMsSynCont for synonym-spun blocks and \nMsSeo against \nMsSeoCont for blocks taken from SEO rewrites. The one-shot baseline equals the mid-term one for a reason worth stating: a whole-document verifier passes a candidate only if it explains most of the suspect, and in a mashup of two or three sources at most one can, so one-shot almost never adds a second source. Recall of the second of two sources is \nMsSecondSpin for SpinTrace and \nMsSecondMid for the mid-term method, and of the third of three \nMsThirdSpin and \nMsThirdMid (Table~\ref{tab:msrank}). On the LLM mashups SpinTrace reaches F1 \nMsLlm against \nMsLlmCont for shingles; this set is small and its shares are unknown. Its precision there is \nMsLlmPrec\ but its recall only \nMsLlmRecall: under the false-source bar it names few of the sources, and those it names are right.
+SpinTrace recovers the source sets with F1 \nMsAll\ over all splices, against \nMsContAll\ for shingle containment and \nMsMidAll\ for the mid-term method, which cannot name more than one source and is capped well below that. On plain copy-and-paste splices shingle containment does about as well as we do (\nMsPlainCont\ against \nMsPlain) and is far cheaper; the gap opens when the blocks are reworded: \nMsSyn\ against \nMsSynCont\ for synonym-spun blocks and \nMsSeo\ against \nMsSeoCont\ for blocks taken from SEO rewrites. The one-shot baseline equals the mid-term one for a reason worth stating: a whole-document verifier passes a candidate only if it explains most of the suspect, and in a mashup of two or three sources at most one can, so one-shot almost never adds a second source. Recall of the second of two sources is \nMsSecondSpin\ for SpinTrace and \nMsSecondMid\ for the mid-term method, and of the third of three \nMsThirdSpin\ and \nMsThirdMid\ (Table~\ref{tab:msrank}). On the LLM mashups SpinTrace reaches F1 \nMsLlm\ against \nMsLlmCont\ for shingles; this set is small and its shares are unknown. Its precision there is \nMsLlmPrec\ but its recall only \nMsLlmRecall: under the false-source bar it names few of the sources, and those it names are right.
 
 \begin{table}[t]
   \centering\small
@@ -443,7 +565,7 @@ The two new problems compose: a Hindi article stitched from two English original
   \input{tables/xlm_controls}
 \end{table}
 
-Passage tracing recovers \nXlmRecall\ of the sources at precision \nXlmPrec\ (F1 \nXlmF), against \nXlmWholeRecall\ for tracing the whole text as one article (F1 \nXlmWholeF): a whole-text verifier does not pass an article that is only half copied, as in the English case. It is not a reliable detector, and the weaknesses come first. The exact source set is right for only \nXlmExact\ of the mashups. It names a false source for \nXlmFalseSame\ of the same-event articles, against \nXlmWholeFalseSame\ for the whole text; the dev rate was under the 10\% bar, so a threshold tuned at the edge of the bar did not carry over to test, on small sets. And it finds the source of fewer Hindi summaries (\nXlmSummaryFound against \nXlmWholeSummaryFound), because a three-sentence block of a summary carries too few anchors. We report it as a prototype showing that the two features compose, not as a result to build on; it costs about \nXlmMs\,ms per suspect.
+Passage tracing recovers \nXlmRecall\ of the sources at precision \nXlmPrec\ (F1 \nXlmF), against \nXlmWholeRecall\ for tracing the whole text as one article (F1 \nXlmWholeF): a whole-text verifier does not pass an article that is only half copied, as in the English case. It is not a reliable detector, and the weaknesses come first. The exact source set is right for only \nXlmExact\ of the mashups. It names a false source for \nXlmFalseSame\ of the same-event articles, against \nXlmWholeFalseSame\ for the whole text; the dev rate was under the 10\% bar, so a threshold tuned at the edge of the bar did not carry over to test, on small sets. And it finds the source of fewer Hindi summaries (\nXlmSummaryFound\ against \nXlmWholeSummaryFound), because a three-sentence block of a summary carries too few anchors. We report it as a prototype showing that the two features compose, not as a result to build on; it costs about \nXlmMs\,ms per suspect.
 
 \subsection{Format changes: a negative result}
 
@@ -451,6 +573,7 @@ We also tried the third kind of derivative the mid-term failed on, an article re
 
 
 \subsection{Crawler correctness and politeness}
+\label{sec:crawl}
 
 \begin{table}[t]
   \centering\small
@@ -472,7 +595,7 @@ We also tried the third kind of derivative the mid-term failed on, an article re
   \end{tabularx}
 \end{table}
 
-Table~\ref{tab:crawl} summarises the crawl. No disallowed URL was fetched among 43,674 audited fetches, and 512 URLs were skipped because robots.txt disallowed them. The delay floor was not perfect: 9 requests came less than 5\,s after the previous one to the same host, the closest 0.29\,s apart. The last of them was at 23:45 on 6 October; the crawl report had exposed a race in the politeness check, which we fixed at 23:46.
+Table~\ref{tab:crawl} summarises the crawl. No disallowed URL was fetched among 43,674 audited fetches, and 512 URLs were skipped because robots.txt disallowed them. The delay floor was not perfect: 39 pairs of consecutive requests to one host came less than 5\,s apart (33 between two page requests, 6 between a robots.txt fetch and a page), the closest 0.29\,s apart. Nine came on the night of 6 October, when the crawl report exposed a race in the politeness check, which we fixed at 23:46. The other 30 came on 7 October between 23:13 and 23:16, when short rehearsal crawls for the demo video ran two crawler processes at once: each kept its own 5\,s gap, but together they contacted 19 hosts 0.6 to 5.0\,s apart. A crawler now holds an exclusive lock and a second one refuses to start.
 
 \begin{table}[t]
   \centering\small
@@ -493,8 +616,50 @@ Table~\ref{tab:crawl} summarises the crawl. No disallowed URL was fetched among 
 
 The final crawl, run overnight for the Indian-language feeds and fresh English pages, kept to the same rules: of \nCrawlReq\ page requests none was disallowed by robots.txt, none came less than 5\,s after the previous request to its host (the closest pair was \nCrawlGap\,s apart), and the crawler backed off \nCrawlBack\ times. Over both crawls \nCrawlAudited\ fetches were audited against the stored robots.txt with no disallowed fetch. The crawler also saves some listing pages (category archives with a date in the markup) as articles; they act as extra distractors and we did not filter them out.
 
-\section{Limitations and next steps}
+
+\subsection{Comparison with published methods}
+\label{sec:compare}
+
+The published papers evaluate on other corpora (the PAN collections of plagiarised book and web passages), so their reported numbers are not comparable with ours, and we did not run the PAN tasks. Instead we implemented each published method as a baseline and gave it its best threshold on our dev split. Table~\ref{tab:compare} lists them with the result on our data.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Published methods re-implemented as baselines, with their test F1 on our data. English levels are from Table~\ref{tab:f1}, Hindi from Table~\ref{tab:xl}; the numbers are ours, not those reported in the papers.}
+  \label{tab:compare}
+  \footnotesize
+  \begin{tabularx}{\textwidth}{@{}P{4.1cm}P{5.0cm}L@{}}
+    \toprule
+    \hrow \hd{Published method} & \hd{What we ran} & \hd{Result on our data} \\
+    \midrule
+    Shingle resemblance and containment with min-wise sketches~\cite{broder1997} & MinHash Jaccard over LSH candidates; shingle containment against every earlier document & SEO rewrites: 0.021 and 0.573, against 0.782 for SpinTrace. Better than SpinTrace on exact copies and light edits (0.99 against 0.96) \\
+    \addlinespace[2pt]
+    Okapi BM25~\cite{robertson2009} & full-document BM25 against the whole index & SEO rewrites 0.636 and summaries 0.852, against 0.782 and 0.902 for SpinTrace \\
+    \addlinespace[2pt]
+    Sentence-BERT embeddings~\cite{reimers2019} & cosine over embeddings of every document & SEO rewrites 0.436; flags 0.502 of the same-event hard negatives \\
+    \addlinespace[2pt]
+    Translation followed by monolingual analysis~\cite{potthast2011} & Hindi suspect back-translated by the LLM, then English SpinTrace, tf-idf or BM25 & Hindi translations \nBtSpinTrans, \nBtTfidfTrans\ and \nBtBmTrans\ against \nXlTrans\ for SpinTrace-XL; SEO rewrites \nBtSpinSeo, \nBtTfidfSeo\ and \nBtBmSeo\ against \nXlSeo \\
+    \addlinespace[2pt]
+    Source retrieval by queries formulated from the suspicious text~\cite{hagen2015} & our rare-term query against queries of random or most common terms (ten terms each) & source first for 0.970, 0.937 and 0.713 (Section~\ref{sec:elim}) \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Three things stand out. Shingle resemblance~\cite{broder1997} is the right tool while the words stay the same and collapses as soon as they change. Translation followed by monolingual analysis~\cite{potthast2011} is a strong approach on our data: with the LLM's back-translation, an English detector matches or beats SpinTrace-XL on faithful translations, and tf-idf alone ranks the source first for every derivative. What SpinTrace-XL saves is cost: about \nBtLlmSec\,s of LLM time per suspect against \nXlMs\,ms (\nXlColdMs\,ms with a cold embedding cache). And the formulation of the query matters as much as the retrieval model~\cite{hagen2015}: the same index returns the source first for 0.970 of suspects with the ten rarest terms and 0.713 with the ten most common.
+
+\subsection{Discussion}
+
+\paragraph{RQ1} Names, numbers, dates and quotes find the source where shingles do not: SpinTrace keeps F1 0.782 on SEO rewrites where MinHash Jaccard has 0.021, and the rare-term query touches about 1\% of the postings of a full-document query. Classical retrieval is not more accurate than dense retrieval as a candidate generator on this corpus (macro F1 0.896 against 0.894); it is cheaper, it needs no embedding of the corpus, and its evidence can be read. Verification does the work that retrieval cannot: without the sentence-alignment signals the Hindi macro F1 falls from \nAblFull\ to \nAblNoAlign\ and the same-event false-positive rate rises to 0.96. SpinTrace loses to exact hashing and MinHash on exact copies and light edits, and it still flags 15.6\% of facts-only articles that share an original's names and numbers.
+
+\paragraph{RQ2} English to Hindi tracing without translation is as accurate as translating first (Section~\ref{sec:compare}) and about \nSpeedup\ times cheaper, with retrieval in \nXlRetMs\,ms over about \nXlPostings\ postings. It also flags \nXlFprSame\ of same-event articles (\nXlFprShort\ when they are cut to the length of a summary), so its precision is near 0.75. The idea reaches Bengali, Telugu and Tamil only in retrieval; verification fails there (Table~\ref{tab:xlother}).
+
+\paragraph{RQ3} Residual queries find the second source that a one-shot query buries: the mid-term pipeline finds \nMsSecondMid\ of second sources and the explain-away rounds \nMsSecondSpin, with source-set F1 \nMsAll\ against \nMsContAll\ for shingle containment. On plain copy-and-paste shingle containment does as well (\nMsPlainCont\ against \nMsPlain), so the gain is on reworded blocks. The Hindi mashup path names a false source for \nXlmFalseSame\ of same-event articles and stays a prototype.
+
+\paragraph{RQ4} With g(d) the original ranks first for 52.6\% of synthetic test queries against 10\% without, but on our small set of judged live queries it changes little (Section~\ref{sec:judged}). The final crawl made \nCrawlReq\ page requests with no disallowed fetch and none closer than 5\,s to the previous request to its host (Section~\ref{sec:crawl}).
+
+\section{Conclusions and Limitations}
 \label{sec:limits}
+
+\paragraph{Conclusions} SpinTrace extends a crawler's ``content seen?'' check from copy detection to derivative detection. Names, numbers, dates and quotes, which a rewrite rarely changes, retrieve a suspect's likely source through the crawler's own positional inverted index; a sentence model only verifies the few candidates. On graded rewrites this holds F1 at 0.78 to 0.96 where MinHash Jaccard falls to 0.02. The same premise reaches translations into Hindi without a translation step, at accuracy comparable to translating first and about \nSpeedup\ times less cost, and it reaches multi-source mashups through residual queries. We also found where it stops: it is weaker than shingles on exact copies, it flags a share of same-event articles, its verifier does not reach Tamil, Telugu or Bengali, and the live results are unjudged.
 
 The boundary between ``same story'' and ``copied'' is where SpinTrace is weakest. Articles written from an original's facts and quotes alone are still flagged 15.6\% of the time, and recall on SEO rewrites is 0.76 at the dev-tuned threshold. The LLM rewrites closest to the ones NewsGuard tested are where SpinTrace misses most.
 
@@ -504,13 +669,13 @@ Quote phrase matching, which we expected to be a key signal, turned out neutral.
 
 Judge agreement was low (kappa 0.123 on live flags, 0.161 on search), so live precision is a range from 0.437 to 0.845, not a number. The synthetic test rewrites come from one 3B model; stronger models paraphrase more and would be harder. Publish dates are trusted, so a farm that backdates its pages escapes the earlier-only filter. Dropping the filter costs little in retrieval (Recall@1 0.989 against 0.993), but undated provenance mostly abstains on same-length rewrites and works mainly for summaries (Appendix, Table~\ref{tab:undated}). Scale is modest: one crawler process and \nStoreCrawl\ crawled articles in all; the mid-term evaluation used about the first 16k and the final evaluations index snapshots of 20{,}860 documents.
 
-\paragraph{Language coverage} Only Hindi is evaluated in full: 100 originals per level, with baselines, ablations and same-event negatives. Tamil, Telugu and Bengali are a generality check on 24 translations each (12 in test). Retrieval from anchors transfers unevenly (the source is first for \nTaPone, \nTePone and \nBnPone of the items) and verification does not, because the sentence model does not cover these scripts, so almost nothing is flagged there (F1 \nTaF, \nTeF and \nBnF). Marathi, Gujarati and Punjabi pages were crawled and traced, and Marathi is counted inside the Devanagari total without being separated from Hindi, but we have no labelled data for them and claim nothing about them. Extending the verified detection to another language needs a sentence model that covers its script (we have not tested one) and labelled data in that language; the anchor retrieval part needs only its digit and transliteration tables, and even that works unevenly.
+\paragraph{Language coverage} Only Hindi is evaluated in full: 100 originals per level, with baselines, ablations and same-event negatives. Tamil, Telugu and Bengali are a generality check on 24 translations each (12 in test). Retrieval from anchors transfers unevenly (the source is first for \nTaPone, \nTePone\ and \nBnPone\ of the items) and verification does not, because the sentence model does not cover these scripts, so almost nothing is flagged there (F1 \nTaF, \nTeF\ and \nBnF). Marathi, Gujarati and Punjabi pages were crawled and traced, and Marathi is counted inside the Devanagari total without being separated from Hindi, but we have no labelled data for them and claim nothing about them. Extending the verified detection to another language needs a sentence model that covers its script (we have not tested one) and labelled data in that language; the anchor retrieval part needs only its digit and transliteration tables, and even that works unevenly.
 
 \paragraph{Status of the mid-term roadmap} The mid-term report planned six items. English-to-Hindi derivatives are done; the same code was tried on three more scripts, where retrieval transfers but verification does not, and the harder evaluation is partly done: same-event negatives that share no quotes were already there, we added length-matched negatives and a second generator, but not rewrites from a stronger LLM or an external benchmark. Farm-aware crawling, agency-dateline recognition, learned signal weights from judged live pairs and adaptive recrawl scheduling were not attempted: we chose depth on two new detection problems over breadth. Multi-source mashups were not on the roadmap and were added.
 
 \paragraph{Next steps} Stronger rewrite models and a real-translation benchmark; judged live pairs for both new features; a Hindi mashup path that does not name false sources (the prototype does for \nXlmFalseSame\ of same-event articles); verification for the scripts the sentence model does not cover, with labelled data for Tamil, Telugu, Bengali, Marathi, Gujarati and Punjabi; and a test at a scale where embedding every document is no longer affordable, which is where the anchor design should matter most.
 
-\section{Work division and AI-use declaration}
+\section*{Declaration of AI use and work division}
 
 \paragraph{Work division} Both of us wrote the plan, chose the track and the claim, and judged the live flags and search results independently. The commit history follows this split.
 
@@ -556,31 +721,32 @@ Judge agreement was low (kappa 0.123 on live flags, 0.161 on search), so live pr
 
 \clearpage
 \renewcommand{\refname}{References}
-\begin{thebibliography}{9}
+
+\begin{thebibliography}{11}
 \small
 \setlength{\itemsep}{0.2em}
 
-\bibitem{ng2023} J.~Brewster, M.~Wang and C.~Palmer. Plagiarism-Bot? How low-quality websites are using AI to deceptively rewrite content from mainstream news outlets. \textit{NewsGuard Misinformation Monitor}, 24 August 2023. \url{https://www.newsguardtech.com/misinformation-monitor/august-2023}
+\bibitem{ng2023} Brewster, J., Wang, M. and Palmer, C., 2023, August. Plagiarism-Bot? How low-quality websites are using AI to deceptively rewrite content from mainstream news outlets. \textit{NewsGuard Misinformation Monitor}. \url{https://www.newsguardtech.com/misinformation-monitor/august-2023}
 
-\bibitem{ng2026} M.~Sadeghi et al. Tracking AI-enabled misinformation: AI content farm sites and top false claims generated by artificial intelligence tools. \textit{NewsGuard AI Tracking Center}, updated 23 June 2026, accessed 7 October 2026. \url{https://www.newsguardtech.com/special-reports/ai-tracking-center}
+\bibitem{broder1997} Broder, A.Z., 1997, June. On the resemblance and containment of documents. In \textit{Proceedings of Compression and Complexity of Sequences 1997 (SEQUENCES '97)} (pp. 21--29). IEEE.
 
-\bibitem{broder1997} A.~Z.~Broder. On the resemblance and containment of documents. In \textit{Proceedings of Compression and Complexity of Sequences (SEQUENCES '97)}, pages 21--29. IEEE, 1997.
+\bibitem{hagen2015} Hagen, M., Potthast, M. and Stein, B., 2015, September. Source retrieval for plagiarism detection from large web corpora: Recent approaches. In \textit{Working Notes of CLEF 2015 -- Conference and Labs of the Evaluation Forum}.
 
-\bibitem{manku2007} G.~S.~Manku, A.~Jain and A.~Das~Sarma. Detecting near-duplicates for web crawling. In \textit{Proceedings of the 16th International Conference on World Wide Web (WWW '07)}, pages 141--150. ACM, 2007.
+\bibitem{heydon1999} Heydon, A. and Najork, M., 1999. Mercator: A scalable, extensible web crawler. \textit{World Wide Web}, 2(4), pp.219--229.
 
-\bibitem{heydon1999} A.~Heydon and M.~Najork. Mercator: A scalable, extensible web crawler. \textit{World Wide Web}, 2(4):219--229, 1999.
+\bibitem{manku2007} Manku, G.S., Jain, A. and Das Sarma, A., 2007, May. Detecting near-duplicates for web crawling. In \textit{Proceedings of the 16th International Conference on World Wide Web} (pp. 141--150).
 
-\bibitem{iir2008} C.~D.~Manning, P.~Raghavan and H.~Sch\"utze. \textit{Introduction to Information Retrieval}. Cambridge University Press, 2008.
+\bibitem{iir2008} Manning, C.D., Raghavan, P. and Sch\"utze, H., 2008. \textit{Introduction to Information Retrieval}. Cambridge University Press.
 
-\bibitem{robertson2009} S.~Robertson and H.~Zaragoza. The probabilistic relevance framework: BM25 and beyond. \textit{Foundations and Trends in Information Retrieval}, 3(4):333--389, 2009.
+\bibitem{potthast2010} Potthast, M., Stein, B., Barr\'on-Cede\~no, A. and Rosso, P., 2010, August. An evaluation framework for plagiarism detection. In \textit{Coling 2010: Posters} (pp. 997--1005).
 
-\bibitem{reimers2019} N.~Reimers and I.~Gurevych. Sentence-BERT: Sentence embeddings using Siamese BERT-networks. In \textit{Proceedings of EMNLP-IJCNLP 2019}, pages 3982--3992. ACL, 2019.
+\bibitem{potthast2011} Potthast, M., Barr\'on-Cede\~no, A., Stein, B. and Rosso, P., 2011. Cross-language plagiarism detection. \textit{Language Resources and Evaluation}, 45(1), pp.45--62.
 
-\bibitem{potthast2011} M.~Potthast, A.~Barr\'on-Cede\~no, B.~Stein and P.~Rosso. Cross-language plagiarism detection. \textit{Language Resources and Evaluation}, 45(1):45--62, 2011.
+\bibitem{reimers2019} Reimers, N. and Gurevych, I., 2019, November. Sentence-BERT: Sentence embeddings using Siamese BERT-networks. In \textit{Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP)} (pp. 3982--3992).
 
-\bibitem{hagen2015} M.~Hagen, M.~Potthast and B.~Stein. Source retrieval for plagiarism detection from large web corpora: Recent approaches. In \textit{Working Notes of CLEF 2015}, 2015.
+\bibitem{robertson2009} Robertson, S. and Zaragoza, H., 2009. The probabilistic relevance framework: BM25 and beyond. \textit{Foundations and Trends in Information Retrieval}, 3(4), pp.333--389.
 
-\bibitem{potthast2010} M.~Potthast, B.~Stein, A.~Barr\'on-Cede\~no and P.~Rosso. An evaluation framework for plagiarism detection. In \textit{Coling 2010: Posters}, pages 997--1005, 2010.
+\bibitem{ng2026} Sadeghi, M. et al., 2026, June. Tracking AI-enabled misinformation: AI content farm sites and top false claims generated by artificial intelligence tools. \textit{NewsGuard AI Tracking Center}, accessed 7 October 2026. \url{https://www.newsguardtech.com/special-reports/ai-tracking-center}
 
 \end{thebibliography}
 
@@ -725,7 +891,7 @@ With Porter stemming the rare-term query ranks the true source first for 0.996 o
   \end{tabularx}
 \end{table}
 
-These shares are flags, not judged derivatives; Section~5.5 gives the judged precision. Many of the source edges are outlets running the same agency story.
+These shares are flags, not judged derivatives; Section~\ref{sec:judged} gives the judged precision. Many of the source edges are outlets running the same agency story.
 
 \begin{figure}[H]
   \centering
