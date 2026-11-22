@@ -315,6 +315,7 @@ def numbers():
                            ("Disallowed", "disallowed_urls_fetched"), ("Under", "requests_under_floor")):
                 N["Crawl" + key] = f"{fc[v]:,}".replace(",", "{,}")
             N["CrawlGap"] = num(fc["min_gap_seconds"], 1)
+        N["StoreCrawl"] = f"{cr['docs_saved']:,}".replace(",", "{,}")
         N["CrawlAudited"] = f"{cr['robots_audited_fetches']:,}".replace(",", "{,}")
         N["CrawlAllReq"] = f"{cr['requests_page']:,}".replace(",", "{,}")
     N["XlPone"], N["DensePone"], N["BtSpinPone"] = r1("spintrace_xl"), r1("dense_cosine"), r1("bt_spintrace_en")

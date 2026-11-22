@@ -1,8 +1,8 @@
 {
  "origins": {
   "crawl": {
-   "n": 46479,
-   "median_words": 592
+   "n": 57353,
+   "median_words": 586
   },
   "wikinews_distractor": {
    "n": 4114,
@@ -26,22 +26,23 @@
   }
  },
  "crawl_scripts": {
-  "latn": 44150,
-  "deva": 2219,
-  "taml": 30,
-  "telu": 18,
-  "beng": 13,
-  "gujr": 20,
-  "guru": 29
+  "latn": 53064,
+  "deva": 4167,
+  "taml": 32,
+  "telu": 20,
+  "beng": 16,
+  "gujr": 23,
+  "guru": 31
  },
  "crawl_sites": 37,
- "fetch_requests": 62523,
+ "fetch_requests": 77097,
  "crawl_days": {
   "2026-10-06": 17159,
   "2026-10-07": 16196,
   "2026-10-09": 17,
   "2026-10-11": 67,
-  "2026-11-21": 13040
+  "2026-11-21": 13693,
+  "2026-11-22": 10221
  },
  "files": {
   "wikinews.jsonl": {

@@ -1,9 +1,9 @@
 {
   "english_index_docs": {
-    "live": 10274,
+    "live": 19625,
     "main_crawl": 14442
   },
-  "suspects": 299,
+  "suspects": 341,
   "flagged": 2,
   "flagged_derived": 2,
   "flagged_undated": 0,
@@ -12,27 +12,27 @@
   "median_lag_hours": 5.9,
   "by_script": {
     "beng": {
-      "suspects": 84,
+      "suspects": 87,
       "flagged": 0
     },
     "telu": {
-      "suspects": 72,
+      "suspects": 74,
       "flagged": 0
     },
     "deva": {
-      "suspects": 64,
+      "suspects": 94,
       "flagged": 2
     },
     "taml": {
-      "suspects": 30,
+      "suspects": 32,
       "flagged": 0
     },
     "gujr": {
-      "suspects": 20,
+      "suspects": 23,
       "flagged": 0
     },
     "guru": {
-      "suspects": 29,
+      "suspects": 31,
       "flagged": 0
     }
   },
@@ -42,7 +42,7 @@
       "flagged": 0
     },
     "bbc.com": {
-      "suspects": 174,
+      "suspects": 216,
       "flagged": 2
     }
   },
@@ -56,14 +56,14 @@
       "index": "live",
       "source_url": "https://www.bbc.co.uk/news/articles/cq702ez8d4lwo",
       "source_site": "bbc.co.uk",
-      "prob": 0.9293,
+      "prob": 0.9289,
       "verdict": "derived",
       "flagged": 1,
       "n_numbers": 10,
       "n_dates": 3,
       "n_latin": 3,
-      "n_names": 148,
-      "postings_touched": 112670,
+      "n_names": 152,
+      "postings_touched": 232459,
       "lag_hours": 8.3,
       "credits_source": 1,
       "agencies_named": ""
@@ -76,14 +76,14 @@
       "index": "live",
       "source_url": "https://www.bbc.co.uk/news/articles/c6jre8xd83qgo",
       "source_site": "bbc.co.uk",
-      "prob": 0.9449,
+      "prob": 0.9447,
       "verdict": "derived",
       "flagged": 1,
       "n_numbers": 12,
       "n_dates": 1,
       "n_latin": 3,
-      "n_names": 166,
-      "postings_touched": 95100,
+      "n_names": 172,
+      "postings_touched": 200103,
       "lag_hours": 3.5,
       "credits_source": 1,
       "agencies_named": ""
@@ -96,17 +96,37 @@
       "script": "taml",
       "suspect_published": 1793600553.602,
       "index": "live",
-      "source_url": "https://www.thehindu.com/news/national/dyfi-to-move-supreme-court-over-alleged-illegal-detention-torture-of-activists/article71571975.ece",
-      "source_site": "thehindu.com",
-      "prob": 0.0084,
+      "source_url": "https://www.hindustantimes.com/india-news/future-military-power-will-depend-on-decision-making-speed-not-platform-numbers-rajnath-singh-101791659639004.html",
+      "source_site": "hindustantimes.com",
+      "prob": 0.0094,
       "verdict": "derived",
       "flagged": 0,
       "n_numbers": 12,
       "n_dates": 0,
       "n_latin": 2,
-      "n_names": 673,
-      "postings_touched": 1686494,
-      "lag_hours": 518.8,
+      "n_names": 684,
+      "postings_touched": 3228018,
+      "lag_hours": 532.1,
+      "credits_source": 0,
+      "agencies_named": ""
+    },
+    {
+      "suspect_url": "https://www.bbc.com/marathi/articles/c8zx9151d6pro",
+      "suspect_site": "bbc.com",
+      "script": "deva",
+      "suspect_published": 1795316626.95,
+      "index": "live",
+      "source_url": "https://economictimes.indiatimes.com/industry/banking/finance/banking/finance-ministry-seeks-review-of-scs-yes-bank-at-1-bond-ruling/articleshow/136038138.cms",
+      "source_site": "indiatimes.com",
+      "prob": 0.0067,
+      "verdict": "derived",
+      "flagged": 0,
+      "n_numbers": 9,
+      "n_dates": 0,
+      "n_latin": 9,
+      "n_names": 313,
+      "postings_touched": 893744,
+      "lag_hours": 32.1,
       "credits_source": 0,
       "agencies_named": ""
     },
@@ -164,33 +184,13 @@
       "n_numbers": 16,
       "n_dates": 0,
       "n_latin": 1,
-      "n_names": 471,
-      "postings_touched": 864216,
+      "n_names": 472,
+      "postings_touched": 1675374,
       "lag_hours": 2.4,
-      "credits_source": 0,
-      "agencies_named": ""
-    },
-    {
-      "suspect_url": "https://www.hindustantimes.com/bangla/bengal/bengal-govt-approves-14-454-posts-for-recruitment-wb-police-recruitment-appointment-letter-on-11th-october-271791195312895.html",
-      "suspect_site": "hindustantimes.com",
-      "script": "beng",
-      "suspect_published": 1791197436.0,
-      "index": "main",
-      "source_url": "https://timesofindia.indiatimes.com/education/news/punjab-police-recruitment-2026-notification-expected-soon-for-10000-posts-cm-bhagwant-mann-announces/articleshow/134685644.cms",
-      "source_site": "indiatimes.com",
-      "prob": 0.0274,
-      "verdict": "derived",
-      "flagged": 0,
-      "n_numbers": 6,
-      "n_dates": 0,
-      "n_latin": 9,
-      "n_names": 75,
-      "postings_touched": 120333,
-      "lag_hours": 6.4,
       "credits_source": 0,
       "agencies_named": ""
     }
   ],
   "flagged_same_outlet": 0,
-  "seconds": 72.2
+  "seconds": 101.9
 }
