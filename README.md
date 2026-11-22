@@ -178,7 +178,7 @@ The two mashup ids above were drawn at random from the test split (seed 358), no
 
 | Source | Use | Licence and notes |
 | --- | --- | --- |
-| Live crawl from 36 seeds (`seeds/seeds.csv`) | the index, live detection, hard negatives, search | Only URLs and features are committed (`evaldata/crawl_urls.csv`, `crawl_minhash.npz`); texts stay local. Each seed's robots.txt was checked before use |
+| Live crawl from 51 seeds (`seeds/seeds.csv`: 36 English at the mid-term, 15 Indian-language feeds added for the final) | the index, live detection, hard negatives, search | Only URLs and features are committed (`evaldata/crawl_urls.csv`, `crawl_minhash.npz`); texts stay local. Each seed's robots.txt was checked before use |
 | [English Wikinews](https://en.wikinews.org) dump, Oct 2026 | 400 originals for synthetic rewrites | CC BY 2.5, Wikinews contributors. Read from the official Wikimedia dump because Wikinews robots.txt disallows `/w/` (its API) |
 | Synthetic rewrites (`evaldata/rewrites.jsonl`) | labelled evaluation set | Generated from the Wikinews originals; LLM levels (SEO rewrite, summary, English-German-English round trip, facts-only article) by Meta Llama 3.2 3B via Ollama |
 | NewsGuard August 2023 report | documented real farm rewrites (`evaldata/newsguard_pairs.csv`) | Farm copies and originals fetched from the Internet Archive Wayback Machine |
@@ -452,23 +452,23 @@ Retrieval variants (Recall@1 / Recall@20, all levels):
 
 | measure | value |
 | --- | --- |
-| requests_page | 62861 |
+| requests_page | 77097 |
 | requests_robots | 1160 |
-| docs_saved | 46733 |
-| crawl_hours | 1110.87 |
-| pages_per_minute | 0.9 |
+| docs_saved | 57353 |
+| crawl_hours | 1114.51 |
+| pages_per_minute | 1.2 |
 | hosts | 126 |
-| fresh_articles | 6943 |
-| freshness_median_minutes | 1465.4 |
-| freshness_p90_minutes | 60667.6 |
-| robots_audited_fetches | 62852 |
+| fresh_articles | 9058 |
+| freshness_median_minutes | 2110.1 |
+| freshness_p90_minutes | 60146.9 |
+| robots_audited_fetches | 77088 |
 | disallowed_urls_fetched | 0 |
-| robots_skips | 5313 |
+| robots_skips | 5429 |
 | min_gap_seconds_overall | 0.29 |
 | delay_violations | 39 |
 | last_delay_violation | 2026-10-07T23:16:00 |
-| trap_guards_fired | 2920 |
-| backoffs | 139 |
+| trap_guards_fired | 2988 |
+| backoffs | 149 |
 | exact_duplicate_docs | 792 |
 | near_duplicate_docs | 1099 |
 | duplicate_rate | 0.0695 |
@@ -630,23 +630,26 @@ alignment (Hindi sentence, English sentence, cosine); and the verdict.
 
 **Live pages (unjudged).** `live-xl` runs every crawled Indian-language page (the restarted crawl adds Hindi,
 Bengali, Telugu, Tamil and Gujarati feeds and tags each page's script) against the English crawl: pages from the
-restarted crawl against an index of the English pages crawled in the same three days, older pages against the
+restarted crawl against an index of the English pages crawled since 21 Nov, older pages against the
 main index's crawled documents. Output: `evaldata/live_xl.csv` (URLs, scores, anchor counts, lag and whether the
 suspect names the outlet or a wire agency; no article text) and `results/crosslingual_live.json` (counts and five
 seeded-random examples). Nobody judged these pairs, so they are counts, not precision. In the final run of 22 Nov
-(2,375 Indian-language pages: 2,136 Devanagari, 86 Bengali, 74 Telugu, 30 Tamil, 29 Gurmukhi, 20 Gujarati; against
-10,274 English pages crawled since 21 Nov and the main crawl's 14,442) 15 pages were flagged, all Devanagari, a median
-3.5 h after the English page: two BBC Hindi articles traced to BBC News articles on another BBC domain (source
-credited; a bilingual outlet translating its own reporting), and the rest to Devdiscourse (4), ThePrint (3), Times of
-India (2), The Hindu (2, one names PTI), The Independent and Hindustan Times. Two flagged pages credit their source
-and one names a wire agency.
+after the crawler stopped (4,426 Indian-language pages: 4,175 Devanagari, 89 Bengali, 76 Telugu, 32 Tamil, 31
+Gurmukhi, 23 Gujarati; against 19,625 English pages crawled since 21 Nov and the main crawl's 14,442) 21 pages
+(0.5%) were flagged, all Devanagari, a median 3.6 h after the English page (0.1-38 h). Two are BBC Hindi articles
+traced to BBC News articles on another BBC domain (source credited; a bilingual outlet translating its own
+reporting). The other 19 point to Devdiscourse (6), ThePrint (4), Indian Express (3), The Hindu (2), and Times of
+India, The Independent, Hindustan Times and The Guardian (1 each). The flags come from six of the eight outlets
+(Amar Ujala 7 of 611 pages, Aaj Tak 4 of 786, TV9 Hindi 4 of 620, India TV 2 of 733, ABP Live 2 of 634, BBC Hindi 2
+of 216); Dainik Bhaskar (687 pages) and Hindustan Times (125) had none. Two flagged pages credit their source and two
+name PTI.
 
 Why so few: the Hindi outlets mostly cover Indian regional, political and entertainment news written in Hindi or
 taken from the Hindi wires, whose English source is not in our crawl, so there is usually nothing to find; the
 earlier-other-site filter excludes an outlet translating itself where both pages share a site (HT Bangla from
 Hindustan Times), and most pairs that share anchors are independent coverage of one event, which the verifier is
 built to reject. The 30-day window is not the limit (flagged lags were 0.1-38 h). The `--same-site` diagnostic lets
-the 299 pages of the bilingual outlets match their own English pages and flags 2, both BBC Hindi articles that
+the 341 pages of the bilingual outlets match their own English pages and flags 2, both BBC Hindi articles that
 credit their source. BBC's language services adapt rather than translate and HT Bangla and Telugu mostly run their
 own stories, so this is a small, honest check of recall on real translations, not a measurement.
 
@@ -1003,7 +1006,7 @@ list) still has its Wired source ranked first and verified by none of the four (
 
 Works, end to end on live data:
 
-- Polite focused crawl from 36 seeds (RSS and Atom feeds and three homepages), re-polling feeds every 45 minutes (articles published during the crawl reached the store a median 70 minutes after publication), with a robots.txt audit and per-host gap report (`crawl-report`).
+- Polite focused crawl from 36 seeds at the mid-term and 51 after the final's Indian-language feeds (RSS and Atom feeds and three homepages), re-polling feeds every 45 minutes (articles published during the crawl reached the store a median 70 minutes after publication), with a robots.txt audit and per-host gap report (`crawl-report`).
 - Content-seen check over the crawl: exact hash, shingles, MinHash, LSH.
 - Positional zoned index (title, body, quote), tf-idf and BM25, phrase queries, optional Porter stemming.
 - Candidate retrieval from rare (fact-boosted) terms and quote phrases with an earlier-only filter; verification by sentence alignment, order, quotes, names/numbers and shingle containment; provenance by date or, when undated, by coverage asymmetry; copy graph and originality g(d); search with net score.
@@ -1069,6 +1072,8 @@ Tracks announced 12:00 on 6 Oct 2026; planning 12:00 to 21:00; build from 21:00.
 | 22 Nov 02:00 | Crawler fixed (regression test) and restarted for 7 h; queue and agents resumed after a usage limit |
 | 02:30 | Both branches merged; the length check finds Hindi summaries separable by word count (AUC 1.00), so length-matched negatives are added |
 | 02:46-03:02 | Final evaluation run: mashups, Hindi levels, live passes, dataset summary, report tables and figures (16 min) |
+| 05:17 | Full rerun on 100 Hindi originals per level (49-50 per test split); cold-cost, length and alignment checks; the report and README rewritten from the new numbers |
+| 09:00 | Crawler stopped on its own at the end of its run; final-crawl politeness report, live pass rerun on the final crawl (4,426 pages, 21 flagged), exports, tables, figures and PDF refreshed |
 
 ## AI-use log
 

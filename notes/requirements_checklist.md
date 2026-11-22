@@ -77,5 +77,5 @@ mid-term assignment, CLAUDE.md and the team's stated needs (dataset description,
 | Presentation on 25 Nov | Team: format not yet confirmed | |
 | Judged labels for the final's live results | Not done (no judging time); reported as unjudged counts | README, report Section 7 |
 | Tests | 35 pass | `tests/` |
-| Crawler politeness in the final crawl | Done at 05:20 with `crawl-report --since 2026-11-21` (0 disallowed fetches, 0 requests under the 5 s floor, closest pair 20 s); to rerun after the crawl ends at about 09:00 | `results/crawl_report.json`, report Section 6.11 |
+| Crawler politeness in the final crawl | Done at 09:05 on 22 Nov, after the crawler stopped, with `crawl-report --since 2026-11-21` (31,917 page requests to 45 hosts, 0 disallowed fetches, 0 requests under the 5 s floor, closest pair 20.0 s, 43 backoffs, 366 trap guards) | `results/crawl_report.json`, report Section 6.11 |
 | README commands from a clean clone | Partly checked at 05:25: fresh clone, 35 tests pass, CLI help runs, the report builds with tectonic (20 pages). Not rerun from a clean clone: the crawl, index build and evaluation (they need the 1 GB data directory and hours) | PROGRESS.md |

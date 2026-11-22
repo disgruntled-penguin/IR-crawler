@@ -67,12 +67,19 @@ State at 22 Nov 05:25 IST:
 - Both helper-agent branches merged into `main` (cross-language and multi-source); 35 tests pass; the report builds from a clean clone (20 pages).
 - Generation finished at 04:56 (820 rows, 100 Hindi originals per level). `scripts/final_run.sh` reran everything incrementally (nine steps, all exit 0, 05:17), then the length check and the cold-cost benchmark.
 - Headline test numbers (49-50 Hindi test originals per level): SpinTrace-XL F1 0.860 / 0.852 / 0.818 (translation / SEO / summary) against 0.906 / 0.771 / 0.753 for translate-back-then-SpinTrace, 0.897 / 0.800 / 0.427 for tf-idf on the back-translation and about 0.4 for multilingual dense cosine; all intervals overlap, so the claim is comparable accuracy at 65 ms (483 ms cold) against 17.4 s of LLM time per suspect. Same-event false-positive rate 10% (long) and 22% (130 words). Mashups: English splices F1 0.870 against 0.742 (shingle containment) and 0.117 (midterm); Hindi passage tracing 0.765 against 0.528 whole-text, with a 30% false-source rate (prototype).
-- Live (unjudged): 2,375 Indian-language pages traced, 15 flagged (all Devanagari, median 3.5 h after the English page, 2 credit their source).
+- Live (unjudged): see the post-crawl block below for the final run (4,426 pages, 21 flagged).
 - Found and fixed along the way: the crawler died at 17:47 on an unhandled connection reset (regression test added); word count alone separated Hindi summaries from the same-event negatives, so length-matched negatives were added (their false-positive rate is higher, which is reported); the Hindi mashup pairing reshuffled on every new rewrite; hand-typed length and cost figures moved into scripts that write result files.
 - Final report: `report/SpinTrace_final_report.tex` (numbers generated from `results/`; 20 pages including the appendix, body about 16; page limit unknown). Dataset: `results/dataset.md`, README "Data and credits", report Section 5.
 - Crawler: running since 22 Nov 02:00 for 7 h (log `data/logs/crawl.log`) after a restart following the 17:47 crash. `crawl-report --since 2026-11-21`: 0 disallowed fetches, 0 requests under the 5 s floor, closest pair 20 s.
 - No human judging this round: the final's live results are unjudged counts with seeded-random examples.
 
-Still to do: refresh the exported crawl URLs after the crawler stops (about 09:00); presentation outline; the user's answers on the report page limit and the 25 Nov format.
+Post-crawl refresh (22 Nov 09:00-09:30 IST), done:
+- The crawler stopped on its own at 09:00:12 (`STOP saved=19027` for this run; 57,353 crawled articles in the store, 4,167 Devanagari). `crawl-report --since 2026-11-21`: 31,917 page requests to 45 hosts over 17.4 h, 0 disallowed fetches, 0 requests under the 5 s floor, closest pair 20.0 s, 43 backoffs, 366 trap guards. Over both crawls 77,088 fetches were re-audited against the stored robots.txt, 0 disallowed.
+- Live pass rerun on the final crawl (`live-xl --rebuild`, 18 min): 4,426 Indian-language pages (4,175 Devanagari), 21 flagged (0.5%), median lag 3.6 h, 2 credit their source (BBC Hindi), 2 name PTI; by outlet Amar Ujala 7/611, Aaj Tak 4/786, TV9 Hindi 4/620, India TV 2/733, ABP Live 2/634, BBC Hindi 2/216, Dainik Bhaskar 0/687, Hindustan Times 0/125. `--same-site`: 341 pages, 2 flagged. This replaces the 05:15 pass (2,375 pages, 15 flagged). Still unjudged.
+- All evaluations except the live passes ran on index snapshots built before the crawl ended (the English evaluation index holds 20,860 documents); the report and README now say so.
+- `dataset_stats`, `export` (57,357 URLs, 27,220 MinHash signatures), tables, figures and the PDF regenerated; the PDF is 20 pages and builds.
+- Bibliography: Potthast 2011 and Hagen 2015 entries checked against web sources and correct.
+
+Still open: the user's answers on the report page limit and the 25 Nov format.
 
 Blocked or open: the final report's length limit and the presentation format on 25 Nov are unknown (asked, no answer yet). Blocked feeds: Navbharat Times, Jagran, Zee News Hindi and Patrika (404), News18 Hindi (403), Live Hindustan (503); Jansatta, DW Hindi and Prabhasakshi returned empty feeds.
