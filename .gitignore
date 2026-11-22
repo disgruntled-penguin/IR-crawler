@@ -7,3 +7,4 @@ evaldata/judge_pack.json
 .claude/worktrees/
 report/*.aux
 report/*.log
+submission/
