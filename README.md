@@ -998,7 +998,14 @@ list) still has its Wired source ranked first and verified by none of the four (
   the index-elimination experiment. Dense retrieval is the one that slips: with same-story distractors in the
   index it ranks the true source first for only 0.83 of SEO and summary rewrites.
 - **Synthetic rewrites come from one 3B model.** Stronger LLMs paraphrase more and would be harder.
-- **Scale.** One crawler process, 32.5k crawled articles over 13.5 hours (evaluations used the first ~16k). Growing the index by 3,637 CC-NEWS articles
+- **Language coverage.** Only Hindi is evaluated in full (100 originals per level, baselines, ablations, same-event
+  negatives). Tamil, Telugu and Bengali are a generality check on 24 translations each: retrieval from anchors
+  transfers unevenly (P@1 0.42, 0.67, 0.92) but verification does not, because the sentence model does not cover
+  these scripts. Marathi (inside the Devanagari count), Gujarati and Punjabi pages were crawled and traced but have
+  no labelled data, so nothing is claimed for them. Extending needs a sentence model that covers the script (not
+  tested) and labelled data per language.
+- **Scale.** One crawler process, 57,353 crawled articles in all (the mid-term evaluation used the first ~16k, the final
+  ones index snapshots of 20,860 documents). Growing the index by 3,637 CC-NEWS articles
   from the same days (to 24.5k documents) left retrieval and detection within a point of the main results, but
   that is a small step, not a web-scale test.
 
